@@ -14,6 +14,7 @@
         <br>Favor NPC - Vizinhança Viva</br>
         <uk>Послуга NPC - Живе сусідство</uk>
         <ru>Услуга NPC - Живой район</ru>
+        <da>NPC-Tjeneste - Levende nabolag</da>
     </title>
     <description>
         <en>Adds living NPC neighbors who work their fields and ask for favors. Realistic neighborhood simulation.</en>
@@ -26,6 +27,7 @@
         <br>Adiciona vizinhos NPC vivos que trabalham seus campos e pedem favores. Simulação realista de vizinhança.</br>
         <uk>Додає живих сусідів NPC, які працюють на своїх полях і просять послуг. Реалістична симуляція сусідства.</uk>
         <ru>Добавляет живых соседей NPC, которые работают на своих полях и просят об услугах. Реалистичная симуляция района.</ru>
+        <da>Tilføjer levende NPC-naboer, der arbejder på deres marker og beder om tjenester. Realistisk nabolagssimulering.</da>
     </description>
     <iconFilename>icon.dds</iconFilename>
 
