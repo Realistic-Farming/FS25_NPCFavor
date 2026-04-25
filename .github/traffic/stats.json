@@ -4653,26 +4653,26 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-04-25T06:12:46Z",
+    "timestamp": "2026-04-25T12:32:24Z",
     "date": "2026-04-25",
     "views": {
-      "count": 515,
-      "uniques": 133
+      "count": 511,
+      "uniques": 135
     },
     "clones": {
-      "count": 1136,
-      "uniques": 383
+      "count": 1151,
+      "uniques": 379
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 301,
-        "uniques": 57
+        "count": 300,
+        "uniques": 59
       },
       {
         "referrer": "Google",
-        "count": 56,
-        "uniques": 31
+        "count": 66,
+        "uniques": 34
       },
       {
         "referrer": "kingmods.net",
@@ -4681,8 +4681,8 @@
       },
       {
         "referrer": "Bing",
-        "count": 12,
-        "uniques": 7
+        "count": 10,
+        "uniques": 5
       },
       {
         "referrer": "symbaloo.com",
@@ -4719,38 +4719,38 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor",
         "title": "Overview",
-        "count": 303,
-        "uniques": 118
+        "count": 317,
+        "uniques": 122
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases",
         "title": "/releases",
-        "count": 47,
-        "uniques": 27
+        "count": 45,
+        "uniques": 25
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/issues",
         "title": "/issues",
         "count": 28,
-        "uniques": 11
+        "uniques": 12
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/tree/development",
         "title": "/tree/development",
-        "count": 26,
-        "uniques": 13
-      },
-      {
-        "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.2.5",
-        "title": "/releases/tag/v1.2.2.5",
-        "count": 19,
-        "uniques": 13
+        "count": 21,
+        "uniques": 10
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.3.0",
         "title": "/releases/tag/v1.2.3.0",
-        "count": 17,
-        "uniques": 15
+        "count": 19,
+        "uniques": 17
+      },
+      {
+        "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.2.5",
+        "title": "/releases/tag/v1.2.2.5",
+        "count": 15,
+        "uniques": 11
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/issues/46",
@@ -4759,9 +4759,15 @@
         "uniques": 4
       },
       {
+        "path": "/TheCodingDad-TisonK/FS25_NPCFavor/actions",
+        "title": "/actions",
+        "count": 5,
+        "uniques": 3
+      },
+      {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/issues/44",
         "title": "/issues/44",
-        "count": 5,
+        "count": 4,
         "uniques": 4
       },
       {
@@ -4769,12 +4775,6 @@
         "title": "/blob/main/CHANGELOG.md",
         "count": 4,
         "uniques": 3
-      },
-      {
-        "path": "/TheCodingDad-TisonK/FS25_NPCFavor/actions",
-        "title": "/actions",
-        "count": 4,
-        "uniques": 2
       }
     ],
     "releases": [
