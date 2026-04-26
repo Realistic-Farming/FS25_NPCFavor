@@ -1319,5 +1319,57 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-04-26": [
+    {
+      "referrer": "github.com",
+      "count": 300,
+      "uniques": 59
+    },
+    {
+      "referrer": "Google",
+      "count": 66,
+      "uniques": 34
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 16,
+      "uniques": 4
+    },
+    {
+      "referrer": "Bing",
+      "count": 10,
+      "uniques": 5
+    },
+    {
+      "referrer": "symbaloo.com",
+      "count": 3,
+      "uniques": 1
+    },
+    {
+      "referrer": "DuckDuckGo",
+      "count": 2,
+      "uniques": 2
+    },
+    {
+      "referrer": "yandex.ru",
+      "count": 2,
+      "uniques": 2
+    },
+    {
+      "referrer": "Yahoo",
+      "count": 2,
+      "uniques": 1
+    },
+    {
+      "referrer": "search.brave.com",
+      "count": 2,
+      "uniques": 1
+    },
+    {
+      "referrer": "ecosia.org",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
