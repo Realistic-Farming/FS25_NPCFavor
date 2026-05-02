@@ -5543,25 +5543,25 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-05-02T12:38:09Z",
+    "timestamp": "2026-05-02T18:37:57Z",
     "date": "2026-05-02",
     "views": {
-      "count": 545,
-      "uniques": 138
+      "count": 555,
+      "uniques": 137
     },
     "clones": {
-      "count": 1278,
-      "uniques": 434
+      "count": 1266,
+      "uniques": 422
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 330,
+        "count": 342,
         "uniques": 70
       },
       {
         "referrer": "Google",
-        "count": 66,
+        "count": 70,
         "uniques": 35
       },
       {
@@ -5571,13 +5571,8 @@
       },
       {
         "referrer": "Bing",
-        "count": 5,
-        "uniques": 3
-      },
-      {
-        "referrer": "search.brave.com",
-        "count": 2,
-        "uniques": 1
+        "count": 3,
+        "uniques": 2
       },
       {
         "referrer": "DuckDuckGo",
@@ -5594,20 +5589,20 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor",
         "title": "Overview",
-        "count": 335,
-        "uniques": 131
+        "count": 347,
+        "uniques": 129
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.3.0",
         "title": "/releases/tag/v1.2.3.0",
-        "count": 43,
-        "uniques": 26
+        "count": 47,
+        "uniques": 28
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases",
         "title": "/releases",
-        "count": 33,
-        "uniques": 21
+        "count": 30,
+        "uniques": 20
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/issues",
@@ -5618,8 +5613,8 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/tree/development",
         "title": "/tree/development",
-        "count": 14,
-        "uniques": 6
+        "count": 12,
+        "uniques": 5
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/issues/46",
@@ -5630,7 +5625,7 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/pull/47",
         "title": "/pull/47",
-        "count": 8,
+        "count": 9,
         "uniques": 2
       },
       {
@@ -5656,7 +5651,7 @@
       {
         "assets": [
           {
-            "downloads": 39,
+            "downloads": 40,
             "name": "FS25_NPCFavor.zip"
           }
         ],
