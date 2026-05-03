@@ -1529,5 +1529,42 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-05-03": [
+    {
+      "referrer": "github.com",
+      "count": 330,
+      "uniques": 64
+    },
+    {
+      "referrer": "Google",
+      "count": 68,
+      "uniques": 35
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 30,
+      "uniques": 5
+    },
+    {
+      "referrer": "forbidden-mods.de",
+      "count": 2,
+      "uniques": 1
+    },
+    {
+      "referrer": "Bing",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "DuckDuckGo",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "ecosia.org",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
