@@ -9155,5 +9155,71 @@
         "tag": "v1.0.0.0"
       }
     ]
+  },
+  {
+    "timestamp": "2026-05-03T23:31:32Z",
+    "total_downloads": 392,
+    "per_release": [
+      {
+        "assets": [
+          {
+            "downloads": 43,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "published_at": "2026-04-18T12:31:24Z",
+        "tag": "v1.2.3.0"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 251,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "published_at": "2026-02-11T08:59:21Z",
+        "tag": "v1.2.2.5"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 74,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "published_at": "2026-02-10T08:31:55Z",
+        "tag": "v1.2.2.4"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 15,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "published_at": "2026-02-09T22:06:15Z",
+        "tag": "v1.2.2.0"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 9,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "published_at": "2026-02-10T00:00:28Z",
+        "tag": "1.2.2.1"
+      },
+      {
+        "assets": [],
+        "published_at": "2026-02-09T07:14:00Z",
+        "tag": "v1,2,1,0"
+      },
+      {
+        "assets": [],
+        "published_at": "2026-02-07T05:20:56Z",
+        "tag": "v1.0.0.0"
+      }
+    ]
   }
 ]
