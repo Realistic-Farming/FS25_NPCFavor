@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-05-05T19:00:06Z
-**Days tracked:** 36 | **Download snapshots:** 162 (hourly)
+**Last updated:** 2026-05-06T12:20:57Z
+**Days tracked:** 37 | **Download snapshots:** 163 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 543 | 128 |
-| Git Clones | 1260 | 401 |
+| Page Views | 518 | 133 |
+| Git Clones | 1271 | 397 |
 
-> **Engagement:** 4.2 pages per visitor (14-day avg)
+> **Engagement:** 3.8 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 799 of 128 visitors cloned or downloaded (**624.2%**)
+> **14-day conversion:** 795 of 133 visitors cloned or downloaded (**597.7%**)
 >
-> Unique cloners: 401 | Release downloads: 398
+> Unique cloners: 397 | Release downloads: 398
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 398 |
-| Git Clones (14-day) | 1260 |
-| **Total Acquisitions** | **1658** |
+| Git Clones (14-day) | 1271 |
+| **Total Acquisitions** | **1669** |
 
 ---
 
@@ -54,10 +54,10 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 297 | 56 |
-| Google | 78 | 39 |
-| kingmods.net | 30 | 5 |
-| Bing | 2 | 2 |
+| github.com | 290 | 56 |
+| Google | 73 | 38 |
+| kingmods.net | 19 | 5 |
+| Bing | 7 | 4 |
 | forbidden-mods.de | 2 | 1 |
 | DuckDuckGo | 1 | 1 |
 | chatgpt.com | 1 | 1 |
@@ -80,14 +80,14 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/TheCodingDad-TisonK/FS25_NPCFavor` | 337 | 119 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.3.0` | 43 | 21 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/releases` | 25 | 16 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/issues` | 20 | 16 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor` | 327 | 123 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.3.0` | 48 | 24 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/releases` | 23 | 16 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/issues` | 17 | 15 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/tree/development` | 14 | 7 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/issues/46` | 9 | 7 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/pull/47` | 9 | 2 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/pulls` | 9 | 2 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/issues/46` | 6 | 5 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/tree/main/translations` | 6 | 3 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/tree/main` | 5 | 3 |
 
