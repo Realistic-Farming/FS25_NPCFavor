@@ -596,6 +596,59 @@ function NPCInteractionUI:getRandomConversationTopic(npc)
         table.insert(topics, g_i18n:getText("npc_topic_quiet_day") or "Quiet day today. I like it that way.")
     end
 
+    -- Inject context-aware topics from companion mods
+    local npcSys = self.npcSystem
+
+    -- FS25_RandomWorldEvents — NPC reacts to the active world event
+    local rwe = npcSys and npcSys.rweManager
+    if rwe and rwe.EVENT_STATE and rwe.EVENT_STATE.activeEvent then
+        local ev = rwe.EVENT_STATE.activeEvent
+        local rweTopics = {
+            market_boom        = "Prices are fantastic right now — have you been selling? The markets are on fire!",
+            market_crash       = "Terrible week for prices... I'm holding back my grain until things improve.",
+            export_opportunity = "Word is there's huge demand overseas right now. Perfect time to sell everything you've got!",
+            economic_crisis    = "Things are tough all around. I've been cutting back wherever I can.",
+            government_subsidy = "Did you hear about the subsidies? Government helping out farmers for once!",
+            price_fixing       = "Something feels off with the markets lately. Prices don't make sense.",
+            crop_yield_penalty = "My crops are struggling this season. I've never seen yields this poor.",
+            crop_yield_bonus   = "What a harvest! My fields produced more than I expected. Wonderful season!",
+            harvest_bonus      = "Couldn't have asked for better harvesting conditions. Everything went smoothly!",
+            harvest_penalty    = "Lost a lot during harvest this year. Weather and timing just didn't cooperate.",
+            seed_growth_bonus  = "Crops shot up faster than usual this year. Ideal growing conditions!",
+            seed_growth_penalty = "Slow growth this year. I'm worried some crops won't be ready in time.",
+            fertilizer_bonus   = "The fertilizer is working amazingly well this season. Rich soil makes all the difference.",
+            fertilizer_penalty = "I've been losing nutrients out of my fields faster than I can replace them.",
+            disease_scare      = "Keep an eye on your animals — there's a disease scare going around.",
+            feed_shortage      = "Animal feed is getting expensive and hard to come by. Stock up when you can.",
+        }
+        local evTopic = rweTopics[ev]
+        if evTopic then
+            table.insert(topics, evTopic)
+            table.insert(topics, evTopic)  -- double weight so event topic comes up often
+        end
+    end
+
+    -- FS25_MarketDynamics — NPC mentions market conditions
+    local md = npcSys and npcSys.marketDynamicsManager
+    if md and md.marketEngine then
+        local hasGoodPrices, hasBadPrices = false, false
+        for _, entry in pairs(md.marketEngine.prices) do
+            if entry.current and entry.base and entry.base > 0 then
+                local pct = (entry.current - entry.base) / entry.base
+                if pct > 0.12 then hasGoodPrices = true end
+                if pct < -0.12 then hasBadPrices = true end
+            end
+        end
+        if hasGoodPrices then
+            table.insert(topics, "The commodity prices are looking really strong. Don't wait too long to sell!")
+        elseif hasBadPrices then
+            table.insert(topics, "I'd hold off selling anything major right now. Prices are below where I want them.")
+        end
+    end
+
+    if #topics == 0 then
+        return "Nice to see you!"
+    end
     return topics[math.random(1, #topics)]
 end
 
