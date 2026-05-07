@@ -356,6 +356,9 @@ function NPCSystem:onMissionLoaded()
                     end
                 end
                 
+                -- Detect companion mods — must run after mission is fully started
+                self:detectOptionalMods()
+
                 self.isInitialized = true
                 self.initializing = false
                 print("[NPC Favor] Initialized with " .. tostring(self.npcCount) .. " NPCs")
@@ -4199,6 +4202,23 @@ end
 -- =========================================================
 -- Cleanup
 -- =========================================================
+
+-- Detect companion mods via mission bridge properties.
+-- Called once after the deferred init guards pass (mission fully started).
+-- Stores references used by NPCInteractionUI for context-aware dialog.
+function NPCSystem:detectOptionalMods()
+    local rwe = g_currentMission and g_currentMission.randomWorldEvents
+    if rwe then
+        self.rweManager = rwe
+        print("[NPC Favor] FS25_RandomWorldEvents detected — NPCs will reference active world events in conversation")
+    end
+
+    local md = g_currentMission and g_currentMission.MarketDynamics
+    if md then
+        self.marketDynamicsManager = md
+        print("[NPC Favor] FS25_MarketDynamics detected — NPCs will reference market conditions in conversation")
+    end
+end
 
 function NPCSystem:delete()
     print("[NPC Favor] Shutting down")
