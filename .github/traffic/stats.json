@@ -6730,7 +6730,7 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-05-09T12:43:55Z",
+    "timestamp": "2026-05-09T18:39:26Z",
     "date": "2026-05-09",
     "views": {
       "count": 521,
@@ -6838,7 +6838,7 @@
       {
         "assets": [
           {
-            "downloads": 26,
+            "downloads": 28,
             "name": "FS25_NPCFavor.zip"
           }
         ],
@@ -6898,7 +6898,7 @@
         "tag": "v1.0.0.0"
       }
     ],
-    "stars": 28,
+    "stars": 29,
     "forks": 3,
     "watchers": 5
   }
