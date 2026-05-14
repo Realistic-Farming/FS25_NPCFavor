@@ -18,7 +18,7 @@
 -- [x] Weather actually changing NPC behavior (rain → seek shelter, storm → cancel outdoor work)
 -- [ ] Custom per-NPC schedules (currently all NPCs use personality templates)
 -- [x] Weekend/holiday schedules (NPCs have days off, market days, festivals)
--- [ ] Player-visible schedule board (UI showing when/where NPCs will be)
+-- [x] Player-visible schedule board (Ask about work → shows current + next 2 activities)
 -- [ ] Dynamic schedule adjustments (field harvested → switch to maintenance)
 -- [ ] Night shift workers (some NPCs work overnight at production points)
 -- [ ] Location-based schedule enforcement (NPC won't "work" if not near field)
@@ -1066,6 +1066,92 @@ end
 
 function NPCScheduler:getCurrentDay()
     return self.currentDay
+end
+
+--- Return a human-readable label for a schedule activity code.
+-- @param activity  Internal activity string (e.g. "field_preparation")
+-- @return string   Display name (English; kept in Lua table to avoid 25+ i18n keys)
+function NPCScheduler:getActivityDisplayName(activity)
+    local names = {
+        morning_routine    = "Morning routine",
+        field_preparation  = "Field preparation",
+        planting           = "Planting",
+        irrigation         = "Irrigation",
+        field_maintenance  = "Field maintenance",
+        harvesting         = "Harvesting",
+        storage_work       = "Storage work",
+        indoor_work        = "Indoor work",
+        equipment_repair   = "Equipment repair",
+        equipment_maintenance = "Equipment maintenance",
+        planning           = "Planning",
+        lunch_break        = "Lunch break",
+        personal_time      = "Personal time",
+        sleeping           = "Sleeping",
+        sleep              = "Sleeping",
+        commute            = "Commuting",
+        commute_home       = "Heading home",
+        work_shift         = "Work shift",
+        free_time          = "Free time",
+        breakfast          = "Breakfast",
+        chores             = "Chores",
+        lunch_social       = "Lunch",
+        leisure            = "Leisure time",
+        evening_activities = "Evening activities",
+        dinner_relax       = "Dinner & relaxing",
+        break_heat         = "Heat break",
+        evening_chores     = "Evening chores",
+        idle               = "Idle",
+    }
+    return names[activity] or activity
+end
+
+--- Build a short schedule summary for display in the NPC dialog.
+-- Shows the current time slot marked "NOW" plus the next two upcoming slots.
+-- @param npc  NPC data table
+-- @return string  Formatted multi-line schedule text
+function NPCScheduler:getScheduleSummary(npc)
+    local schedule = self:getScheduleForNPC(npc)
+    local title = g_i18n:getText("npc_schedule_title") or "My plans today:"
+    if not schedule then
+        return title
+    end
+
+    local hour = self.currentHour
+    local nowMarker = " " .. (g_i18n:getText("npc_schedule_now_marker") or "← NOW")
+
+    local function isCurrent(slot)
+        local e = slot["end"]
+        if slot.start < e then
+            return hour >= slot.start and hour < e
+        else
+            return hour >= slot.start or hour < e
+        end
+    end
+
+    local function isPast(slot)
+        if isCurrent(slot) then return false end
+        local e = slot["end"]
+        if slot.start < e then
+            return hour >= e
+        else
+            -- Overnight slot: past only if we are between its end and its start
+            return hour >= e and hour < slot.start
+        end
+    end
+
+    local lines = {}
+    for _, slot in ipairs(schedule) do
+        if not isPast(slot) and #lines < 3 then
+            local name = self:getActivityDisplayName(slot.activity)
+            local marker = isCurrent(slot) and nowMarker or ""
+            table.insert(lines, string.format("%02d:00  %s%s", slot.start, name, marker))
+        end
+    end
+
+    if #lines == 0 then
+        return title
+    end
+    return title .. "\n" .. table.concat(lines, "\n")
 end
 
 

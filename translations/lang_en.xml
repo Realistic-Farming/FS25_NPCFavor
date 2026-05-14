@@ -84,7 +84,7 @@
 		<text name="npc_rel_max_reached" text="MAX level reached!" />
 		<text name="npc_rel_trend_up" text="(trending up)" />
 		<text name="npc_rel_trend_down" text="(trending down)" />
-		<text name="npc_decay_warning" text="Relationship with %s will decay soon!" />
+		<text name="npc_decay_warning" text="(No chat in %d days — relationship at risk!)" />
 		<text name="npc_rel_no_info" text="No relationship information available." />
 		<text name="npc_dialog_favor_help_request" text="Could you help me with something? Check the favor list!" />
 		<text name="npc_dialog_favor_nothing" text="I don't need anything right now, but thanks for asking!" />
@@ -276,5 +276,30 @@
 		<text name="npc_admin_save_ok"              text="NPC data saved." />
 		<text name="npc_admin_save_fail"            text="Save failed - check log." />
 		<text name="npc_admin_reset_ok"             text="Settings reset to defaults." />
+
+		<!-- ===== Backstory / Flavor text (v1.2.5.0) ===== -->
+		<text name="npc_backstory_hardworking"  text="Known around town as an early riser who never misses a day in the fields." />
+		<text name="npc_backstory_lazy"         text="Prefers a leisurely pace. Often found relaxing in the shade." />
+		<text name="npc_backstory_social"       text="The neighborhood's most talkative resident. Knows everyone's business." />
+		<text name="npc_backstory_grumpy"       text="Not much for small talk, but respected for straight-shooting honesty." />
+		<text name="npc_backstory_generous"     text="Always first to lend a hand or share from the harvest." />
+		<text name="npc_backstory_default"      text="A quiet member of the community." />
+		<text name="npc_backstory_farm_fmt"     text="Works at %s." />
+		<text name="npc_backstory_fields_fmt"   text="Tends %d field(s)." />
+		<text name="npc_backstory_age_fmt"      text="Age %d." />
+
+		<!-- ===== Gift selection panel (v1.2.5.0) ===== -->
+		<text name="npc_gift_panel_title"         text="Choose a gift:" />
+		<text name="npc_gift_select_prompt"       text="What would you like to give %s?" />
+		<text name="npc_gift_small_btn"           text="Small Gift ($200)  +2 rel" />
+		<text name="npc_gift_standard_btn"        text="Standard Gift ($500)  +5 rel" />
+		<text name="npc_gift_generous_btn"        text="Generous Gift ($1,000)  +10 rel" />
+		<text name="npc_gift_cancel_btn"          text="Cancel" />
+		<text name="npc_gift_insufficient_funds"  text="You don't have enough money for this gift." />
+		<text name="npc_gift_cancelled"           text="Maybe another time!" />
+
+		<!-- ===== Schedule board (v1.2.5.0) ===== -->
+		<text name="npc_schedule_title"      text="My plans today:" />
+		<text name="npc_schedule_now_marker" text="&lt;- NOW" />
 	</texts>
 </l10n>

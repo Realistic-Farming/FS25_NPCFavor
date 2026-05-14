@@ -181,7 +181,7 @@
 		<text name="npc_favor_loan_repay_btn" text="Repay Loan ($%d)" />
 		<text name="npc_dialog_btn_favor_accept" text="Accept Favor" />
 		<text name="npc_dialog_btn_favor_complete" text="Complete Favor" />
-		<text name="npc_decay_warning" text="Relationship with %s will decay soon!" />
+		<text name="npc_decay_warning" text="(Нет общения %d дней — отношения под угрозой!)" />
 	
 		<!-- ===== Settings Panel (v1.2.5.0) ===== -->
 		<!-- Categories -->
@@ -276,5 +276,30 @@
 		<text name="npc_admin_save_ok"              text="NPC data saved." />
 		<text name="npc_admin_save_fail"            text="Save failed - check log." />
 		<text name="npc_admin_reset_ok"             text="Settings reset to defaults." />
+
+		<!-- ===== Backstory / Flavor text (v1.2.5.0) ===== -->
+		<text name="npc_backstory_hardworking"  text="Известен в округе как ранняя птица, никогда не пропускающая день в поле." />
+		<text name="npc_backstory_lazy"         text="Предпочитает неторопливый ритм. Часто его можно найти отдыхающим в тени." />
+		<text name="npc_backstory_social"       text="Самый разговорчивый сосед в округе. Знает дела каждого." />
+		<text name="npc_backstory_grumpy"       text="Не любит пустых разговоров, но уважаем за прямую честность." />
+		<text name="npc_backstory_generous"     text="Всегда первый помочь или поделиться урожаем." />
+		<text name="npc_backstory_default"      text="Тихий член общины." />
+		<text name="npc_backstory_farm_fmt"     text="Работает в %s." />
+		<text name="npc_backstory_fields_fmt"   text="Ухаживает за %d полем(ями)." />
+		<text name="npc_backstory_age_fmt"      text="Возраст %d." />
+
+		<!-- ===== Gift selection panel (v1.2.5.0) ===== -->
+		<text name="npc_gift_panel_title"         text="Выберите подарок:" />
+		<text name="npc_gift_select_prompt"       text="Что вы хотите дать %s?" />
+		<text name="npc_gift_small_btn"           text="Маленький подарок ($200)  +2 отношения" />
+		<text name="npc_gift_standard_btn"        text="Стандартный подарок ($500)  +5 отношения" />
+		<text name="npc_gift_generous_btn"        text="Щедрый подарок ($1 000)  +10 отношения" />
+		<text name="npc_gift_cancel_btn"          text="Отмена" />
+		<text name="npc_gift_insufficient_funds"  text="У вас недостаточно денег для этого подарка." />
+		<text name="npc_gift_cancelled"           text="Может в другой раз!" />
+
+		<!-- ===== Schedule board (v1.2.5.0) ===== -->
+		<text name="npc_schedule_title"      text="Мои планы на сегодня:" />
+		<text name="npc_schedule_now_marker" text="&lt;- СЕЙЧАС" />
 	</texts>
 </l10n>

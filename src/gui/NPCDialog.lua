@@ -16,7 +16,7 @@
 -- [ ] Dialog history / conversation log (scrollable panel showing past 5-10 exchanges)
 -- [ ] Animated text reveal (typewriter effect for NPC responses, not instant)
 -- [x] NPC mood indicator (happy/neutral/angry face icon next to name, changes based on recent interactions)
--- [ ] Gift selection UI (choose from multiple gift types: money, crops, equipment, not just $500 hardcoded)
+-- [x] Gift selection UI (choose from multiple gift types: money, crops, equipment, not just $500 hardcoded)
 -- [ ] Favor acceptance/rejection dialog (player chooses which favor to accept from multiple offers)
 -- [ ] Audio cues (sound effects on button hover/click, NPC voice samples on greet/respond?)
 -- [ ] Consolidate getPersonalityColor() duplication with NPCInteractionUI (shared utility file?)
@@ -83,6 +83,8 @@ function NPCDialog.new(target, custom_mt)
         Rel = true,
     }
 
+    self.giftPanelVisible = false   -- True while the 3-tier gift selection panel is shown
+
     return self
 end
 
@@ -116,6 +118,14 @@ function NPCDialog:onOpen()
     if self.responseText then
         self.responseText:setVisible(false)
     end
+
+    -- Hide gift selection panel; initialize button texts from i18n
+    self:hideGiftPanel()
+    if self.giftSelectTitle   then self.giftSelectTitle:setText(g_i18n:getText("npc_gift_panel_title") or "Choose a gift:") end
+    if self.btnGiftSmallText  then self.btnGiftSmallText:setText(g_i18n:getText("npc_gift_small_btn") or "Small Gift ($200)  +2 rel") end
+    if self.btnGiftStandardText then self.btnGiftStandardText:setText(g_i18n:getText("npc_gift_standard_btn") or "Standard Gift ($500)  +5 rel") end
+    if self.btnGiftGenerousText then self.btnGiftGenerousText:setText(g_i18n:getText("npc_gift_generous_btn") or "Generous Gift ($1,000)  +10 rel") end
+    if self.btnGiftCancelText then self.btnGiftCancelText:setText(g_i18n:getText("npc_gift_cancel_btn") or "Cancel") end
 
     if self.npc and self.npcSystem then
         local ok2, err2 = pcall(function()
@@ -308,6 +318,75 @@ function NPCDialog:onBtnGiftLeave()  self:applyHover("Gift", false) end
 function NPCDialog:onBtnRelFocus()   self:applyHover("Rel", true)   end
 function NPCDialog:onBtnRelLeave()   self:applyHover("Rel", false)  end
 
+-- Gift tier hover handlers
+function NPCDialog:onBtnGiftSmallFocus()    self:applyGiftHover("Small",    true)  end
+function NPCDialog:onBtnGiftSmallLeave()    self:applyGiftHover("Small",    false) end
+function NPCDialog:onBtnGiftStandardFocus() self:applyGiftHover("Standard", true)  end
+function NPCDialog:onBtnGiftStandardLeave() self:applyGiftHover("Standard", false) end
+function NPCDialog:onBtnGiftGenerousFocus() self:applyGiftHover("Generous", true)  end
+function NPCDialog:onBtnGiftGenerousLeave() self:applyGiftHover("Generous", false) end
+function NPCDialog:onBtnGiftCancelFocus()   self:applyGiftHover("Cancel",   true)  end
+function NPCDialog:onBtnGiftCancelLeave()   self:applyGiftHover("Cancel",   false) end
+
+--- Apply hover highlight to a gift-panel button.
+function NPCDialog:applyGiftHover(suffix, isHovered)
+    local bgEl   = self["btnGift" .. suffix .. "Bg"]
+    local textEl = self["btnGift" .. suffix .. "Text"]
+    local isCancel = suffix == "Cancel"
+
+    if bgEl then
+        local c = isHovered
+            and (isCancel and {0.28, 0.12, 0.12, 1} or {0.18, 0.28, 0.18, 1})
+            or  (isCancel and {0.17, 0.09, 0.09, 1} or {0.10, 0.17, 0.10, 1})
+        bgEl:setImageColor(nil, c[1], c[2], c[3], c[4])
+    end
+    if textEl then
+        local c = isHovered
+            and (isCancel and {1, 0.65, 0.65, 1} or {0.7, 1, 0.7, 1})
+            or  (isCancel and {0.8, 0.5, 0.5, 1} or {0.6, 0.95, 0.6, 1})
+        textEl:setTextColor(c[1], c[2], c[3], 1)
+    end
+end
+
+-- =========================================================
+-- Gift Panel Show / Hide
+-- =========================================================
+
+local ACTION_SUFFIXES = {"Talk", "Work", "Favor", "Gift", "Rel"}
+local GIFT_SUFFIXES   = {"Small", "Standard", "Generous", "Cancel"}
+
+--- Hide the five action buttons and reveal the gift-tier selection panel.
+function NPCDialog:showGiftPanel()
+    self.giftPanelVisible = true
+    for _, s in ipairs(ACTION_SUFFIXES) do
+        if self["btn"..s.."Bg"]   then self["btn"..s.."Bg"]:setVisible(false)   end
+        if self["btn"..s]         then self["btn"..s]:setVisible(false)          end
+        if self["btn"..s.."Text"] then self["btn"..s.."Text"]:setVisible(false)  end
+    end
+    if self.giftSelectTitle then self.giftSelectTitle:setVisible(true) end
+    for _, s in ipairs(GIFT_SUFFIXES) do
+        if self["btnGift"..s.."Bg"]   then self["btnGift"..s.."Bg"]:setVisible(true)   end
+        if self["btnGift"..s]         then self["btnGift"..s]:setVisible(true)          end
+        if self["btnGift"..s.."Text"] then self["btnGift"..s.."Text"]:setVisible(true)  end
+    end
+end
+
+--- Hide the gift-tier selection panel and restore the five action buttons.
+function NPCDialog:hideGiftPanel()
+    self.giftPanelVisible = false
+    for _, s in ipairs(ACTION_SUFFIXES) do
+        if self["btn"..s.."Bg"]   then self["btn"..s.."Bg"]:setVisible(true)   end
+        if self["btn"..s]         then self["btn"..s]:setVisible(true)          end
+        if self["btn"..s.."Text"] then self["btn"..s.."Text"]:setVisible(true)  end
+    end
+    if self.giftSelectTitle then self.giftSelectTitle:setVisible(false) end
+    for _, s in ipairs(GIFT_SUFFIXES) do
+        if self["btnGift"..s.."Bg"]   then self["btnGift"..s.."Bg"]:setVisible(false)   end
+        if self["btnGift"..s]         then self["btnGift"..s]:setVisible(false)          end
+        if self["btnGift"..s.."Text"] then self["btnGift"..s.."Text"]:setVisible(false)  end
+    end
+end
+
 -- =========================================================
 -- Response Area
 -- =========================================================
@@ -365,12 +444,19 @@ function NPCDialog:onClickTalk()
     self:updateButtonStates()
 end
 
---- "Ask about work" button: show the NPC's current activity description.
+--- "Ask about work" button: show the NPC's current activity and today's schedule.
 function NPCDialog:onClickAskWork()
     if not self.npc or not self.npcSystem then return end
 
     local message = self.npcSystem.interactionUI:getWorkStatusMessage(self.npc)
-    self:setResponse(self.npc.name .. ": \"" .. message .. "\"")
+    local schedulePart = ""
+    if self.npcSystem.scheduler then
+        local summary = self.npcSystem.scheduler:getScheduleSummary(self.npc)
+        if summary and summary ~= "" then
+            schedulePart = "\n" .. summary
+        end
+    end
+    self:setResponse(self.npc.name .. ": \"" .. message .. "\"" .. schedulePart)
 end
 
 --- "Ask for favor" / "Accept Favor" / "Check progress" button.
@@ -554,38 +640,69 @@ function NPCDialog:onClickFavor()
 end
 
 
---- "Give gift" button: spend $500 for a relationship boost.
--- Requires relationship >= 30.
+--- "Give gift" button: open the gift tier selection panel.
+-- Requires relationship >= 30. Actual execution is in onClickGiftSmall/Standard/Generous.
 function NPCDialog:onClickGift()
     if not self.npc or not self.npcSystem then return end
-
     local relationship = self.npc.relationship or 0
     if relationship < 30 then return end
 
+    self:showGiftPanel()
+    self:setResponse(string.format(
+        g_i18n:getText("npc_gift_select_prompt") or "What would you like to give %s?",
+        self.npc.name
+    ))
+end
+
+--- Execute a gift of the given amount, deducting money and updating relationship.
+-- Called by the three tier handlers below.
+function NPCDialog:executeGift(amount)
+    if not self.npc or not self.npcSystem then return end
+
+    -- Check and deduct money
+    local farmId = g_currentMission.player and g_currentMission.player.farmId
+    if farmId then
+        local farm = g_farmManager and g_farmManager:getFarmById(farmId)
+        local balance = farm and farm.money or 0
+        if balance < amount then
+            self:setResponse(g_i18n:getText("npc_gift_insufficient_funds") or "You don't have enough money for this gift.")
+            self:hideGiftPanel()
+            return
+        end
+        g_currentMission:addMoney(-amount, farmId, MoneyType.OTHER, true)
+    end
+
     if self.npcSystem.relationshipManager then
-        local result = self.npcSystem.relationshipManager:giveGiftToNPC(self.npc.id, "money", 500)
+        local result = self.npcSystem.relationshipManager:giveGiftToNPC(self.npc.id, "money", amount)
         if result then
             local info = self.npcSystem.relationshipManager:getRelationshipInfo(self.npc.id)
-            if info then
-                self.npc.relationship = info.value
-            end
-            -- Personality-flavored thanks
+            if info then self.npc.relationship = info.value end
             local thanks = {
                 hardworking = "Much appreciated! I can put this to good use.",
-                lazy = "Oh nice, thanks! That's really kind of you.",
-                social = "You're the best! I'll tell everyone how generous you are!",
-                grumpy = "Hmph. Well... thanks, I guess.",
-                generous = "Thank you! I'll find a way to return the favor.",
+                lazy        = "Oh nice, thanks! That's really kind of you.",
+                social      = "You're the best! I'll tell everyone how generous you are!",
+                grumpy      = "Hmph. Well... thanks, I guess.",
+                generous    = "Thank you! I'll find a way to return the favor.",
             }
-            local thankMsg = thanks[self.npc.personality] or "Thank you for the gift!"
+            local thankMsg = thanks[self.npc.personality] or (g_i18n:getText("npc_dialog_gift_thanks") or "Thank you for the gift!")
             self:setResponse(self.npc.name .. ": \"" .. thankMsg .. "\"")
         else
             self:setResponse(g_i18n:getText("npc_dialog_gift_failed") or "Could not give a gift right now.")
         end
     end
 
+    self:hideGiftPanel()
     self:updateDisplay()
     self:updateButtonStates()
+end
+
+function NPCDialog:onClickGiftSmall()    self:executeGift(200)  end
+function NPCDialog:onClickGiftStandard() self:executeGift(500)  end
+function NPCDialog:onClickGiftGenerous() self:executeGift(1000) end
+
+function NPCDialog:onClickGiftCancel()
+    self:hideGiftPanel()
+    self:setResponse(g_i18n:getText("npc_gift_cancelled") or "Maybe another time!")
 end
 
 --- "Relationship info" button: show level, benefits, next unlock, favor stats.
@@ -803,30 +920,31 @@ function NPCDialog:getRelationshipLevelName(value)
 end
 
 --- Generate a short backstory/bio for an NPC based on their personality and farm.
+-- All user-visible strings are localized via g_i18n.
 -- @param npc  NPC data table
 -- @return string  Backstory text
 function NPCDialog:getBackstory(npc)
     if not npc then return "" end
 
     local personalityBios = {
-        hardworking = "Known around town as an early riser who never misses a day in the fields.",
-        lazy        = "Prefers a leisurely pace. Often found relaxing in the shade.",
-        social      = "The neighborhood's most talkative resident. Knows everyone's business.",
-        grumpy      = "Not much for small talk, but respected for straight-shooting honesty.",
-        generous    = "Always first to lend a hand or share from the harvest.",
+        hardworking = g_i18n:getText("npc_backstory_hardworking") or "Known around town as an early riser who never misses a day in the fields.",
+        lazy        = g_i18n:getText("npc_backstory_lazy")        or "Prefers a leisurely pace. Often found relaxing in the shade.",
+        social      = g_i18n:getText("npc_backstory_social")      or "The neighborhood's most talkative resident. Knows everyone's business.",
+        grumpy      = g_i18n:getText("npc_backstory_grumpy")      or "Not much for small talk, but respected for straight-shooting honesty.",
+        generous    = g_i18n:getText("npc_backstory_generous")    or "Always first to lend a hand or share from the harvest.",
     }
 
-    local bio = personalityBios[npc.personality] or "A quiet member of the community."
+    local bio = personalityBios[npc.personality] or (g_i18n:getText("npc_backstory_default") or "A quiet member of the community.")
 
     if npc.farmName then
-        bio = bio .. " Works at " .. npc.farmName .. "."
+        bio = bio .. " " .. string.format(g_i18n:getText("npc_backstory_farm_fmt") or "Works at %s.", npc.farmName)
         if npc.assignedFields and #npc.assignedFields > 0 then
-            bio = bio .. " Tends " .. #npc.assignedFields .. " field(s)."
+            bio = bio .. " " .. string.format(g_i18n:getText("npc_backstory_fields_fmt") or "Tends %d field(s).", #npc.assignedFields)
         end
     end
 
     if npc.age then
-        bio = "Age " .. npc.age .. ". " .. bio
+        bio = string.format(g_i18n:getText("npc_backstory_age_fmt") or "Age %d.", npc.age) .. " " .. bio
     end
 
     return bio

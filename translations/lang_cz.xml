@@ -181,7 +181,7 @@
 		<text name="npc_favor_loan_repay_btn" text="Repay Loan ($%d)" />
 		<text name="npc_dialog_btn_favor_accept" text="Accept Favor" />
 		<text name="npc_dialog_btn_favor_complete" text="Complete Favor" />
-		<text name="npc_decay_warning" text="Relationship with %s will decay soon!" />
+		<text name="npc_decay_warning" text="(Bez rozhovoru %d dní — vztah ohrožen!)" />
 	
 		<!-- ===== Settings Panel (v1.2.5.0) ===== -->
 		<!-- Categories -->
@@ -276,5 +276,30 @@
 		<text name="npc_admin_save_ok"              text="NPC data saved." />
 		<text name="npc_admin_save_fail"            text="Save failed - check log." />
 		<text name="npc_admin_reset_ok"             text="Settings reset to defaults." />
+
+		<!-- ===== Backstory / Flavor text (v1.2.5.0) ===== -->
+		<text name="npc_backstory_hardworking"  text="Znám v okolí jako ranní ptáče, který nikdy nevynechá den na poli." />
+		<text name="npc_backstory_lazy"         text="Preferuje klidné tempo. Často ho najdete odpočívat ve stínu." />
+		<text name="npc_backstory_social"       text="Nejpovídavější soused v okolí. Zná záležitosti každého." />
+		<text name="npc_backstory_grumpy"       text="Není příznivec drobných hovorů, ale respektován pro přímou upřímnost." />
+		<text name="npc_backstory_generous"     text="Vždy první, kdo nabídne pomocnou ruku nebo se podělí o úrodu." />
+		<text name="npc_backstory_default"      text="Klidný člen komunity." />
+		<text name="npc_backstory_farm_fmt"     text="Pracuje v %s." />
+		<text name="npc_backstory_fields_fmt"   text="Obhospodařuje %d pole(í)." />
+		<text name="npc_backstory_age_fmt"      text="Věk %d." />
+
+		<!-- ===== Gift selection panel (v1.2.5.0) ===== -->
+		<text name="npc_gift_panel_title"         text="Vyber dar:" />
+		<text name="npc_gift_select_prompt"       text="Co chceš dát %s?" />
+		<text name="npc_gift_small_btn"           text="Malý dar (200$)  +2 vztah" />
+		<text name="npc_gift_standard_btn"        text="Standardní dar (500$)  +5 vztah" />
+		<text name="npc_gift_generous_btn"        text="Štědrý dar (1 000$)  +10 vztah" />
+		<text name="npc_gift_cancel_btn"          text="Zrušit" />
+		<text name="npc_gift_insufficient_funds"  text="Nemáš dost peněz na tento dar." />
+		<text name="npc_gift_cancelled"           text="Třeba příště!" />
+
+		<!-- ===== Schedule board (v1.2.5.0) ===== -->
+		<text name="npc_schedule_title"      text="Moje dnešní plány:" />
+		<text name="npc_schedule_now_marker" text="&lt;- NYNÍ" />
 	</texts>
 </l10n>

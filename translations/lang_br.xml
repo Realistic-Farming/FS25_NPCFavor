@@ -181,7 +181,7 @@
 		<text name="npc_favor_loan_repay_btn" text="Repay Loan ($%d)" />
 		<text name="npc_dialog_btn_favor_accept" text="Accept Favor" />
 		<text name="npc_dialog_btn_favor_complete" text="Complete Favor" />
-		<text name="npc_decay_warning" text="Relationship with %s will decay soon!" />
+		<text name="npc_decay_warning" text="(Sem contato por %d dias — relacionamento em risco!)" />
 	
 		<!-- ===== Settings Panel (v1.2.5.0) ===== -->
 		<!-- Categories -->
@@ -276,5 +276,30 @@
 		<text name="npc_admin_save_ok"              text="NPC data saved." />
 		<text name="npc_admin_save_fail"            text="Save failed - check log." />
 		<text name="npc_admin_reset_ok"             text="Settings reset to defaults." />
+
+		<!-- ===== Backstory / Flavor text (v1.2.5.0) ===== -->
+		<text name="npc_backstory_hardworking"  text="Conhecido na região como um madrugador que nunca perde um dia no campo." />
+		<text name="npc_backstory_lazy"         text="Prefere um ritmo tranquilo. Muitas vezes é encontrado relaxando na sombra." />
+		<text name="npc_backstory_social"       text="O vizinho mais falante do bairro. Conhece o assunto de todos." />
+		<text name="npc_backstory_grumpy"       text="Não gosta de conversa fiada, mas é respeitado pela honestidade direta." />
+		<text name="npc_backstory_generous"     text="Sempre o primeiro a ajudar ou compartilhar da colheita." />
+		<text name="npc_backstory_default"      text="Um membro tranquilo da comunidade." />
+		<text name="npc_backstory_farm_fmt"     text="Trabalha na %s." />
+		<text name="npc_backstory_fields_fmt"   text="Cuida de %d campo(s)." />
+		<text name="npc_backstory_age_fmt"      text="Idade %d." />
+
+		<!-- ===== Gift selection panel (v1.2.5.0) ===== -->
+		<text name="npc_gift_panel_title"         text="Escolha um presente:" />
+		<text name="npc_gift_select_prompt"       text="O que você quer dar para %s?" />
+		<text name="npc_gift_small_btn"           text="Presente pequeno ($200)  +2 relação" />
+		<text name="npc_gift_standard_btn"        text="Presente padrão ($500)  +5 relação" />
+		<text name="npc_gift_generous_btn"        text="Presente generoso ($1.000)  +10 relação" />
+		<text name="npc_gift_cancel_btn"          text="Cancelar" />
+		<text name="npc_gift_insufficient_funds"  text="Você não tem dinheiro suficiente para este presente." />
+		<text name="npc_gift_cancelled"           text="Talvez em outra hora!" />
+
+		<!-- ===== Schedule board (v1.2.5.0) ===== -->
+		<text name="npc_schedule_title"      text="Meus planos de hoje:" />
+		<text name="npc_schedule_now_marker" text="&lt;- AGORA" />
 	</texts>
 </l10n>
