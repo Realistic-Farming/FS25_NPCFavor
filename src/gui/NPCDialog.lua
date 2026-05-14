@@ -303,6 +303,19 @@ function NPCDialog:onClickTalk()
 
     local topic = self.npcSystem.interactionUI:getRandomConversationTopic(self.npc)
 
+    local tonePrefix = ""
+    if self.npcSystem.favorSystem then
+        local memory = self.npcSystem.favorSystem:analyzeEncounterHistory(self.npc)
+        local score = memory.memoryScore
+        if score > 0.6 then
+            tonePrefix = "It's always good to see you. "
+        elseif score < -0.6 then
+            tonePrefix = "Hmm. You again. "
+        elseif score < -0.2 then
+            tonePrefix = "Oh. Hi. "
+        end
+    end
+
     if self.npcSystem.relationshipManager then
         local success = self.npcSystem.relationshipManager:updateRelationship(self.npc.id, 1, "daily_interaction")
         if success then
@@ -310,13 +323,12 @@ function NPCDialog:onClickTalk()
             if info then
                 self.npc.relationship = info.value
             end
-            self:setResponse(self.npc.name .. ": \"" .. topic .. "\"")
+            self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"")
         else
-            -- Daily limit reached — still show topic but no relationship gain
-            self:setResponse(self.npc.name .. ": \"" .. topic .. "\"\n(Already chatted today — no relationship change)")
+            self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"\n(Already chatted today — no relationship change)")
         end
     else
-        self:setResponse(self.npc.name .. ": \"" .. topic .. "\"")
+        self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"")
     end
 
     self:updateDisplay()
@@ -370,7 +382,12 @@ function NPCDialog:onClickFavor()
         ))
     else
         if self.npcSystem.favorSystem:tryGenerateFavorRequest() then
-            self:setResponse(self.npc.name .. ": \"" .. (g_i18n:getText("npc_dialog_favor_help_request") or "Could you help me with something? Check the favor list!") .. "\"")
+            local helpText = g_i18n:getText("npc_dialog_favor_help_request") or "Could you help me with something? Check the favor list!"
+            local memory = self.npcSystem.favorSystem:analyzeEncounterHistory(self.npc)
+            if memory.completedFavorCount >= 3 then
+                helpText = helpText .. " You've helped before — I trust you'll come through again."
+            end
+            self:setResponse(self.npc.name .. ": \"" .. helpText .. "\"")
         else
             self:setResponse(self.npc.name .. ": \"" .. (g_i18n:getText("npc_dialog_favor_nothing") or "I don't need anything right now, but thanks for asking!") .. "\"")
         end

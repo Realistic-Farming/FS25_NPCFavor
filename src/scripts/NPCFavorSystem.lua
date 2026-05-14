@@ -375,7 +375,11 @@ function NPCFavorSystem:generateFavorRequest()
             if timeSinceLastFavor > (24 * 60 * 60 * 1000) then -- More than 1 day
                 weight = weight * 1.5
             end
-            
+
+            local npcMemory = self:analyzeEncounterHistory(npc)
+            local memoryMod = npcMemory.memoryScore * 3
+            weight = math.max(1, weight + memoryMod)
+
             candidateWeights[npc.id] = weight
         end
     end
@@ -405,7 +409,18 @@ function NPCFavorSystem:generateFavorRequest()
     if not selectedNPC then
         selectedNPC = candidateNPCs[1] -- Fallback
     end
-    
+
+    local selectedMemory = self:analyzeEncounterHistory(selectedNPC)
+    local declineChance = 0.0
+    if selectedMemory.memoryScore < -0.5 then
+        declineChance = 0.15
+    elseif selectedMemory.memoryScore > 0.5 then
+        declineChance = -0.10
+    end
+    if declineChance > 0 and math.random() < declineChance then
+        return false
+    end
+
     -- Select favor type based on NPC and player capabilities
     local availableFavors = {}
     for _, favorType in ipairs(self.favorTypes) do
@@ -452,6 +467,9 @@ function NPCFavorSystem:generateFavorRequest()
                 weight = weight * 1.3  -- Summer: more social/delivery requests
             end
         end
+
+        local favorMemoryMod = selectedMemory.memoryScore * 3
+        weight = math.max(1, weight + favorMemoryMod)
 
         favorWeights[favorType.id] = weight
     end
@@ -1303,13 +1321,87 @@ function NPCFavorSystem:getNPCFromFavor(favorId)
     if not favor then
         return nil
     end
-    
+
     for _, npc in ipairs(self.npcSystem.activeNPCs) do
         if npc.id == favor.npcId then
             return npc
         end
     end
-    
+
     return nil
+end
+
+function NPCFavorSystem:analyzeEncounterHistory(npc)
+    local result = {
+        recentInteractionCount = 0,
+        giftCount = 0,
+        ignoredCount = 0,
+        completedFavorCount = 0,
+        failedFavorCount = 0,
+        averageTone = 0,
+        memoryScore = 0,
+    }
+
+    if not npc or not npc.encounters or #npc.encounters == 0 then
+        return result
+    end
+
+    local currentTime = (g_currentMission and g_currentMission.time) or 0
+    local sevenDaysMs = 7 * 24 * 60 * 60 * 1000
+    local totalTone = 0
+    local toneCount = 0
+    local weightedScore = 0
+    local totalWeight = 0
+
+    for i, enc in ipairs(npc.encounters) do
+        local age = currentTime - (enc.time or 0)
+        local recencyWeight = 1.0 / i
+
+        if age <= sevenDaysMs then
+            result.recentInteractionCount = result.recentInteractionCount + 1
+        end
+
+        local encType = enc.type or ""
+        if encType == "gift_given" then
+            result.giftCount = result.giftCount + 1
+        elseif encType == "favor_completed" then
+            result.completedFavorCount = result.completedFavorCount + 1
+        elseif encType == "favor_failed" then
+            result.failedFavorCount = result.failedFavorCount + 1
+        elseif encType == "ignored" then
+            result.ignoredCount = result.ignoredCount + 1
+        end
+
+        local sentiment = enc.sentiment or "neutral"
+        local toneValue = 0
+        if sentiment == "positive" then
+            toneValue = 1
+        elseif sentiment == "negative" then
+            toneValue = -1
+        end
+        totalTone = totalTone + toneValue
+        toneCount = toneCount + 1
+
+        local contribution = toneValue * recencyWeight
+        if encType == "gift_given" or encType == "favor_completed" then
+            contribution = contribution + (0.3 * recencyWeight)
+        elseif encType == "favor_failed" or encType == "ignored" then
+            contribution = contribution - (0.3 * recencyWeight)
+        end
+
+        weightedScore = weightedScore + contribution
+        totalWeight = totalWeight + recencyWeight
+    end
+
+    if toneCount > 0 then
+        result.averageTone = totalTone / toneCount
+    end
+
+    if totalWeight > 0 then
+        local raw = weightedScore / totalWeight
+        result.memoryScore = math.max(-1, math.min(1, raw))
+    end
+
+    return result
 end
 
