@@ -80,6 +80,26 @@
             <Button profile="npcActionBtnHit" id="btnRel" position="0px -343px" onClick="onClickRelationship" onFocus="onBtnRelFocus" onLeave="onBtnRelLeave"/>
             <Text profile="npcActionBtnText" id="btnRelText" position="0px -348px" text="Relationship info"/>
 
+            <!-- ========== Gift Selection Panel (Lua: showGiftPanel/hideGiftPanel) ========== -->
+            <!-- Occupies the same Y zone as action buttons; shown/hidden in alternation.     -->
+            <Text profile="npcGiftSelectTitle" id="giftSelectTitle" position="0px -191px" text="Choose a gift:"/>
+
+            <Bitmap profile="npcGiftBtnBg"     id="btnGiftSmallBg"       position="0px -217px"/>
+            <Button profile="npcGiftBtnHit"    id="btnGiftSmall"         position="0px -217px" onClick="onClickGiftSmall"    onFocus="onBtnGiftSmallFocus"    onLeave="onBtnGiftSmallLeave"/>
+            <Text   profile="npcGiftBtnText"   id="btnGiftSmallText"     position="0px -222px" text="Small Gift ($200)"/>
+
+            <Bitmap profile="npcGiftBtnBg"     id="btnGiftStandardBg"    position="0px -253px"/>
+            <Button profile="npcGiftBtnHit"    id="btnGiftStandard"      position="0px -253px" onClick="onClickGiftStandard" onFocus="onBtnGiftStandardFocus" onLeave="onBtnGiftStandardLeave"/>
+            <Text   profile="npcGiftBtnText"   id="btnGiftStandardText"  position="0px -258px" text="Standard Gift ($500)"/>
+
+            <Bitmap profile="npcGiftBtnBg"     id="btnGiftGenerousBg"    position="0px -289px"/>
+            <Button profile="npcGiftBtnHit"    id="btnGiftGenerous"      position="0px -289px" onClick="onClickGiftGenerous" onFocus="onBtnGiftGenerousFocus" onLeave="onBtnGiftGenerousLeave"/>
+            <Text   profile="npcGiftBtnText"   id="btnGiftGenerousText"  position="0px -294px" text="Generous Gift ($1,000)"/>
+
+            <Bitmap profile="npcGiftCancelBg"  id="btnGiftCancelBg"      position="0px -325px"/>
+            <Button profile="npcGiftCancelHit" id="btnGiftCancel"        position="0px -325px" onClick="onClickGiftCancel"   onFocus="onBtnGiftCancelFocus"   onLeave="onBtnGiftCancelLeave"/>
+            <Text   profile="npcGiftCancelText" id="btnGiftCancelText"   position="0px -330px" text="Cancel"/>
+
         </GuiElement>
 
         <BoxLayout profile="fs25_dialogButtonBox">
@@ -158,6 +178,57 @@
             <textSize value="14px"/>
             <textBold value="true"/>
             <textColor value="1 1 1 1"/>
+            <textAlignment value="center"/>
+        </Profile>
+
+        <!-- ========== GIFT PANEL TITLE ========== -->
+        <Profile name="npcGiftSelectTitle" extends="fs25_textDefault" with="anchorTopCenter">
+            <size value="400px 20px"/>
+            <textSize value="14px"/>
+            <textBold value="true"/>
+            <textColor value="0.6 0.9 0.6 1"/>
+            <textAlignment value="center"/>
+        </Profile>
+
+        <!-- ========== GIFT TIER BUTTON BACKGROUND ========== -->
+        <Profile name="npcGiftBtnBg" extends="baseReference" with="anchorTopCenter">
+            <size value="320px 30px"/>
+            <imageColor value="0.10 0.17 0.10 1"/>
+        </Profile>
+
+        <!-- ========== GIFT TIER BUTTON HIT AREA ========== -->
+        <Profile name="npcGiftBtnHit" extends="emptyPanel" with="anchorTopCenter">
+            <size value="320px 30px"/>
+            <isFocusable value="true"/>
+        </Profile>
+
+        <!-- ========== GIFT TIER BUTTON TEXT ========== -->
+        <Profile name="npcGiftBtnText" extends="fs25_textDefault" with="anchorTopCenter">
+            <size value="320px 20px"/>
+            <textSize value="13px"/>
+            <textBold value="true"/>
+            <textColor value="0.6 0.95 0.6 1"/>
+            <textAlignment value="center"/>
+        </Profile>
+
+        <!-- ========== GIFT CANCEL BUTTON BACKGROUND ========== -->
+        <Profile name="npcGiftCancelBg" extends="baseReference" with="anchorTopCenter">
+            <size value="180px 28px"/>
+            <imageColor value="0.17 0.09 0.09 1"/>
+        </Profile>
+
+        <!-- ========== GIFT CANCEL BUTTON HIT AREA ========== -->
+        <Profile name="npcGiftCancelHit" extends="emptyPanel" with="anchorTopCenter">
+            <size value="180px 28px"/>
+            <isFocusable value="true"/>
+        </Profile>
+
+        <!-- ========== GIFT CANCEL BUTTON TEXT ========== -->
+        <Profile name="npcGiftCancelText" extends="fs25_textDefault" with="anchorTopCenter">
+            <size value="180px 18px"/>
+            <textSize value="12px"/>
+            <textBold value="true"/>
+            <textColor value="0.8 0.5 0.5 1"/>
             <textAlignment value="center"/>
         </Profile>
     </GUIProfiles>

@@ -18,7 +18,7 @@
 -- [x] Weather actually changing NPC behavior (rain → seek shelter, storm → cancel outdoor work)
 -- [ ] Custom per-NPC schedules (currently all NPCs use personality templates)
 -- [x] Weekend/holiday schedules (NPCs have days off, market days, festivals)
--- [ ] Player-visible schedule board (UI showing when/where NPCs will be)
+-- [x] Player-visible schedule board (Ask about work → shows current + next 2 activities)
 -- [ ] Dynamic schedule adjustments (field harvested → switch to maintenance)
 -- [ ] Night shift workers (some NPCs work overnight at production points)
 -- [ ] Location-based schedule enforcement (NPC won't "work" if not near field)
@@ -651,21 +651,32 @@ function NPCScheduler:getScheduleForNPC(npc)
     if not npc then
         return self.scheduleTemplates.farmer.spring
     end
-    
+
+    -- Role takes precedence over personality for schedule type.
+    -- Shopkeepers and generic workers use the worker (shift-based) template;
+    -- farmers and farmhands get the full seasonal farmer template.
     local npcType = "farmer"  -- Default
-    
-    if npc.personality == "worker" or npc.personality == "perfectionist" then
+
+    local role = npc.role or "farmer"
+    if role == "shopkeeper" or role == "worker" then
         npcType = "worker"
-    elseif npc.personality == "casual" or npc.personality == "lazy" then
-        npcType = "casual"
+    elseif role == "farmhand" or role == "farmer" then
+        npcType = "farmer"
+    else
+        -- Personality fallback when role is unrecognised
+        if npc.personality == "worker" or npc.personality == "perfectionist" then
+            npcType = "worker"
+        elseif npc.personality == "casual" or npc.personality == "lazy" then
+            npcType = "casual"
+        end
     end
-    
-    -- Get seasonal schedule for farmers
+
     if npcType == "farmer" then
         local season = self:getCurrentSeason()
         return self.scheduleTemplates.farmer[season] or self.scheduleTemplates.farmer.spring
     else
-        return self.scheduleTemplates[npcType].default
+        return self.scheduleTemplates[npcType] and self.scheduleTemplates[npcType].default
+            or self.scheduleTemplates.farmer.spring
     end
 end
 
@@ -931,8 +942,56 @@ function NPCScheduler:cleanupOldInteractions()
 end
 
 function NPCScheduler:updateWeatherEffects(dt)
-    -- This would integrate with the game's weather system
-    -- For now, it's a placeholder for future implementation
+    if not self.npcSystem or not self.npcSystem.favorSystem then return end
+    if not self.npcSystem.settings or not self.npcSystem.settings.enableFavors then return end
+
+    -- Accumulate time since last weather-triggered favor check
+    self._weatherCheckTimer = (self._weatherCheckTimer or 0) + dt
+    if self._weatherCheckTimer < 120 then return end  -- check every 2 real minutes
+    self._weatherCheckTimer = 0
+
+    local wf = self:getWeatherFactor()
+    -- Only trigger contextual favors during genuinely severe weather (wf < 0.5)
+    if wf >= 0.5 then return end
+
+    -- Don't spam — one weather-urgent favor per in-game day
+    local today = self.currentDay or 0
+    if self._lastWeatherFavorDay == today then return end
+
+    -- Find a candidate NPC (prefer farmers/farmhands who'd be most affected)
+    local candidates = {}
+    if self.npcSystem.activeNPCs then
+        for _, npc in ipairs(self.npcSystem.activeNPCs) do
+            if npc and npc.isActive and npc.favorCooldown <= 0 then
+                local role = npc.role or "farmer"
+                if role == "farmer" or role == "farmhand" then
+                    table.insert(candidates, npc)
+                end
+            end
+        end
+        -- Fall back to any available NPC if no farmers found
+        if #candidates == 0 then
+            for _, npc in ipairs(self.npcSystem.activeNPCs) do
+                if npc and npc.isActive and npc.favorCooldown <= 0 then
+                    table.insert(candidates, npc)
+                end
+            end
+        end
+    end
+
+    if #candidates == 0 then return end
+
+    local npc = candidates[math.random(#candidates)]
+    local favor = self.npcSystem.favorSystem:triggerContextualFavor(npc, "weather_emergency")
+    if favor then
+        self._lastWeatherFavorDay = today
+        if self.npcSystem.settings.showNotifications then
+            self.npcSystem:showNotification(
+                "Weather Emergency",
+                string.format("%s needs help — the weather is making things difficult!", npc.name)
+            )
+        end
+    end
 end
 
 function NPCScheduler:updateSeasonalSchedule(npc, month)
@@ -1007,6 +1066,92 @@ end
 
 function NPCScheduler:getCurrentDay()
     return self.currentDay
+end
+
+--- Return a human-readable label for a schedule activity code.
+-- @param activity  Internal activity string (e.g. "field_preparation")
+-- @return string   Display name (English; kept in Lua table to avoid 25+ i18n keys)
+function NPCScheduler:getActivityDisplayName(activity)
+    local names = {
+        morning_routine    = "Morning routine",
+        field_preparation  = "Field preparation",
+        planting           = "Planting",
+        irrigation         = "Irrigation",
+        field_maintenance  = "Field maintenance",
+        harvesting         = "Harvesting",
+        storage_work       = "Storage work",
+        indoor_work        = "Indoor work",
+        equipment_repair   = "Equipment repair",
+        equipment_maintenance = "Equipment maintenance",
+        planning           = "Planning",
+        lunch_break        = "Lunch break",
+        personal_time      = "Personal time",
+        sleeping           = "Sleeping",
+        sleep              = "Sleeping",
+        commute            = "Commuting",
+        commute_home       = "Heading home",
+        work_shift         = "Work shift",
+        free_time          = "Free time",
+        breakfast          = "Breakfast",
+        chores             = "Chores",
+        lunch_social       = "Lunch",
+        leisure            = "Leisure time",
+        evening_activities = "Evening activities",
+        dinner_relax       = "Dinner & relaxing",
+        break_heat         = "Heat break",
+        evening_chores     = "Evening chores",
+        idle               = "Idle",
+    }
+    return names[activity] or activity
+end
+
+--- Build a short schedule summary for display in the NPC dialog.
+-- Shows the current time slot marked "NOW" plus the next two upcoming slots.
+-- @param npc  NPC data table
+-- @return string  Formatted multi-line schedule text
+function NPCScheduler:getScheduleSummary(npc)
+    local schedule = self:getScheduleForNPC(npc)
+    local title = g_i18n:getText("npc_schedule_title") or "My plans today:"
+    if not schedule then
+        return title
+    end
+
+    local hour = self.currentHour
+    local nowMarker = " " .. (g_i18n:getText("npc_schedule_now_marker") or "← NOW")
+
+    local function isCurrent(slot)
+        local e = slot["end"]
+        if slot.start < e then
+            return hour >= slot.start and hour < e
+        else
+            return hour >= slot.start or hour < e
+        end
+    end
+
+    local function isPast(slot)
+        if isCurrent(slot) then return false end
+        local e = slot["end"]
+        if slot.start < e then
+            return hour >= e
+        else
+            -- Overnight slot: past only if we are between its end and its start
+            return hour >= e and hour < slot.start
+        end
+    end
+
+    local lines = {}
+    for _, slot in ipairs(schedule) do
+        if not isPast(slot) and #lines < 3 then
+            local name = self:getActivityDisplayName(slot.activity)
+            local marker = isCurrent(slot) and nowMarker or ""
+            table.insert(lines, string.format("%02d:00  %s%s", slot.start, name, marker))
+        end
+    end
+
+    if #lines == 0 then
+        return title
+    end
+    return title .. "\n" .. table.concat(lines, "\n")
 end
 
 
