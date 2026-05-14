@@ -207,27 +207,30 @@ function NPCDialog:updateButtonStates()
             favorText = g_i18n:getText("npc_dialog_btn_favor_accept") or "Accept Favor"
         elseif sys.getActiveFavorForNPC then
             local active = sys:getActiveFavorForNPC(npc.id)
-            if active then
-                if active.awaitingConfirmation then
-                    favorText = g_i18n:getText("npc_dialog_btn_favor_complete") or "Complete Favor"
-                else
-                    -- Check if the current active step is a loan repay step
-                    local onLoanRepay = false
-                    if active.type == "loan_money" and active.steps then
-                        for _, step in ipairs(active.steps) do
-                            if not step.completed and step.isLoanRepayStep then
-                                onLoanRepay = true
-                                local loanAmt = (active.taskData and active.taskData.loanAmount) or 5000
-                                favorText = string.format(
-                                    g_i18n:getText("npc_favor_loan_repay_btn") or "Repay Loan ($%d)",
-                                    loanAmt)
+            if active and active.steps then
+                local readyStep = nil
+                for _, step in ipairs(active.steps) do
+                    if not step.completed and (step.isDialogStep or step.isLoanRepayStep) then
+                        local priorDone = true
+                        for _, s2 in ipairs(active.steps) do
+                            if s2.id < step.id and not s2.completed then
+                                priorDone = false
                                 break
                             end
                         end
+                        if priorDone then
+                            readyStep = step
+                            break
+                        end
                     end
-                    if not onLoanRepay then
-                        favorText = g_i18n:getText("npc_dialog_btn_favor_progress") or "Check progress"
-                    end
+                end
+                if readyStep and readyStep.isLoanRepayStep then
+                    local loanAmt = (active.taskData and active.taskData.loanAmount) or 5000
+                    favorText = string.format(g_i18n:getText("npc_favor_loan_repay_btn") or "Collect Repayment ($%d)", loanAmt)
+                elseif readyStep then
+                    favorText = g_i18n:getText("npc_dialog_btn_favor_complete") or "Complete favor"
+                else
+                    favorText = g_i18n:getText("npc_dialog_btn_favor_progress") or "Check favor progress"
                 end
             end
         end
@@ -459,7 +462,47 @@ function NPCDialog:onClickFavor()
         end
     end
 
-    -- 2c) Generic active / in-progress favor — show next step
+    -- 2c) Dialog-step or loan-repay step ready to be completed via dialog
+    if active and active.steps then
+        local readyStep = nil
+        for _, step in ipairs(active.steps) do
+            if not step.completed and (step.isDialogStep or step.isLoanRepayStep) then
+                local priorDone = true
+                for _, s2 in ipairs(active.steps) do
+                    if s2.id < step.id and not s2.completed then
+                        priorDone = false
+                        break
+                    end
+                end
+                if priorDone then
+                    readyStep = step
+                    break
+                end
+            end
+        end
+        if readyStep then
+            if readyStep.isLoanRepayStep then
+                local loanAmount = (active.taskData and active.taskData.loanAmount) or 5000
+                local farmId = g_currentMission.player and g_currentMission.player.farmId
+                if farmId then
+                    g_currentMission:addMoney(loanAmount, farmId, MoneyType.OTHER, true)
+                end
+                readyStep.completed = true
+                sys:completeFavor(active.id)
+                self:setResponse(string.format(
+                    "%s: \"Here's your $%d back — and a little extra for your trouble!\"",
+                    self.npc.name, loanAmount))
+            else
+                readyStep.completed = true
+                sys:completeFavor(active.id)
+                self:setResponse(self.npc.name .. ": \"" .. (g_i18n:getText("npc_dialog_favor_completed_confirm") or "Thanks so much for your help! Here's your reward.") .. "\"")
+            end
+            self:updateButtonStates()
+            return
+        end
+    end
+
+    -- 2d) Generic active / in-progress favor — show next step
     if active then
         local progress = active.progress or 0
         self:setResponse(string.format(

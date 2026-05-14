@@ -711,7 +711,6 @@ function NPCFavorSystem:generateFavorSteps(favorType, npc)
     end
 
     if favorType.id == "borrow_tractor" then
-        -- Step 2 uses field center if available, else a random offset from home
         local fieldPos = (npc.assignedField and npc.assignedField.center) or {
             x = home.x + math.random(60, 120) * (math.random(2) == 1 and 1 or -1),
             y = home.y,
@@ -812,29 +811,19 @@ function NPCFavorSystem:generateFavorSteps(favorType, npc)
         }
 
     elseif favorType.id == "watch_property" then
-        -- 4 patrol points in a loose square around the property (~35m from home)
-        local p1 = {x = home.x + 35, y = home.y, z = home.z + 35}
-        local p2 = {x = home.x - 35, y = home.y, z = home.z + 35}
-        local p3 = {x = home.x - 35, y = home.y, z = home.z - 35}
-        local p4 = {x = home.x + 35, y = home.y, z = home.z - 35}
         steps = {
-            {id = 1, description = "Go to NPC's farm to start watching", completed = false, location = home},
-            {id = 2, description = "Patrol the property (0/3 checked)", completed = false, location = home,
-                isPatrolStep = true,
-                patrolData = {required = 3, done = 0, positions = {p1, p2, p3, p4}, visited = {}}},
-            {id = 3, description = "Report back to NPC", completed = false, location = home,
-                requiresConfirmation = true}
+            {id = 1, description = "Go to NPC's property",              completed = false, location = home},
+            {id = 2, description = "Talk to NPC to complete the watch", completed = false, location = home, isDialogStep = true}
         }
 
     elseif favorType.id == "loan_money" then
         steps = {
             {id = 1, description = "Meet NPC at their farm to hand over the money", completed = false, location = home},
-            {id = 2, description = "Wait for NPC to repay the loan",                 completed = false, location = home,
+            {id = 2, description = "Wait for NPC to repay the loan",                completed = false, location = home,
                 isLoanRepayStep = true}
         }
 
     else
-        -- Default: meet at NPC's farm to complete the task
         steps = {
             {id = 1, description = "Complete the task at NPC's farm", completed = false, location = home}
         }
@@ -859,106 +848,18 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
         return
     end
     
-    -- Transport-type favor progress
-    if favor.location and favor.location.type == "transport" then
-        -- Check if player has reached start location
-        if not favor.progressDetails.reachedStart and favor.location.start then
-            local distance = VectorHelper.distance3D(
-                playerPos.x, playerPos.y, playerPos.z,
-                favor.location.start.x, favor.location.start.y, favor.location.start.z
-            )
-            
-            if distance < 30 then
-                favor.progressDetails.reachedStart = true
-                favor.progress = 33
-                
-                if self.npcSystem.favorHUD then
-                    self.npcSystem.favorHUD:flashFavor("Arrived at pickup location", {0.3, 0.8, 1, 1})
-                end
-            end
-        end
-        
-        -- Check if player has reached destination
-        if favor.progressDetails.reachedStart and not favor.progressDetails.reachedDestination 
-           and favor.location.destination then
-            
-            local distance = VectorHelper.distance3D(
-                playerPos.x, playerPos.y, playerPos.z,
-                favor.location.destination.x, favor.location.destination.y, favor.location.destination.z
-            )
-            
-            if distance < 30 then
-                favor.progressDetails.reachedDestination = true
-                favor.progress = 66
-                
-                if self.npcSystem.favorHUD then
-                    self.npcSystem.favorHUD:flashFavor("Arrived at destination", {0.3, 0.8, 1, 1})
-                end
-            end
-        end
-    end
-    
-    -- Multi-step favor progress (sequential: only check the first incomplete step)
+    -- Multi-step favor progress
     if favor.steps and #favor.steps > 0 then
-        -- Awaiting player confirmation in NPC dialog — suppress proximity checks
-        if favor.awaitingConfirmation then return end
-
         local completedSteps = 0
-        local activeStep = nil
 
         for _, step in ipairs(favor.steps) do
-            if step.completed then
-                completedSteps = completedSteps + 1
-            elseif activeStep == nil then
-                activeStep = step  -- first incomplete step
-            end
-        end
-
-        -- Only check the active (first incomplete) step
-        if activeStep and activeStep.location then
-
-            if activeStep.isLoanRepayStep then
-                -- Dialog-driven only — proximity cannot complete a loan repay step
-
-            elseif activeStep.isPatrolStep then
-                local pd = activeStep.patrolData
-                if pd then
-                    for i, pos in ipairs(pd.positions) do
-                        if not pd.visited[i] then
-                            local dist = VectorHelper.distance3D(
-                                playerPos.x, playerPos.y, playerPos.z,
-                                pos.x, pos.y or playerPos.y, pos.z)
-                            if dist < 30 then
-                                pd.visited[i] = true
-                                pd.done = pd.done + 1
-                                local patrolText = string.format(
-                                    g_i18n:getText("npc_favor_watch_patrol") or "Patrol the property (%d/%d checked)",
-                                    pd.done, pd.required)
-                                activeStep.description = patrolText
-                                if self.npcSystem.favorHUD then
-                                    self.npcSystem.favorHUD:flashFavor(patrolText, {0.3, 0.8, 1, 1})
-                                end
-                            end
-                        end
-                    end
-                    if pd.done >= pd.required then
-                        activeStep.completed = true
-                        completedSteps = completedSteps + 1
-                        if self.npcSystem.favorHUD then
-                            self.npcSystem.favorHUD:flashFavor("Property patrol complete!", {0.3, 0.8, 1, 1})
-                        end
-                    end
-                end
-
-            else
-                -- Normal proximity step
+            if not step.completed and not step.isDialogStep and not step.isLoanRepayStep and step.location then
                 local distance = VectorHelper.distance3D(
                     playerPos.x, playerPos.y, playerPos.z,
-                    activeStep.location.x or 0, activeStep.location.y or 0, activeStep.location.z or 0)
+                    step.location.x or 0, step.location.y or 0, step.location.z or 0)
 
                 if distance < 30 then
-                    -- Deduct loan on step-1 arrival for loan_money favors
-                    if favor.type == "loan_money" and activeStep.id == 1
+                    if favor.type == "loan_money" and step.id == 1
                         and not (favor.taskData and favor.taskData.loanAmountDeducted) then
                         local loanAmount = (favor.taskData and favor.taskData.loanAmount) or 5000
                         local farmId = g_currentMission.player and g_currentMission.player.farmId
@@ -968,15 +869,19 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
                         if favor.taskData then favor.taskData.loanAmountDeducted = true end
                     end
 
-                    activeStep.completed = true
-                    completedSteps = completedSteps + 1
+                    step.completed = true
 
-                    if self.npcSystem.favorHUD then
-                        self.npcSystem.favorHUD:flashFavor(
-                            string.format("Step %d: %s", activeStep.id, activeStep.description),
-                            {0.3, 0.8, 1, 1})
-                    end
+                    self:queueNotification(
+                        "Favor Progress",
+                        string.format("Step %d completed: %s", step.id, step.description),
+                        "favor_progress",
+                        3000
+                    )
                 end
+            end
+
+            if step.completed then
+                completedSteps = completedSteps + 1
             end
         end
 
@@ -986,21 +891,9 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
             favor.progress = newProgress
         end
 
-        -- Check if all steps are completed
-        if completedSteps == #favor.steps and favor.progress < 100 then
+        if completedSteps == #favor.steps then
             favor.progress = 100
-            local lastStep = favor.steps[#favor.steps]
-            if lastStep and lastStep.requiresConfirmation then
-                -- Pause here; player must press "Complete Favor" in NPC dialog
-                favor.awaitingConfirmation = true
-                if self.npcSystem.favorHUD then
-                    self.npcSystem.favorHUD:flashFavor(
-                        "Patrol done — talk to " .. (favor.npcName or "NPC") .. " to finish",
-                        {0.3, 1.0, 0.3, 1})
-                end
-            else
-                self:completeFavor(favor.id)
-            end
+            self:completeFavor(favor.id)
         end
     end
 end
