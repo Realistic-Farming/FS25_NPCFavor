@@ -2328,6 +2328,15 @@ function NPCSystem:update(dt)
             self:ejectPlayerFromNPCVehicles()
         end
 
+        -- Periodic auto-save (every 5 real minutes) to prevent data loss on crash
+        self.autoSaveTimer = (self.autoSaveTimer or 0) + dt
+        if self.autoSaveTimer >= 300 then
+            self.autoSaveTimer = 0
+            if g_currentMission and g_currentMission.missionInfo and self.isInitialized then
+                self:saveToXMLFile(g_currentMission.missionInfo)
+            end
+        end
+
         -- Bug 1 fix: orphan vehicle cleanup — remove vehicles whose NPC left DRIVING state
         -- after the async spawn completed (e.g. NPC went to sleep mid-commute).
         self.orphanCheckTimer = (self.orphanCheckTimer or 0) + dt
@@ -3342,6 +3351,21 @@ end
 
 local NPC_SAVE_FILE = "npc_favor.xml"
 local NPC_SAVE_ROOT = "npcFavor"
+local SAVE_SCHEMA_VERSION = "1.2.4"
+
+local function schemaVersionLessThan(a, b)
+    local function parts(v)
+        local t = {}
+        for n in v:gmatch("%d+") do t[#t+1] = tonumber(n) end
+        while #t < 3 do t[#t+1] = 0 end
+        return t
+    end
+    local pa, pb = parts(a), parts(b)
+    for i = 1, 3 do
+        if pa[i] ~= pb[i] then return pa[i] < pb[i] end
+    end
+    return false
+end
 
 --- Save all NPC state to XML file in savegame directory.
 -- Called from FSCareerMissionInfo.saveToXMLFile hook in main.lua.
@@ -3374,9 +3398,7 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
         return
     end
 
-    -- Save mod version for future migration
-    local saveVersion = (g_NPCFavorMod and g_NPCFavorMod.version) or "1.2.0.0"
-    xmlFile:setString(NPC_SAVE_ROOT .. "#version", saveVersion)
+    xmlFile:setString(NPC_SAVE_ROOT .. "#version", SAVE_SCHEMA_VERSION)
     xmlFile:setInt(NPC_SAVE_ROOT .. "#npcCount", self.npcCount)
 
     -- Save each NPC
@@ -3517,6 +3539,23 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
     end
 end
 
+function NPCSystem:migrateSaveData(xmlFile, fromVersion)
+    if not schemaVersionLessThan(fromVersion, SAVE_SCHEMA_VERSION) then
+        return
+    end
+
+    print(string.format("[NPC Favor] Migrating save from v%s to v%s", fromVersion, SAVE_SCHEMA_VERSION))
+
+    if fromVersion == "0.0.0.0" then
+        print("[NPC Favor] Legacy save detected (pre-versioned)")
+        self.legacySaveLoaded = true
+    end
+
+    if schemaVersionLessThan(fromVersion, "1.2.0") then
+        -- Future: backfill personality field if missing
+    end
+end
+
 --- Load saved NPC state from XML file, restoring relationships and positions.
 -- Called after initializeNPCs() in the delayed init updater.
 -- Matches saved NPCs to spawned NPCs by uniqueId or name.
@@ -3543,6 +3582,10 @@ function NPCSystem:loadFromXMLFile(missionInfo)
 
     if self.settings.debugMode then
         print(string.format("[NPC Favor] Loading save file v%s with %d NPCs", savedVersion, savedNpcCount))
+    end
+
+    if schemaVersionLessThan(savedVersion, SAVE_SCHEMA_VERSION) then
+        self:migrateSaveData(xmlFile, savedVersion)
     end
 
     -- Build lookup tables for matching saved NPCs to spawned ones

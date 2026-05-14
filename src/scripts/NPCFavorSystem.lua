@@ -36,6 +36,16 @@
 NPCFavorSystem = {}
 NPCFavorSystem_mt = Class(NPCFavorSystem)
 
+-- Per-personality category weight multipliers for favor type selection.
+-- Higher = that personality generates this category more often.
+NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS = {
+    generous    = {animal_care = 2.0, repair = 1.5, fieldwork = 1.2},
+    greedy      = {financial = 2.5, security = 1.8, delivery = 1.2},
+    friendly    = {fieldwork = 1.8, delivery = 1.4, animal_care = 1.5, transport = 1.2},
+    grumpy      = {repair = 1.6, security = 1.4, financial = 1.2},
+    hardworking = {fieldwork = 2.0, delivery = 1.8, transport = 1.5, repair = 1.2},
+}
+
 function NPCFavorSystem.new(npcSystem)
     local self = setmetatable({}, NPCFavorSystem_mt)
     
@@ -403,7 +413,11 @@ function NPCFavorSystem:generateFavorRequest()
             if timeSinceLastFavor > (24 * 60 * 60 * 1000) then -- More than 1 day
                 weight = weight * 1.5
             end
-            
+
+            local npcMemory = self:analyzeEncounterHistory(npc)
+            local memoryMod = npcMemory.memoryScore * 3
+            weight = math.max(1, weight + memoryMod)
+
             candidateWeights[npc.id] = weight
         end
     end
@@ -433,7 +447,18 @@ function NPCFavorSystem:generateFavorRequest()
     if not selectedNPC then
         selectedNPC = candidateNPCs[1] -- Fallback
     end
-    
+
+    local selectedMemory = self:analyzeEncounterHistory(selectedNPC)
+    local declineChance = 0.0
+    if selectedMemory.memoryScore < -0.5 then
+        declineChance = 0.15
+    elseif selectedMemory.memoryScore > 0.5 then
+        declineChance = -0.10
+    end
+    if declineChance > 0 and math.random() < declineChance then
+        return false
+    end
+
     -- Select favor type based on NPC and player capabilities
     local availableFavors = {}
     for _, favorType in ipairs(self.favorTypes) do
@@ -456,11 +481,11 @@ function NPCFavorSystem:generateFavorRequest()
             weight = weight + (favorType.difficulty * 0.5)
         end
         
-        -- Personality preferences
-        if selectedNPC.personality == "generous" and favorType.difficulty <= 1 then
-            weight = weight * 1.5
-        elseif selectedNPC.personality == "greedy" and favorType.difficulty >= 2 then
-            weight = weight * 1.5
+        -- Personality-preferred favor categories
+        local categoryBoost = NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS[selectedNPC.personality]
+        if categoryBoost then
+            local boost = categoryBoost[favorType.category]
+            if boost then weight = weight * boost end
         end
 
         -- 4j: Seasonal favor weighting
@@ -480,6 +505,9 @@ function NPCFavorSystem:generateFavorRequest()
                 weight = weight * 1.3  -- Summer: more social/delivery requests
             end
         end
+
+        local favorMemoryMod = selectedMemory.memoryScore * 3
+        weight = math.max(1, weight + favorMemoryMod)
 
         favorWeights[favorType.id] = weight
     end
@@ -666,60 +694,11 @@ function NPCFavorSystem:checkFavorRequirements(npc, favorType)
     end
     
     -- Check equipment requirements
-    if favorType.requirements.hasTractor then
-        local hasTractor = false
-        for _, vehicle in ipairs(npc.assignedVehicles) do
-            if vehicle.type == "tractor" then
-                hasTractor = true
-                break
-            end
-        end
-        if not hasTractor then
-            return false
-        end
-    end
-    
-    if favorType.requirements.hasHarvester then
-        local hasHarvester = false
-        for _, vehicle in ipairs(npc.assignedVehicles) do
-            if vehicle.type == "harvester" then
-                hasHarvester = true
-                break
-            end
-        end
-        if not hasHarvester then
-            return false
-        end
-    end
-    
-    if favorType.requirements.hasTrailer then
-        local hasTrailer = false
-        for _, vehicle in ipairs(npc.assignedVehicles) do
-            if vehicle.type == "trailer" then
-                hasTrailer = true
-                break
-            end
-        end
-        if not hasTrailer then
-            return false
-        end
-    end
-    
-    if favorType.requirements.hasTruck then
-        local hasTruck = false
-        for _, vehicle in ipairs(npc.assignedVehicles) do
-            if vehicle.type == "truck" then
-                hasTruck = true
-                break
-            end
-        end
-        if not hasTruck then
-            return false
-        end
-    end
-    
-    -- Add more requirement checks as needed
-    
+    -- Note: hasTractor / hasHarvester / hasTrailer / hasTruck requirements are intentionally
+    -- not enforced here. NPC vehicle props are not functional yet (see roadmap), so
+    -- npc.assignedVehicles is always empty and those checks would silently block three
+    -- favor types from ever generating. The relationship gate is sufficient for now.
+
     return true
 end
 
@@ -732,7 +711,6 @@ function NPCFavorSystem:generateFavorSteps(favorType, npc)
     end
 
     if favorType.id == "borrow_tractor" then
-        -- Step 2 uses field center if available, else a random offset from home
         local fieldPos = (npc.assignedField and npc.assignedField.center) or {
             x = home.x + math.random(60, 120) * (math.random(2) == 1 and 1 or -1),
             y = home.y,
@@ -833,29 +811,19 @@ function NPCFavorSystem:generateFavorSteps(favorType, npc)
         }
 
     elseif favorType.id == "watch_property" then
-        -- 4 patrol points in a loose square around the property (~35m from home)
-        local p1 = {x = home.x + 35, y = home.y, z = home.z + 35}
-        local p2 = {x = home.x - 35, y = home.y, z = home.z + 35}
-        local p3 = {x = home.x - 35, y = home.y, z = home.z - 35}
-        local p4 = {x = home.x + 35, y = home.y, z = home.z - 35}
         steps = {
-            {id = 1, description = "Go to NPC's farm to start watching", completed = false, location = home},
-            {id = 2, description = "Patrol the property (0/3 checked)", completed = false, location = home,
-                isPatrolStep = true,
-                patrolData = {required = 3, done = 0, positions = {p1, p2, p3, p4}, visited = {}}},
-            {id = 3, description = "Report back to NPC", completed = false, location = home,
-                requiresConfirmation = true}
+            {id = 1, description = "Go to NPC's property",              completed = false, location = home},
+            {id = 2, description = "Talk to NPC to complete the watch", completed = false, location = home, isDialogStep = true}
         }
 
     elseif favorType.id == "loan_money" then
         steps = {
             {id = 1, description = "Meet NPC at their farm to hand over the money", completed = false, location = home},
-            {id = 2, description = "Wait for NPC to repay the loan",                 completed = false, location = home,
+            {id = 2, description = "Wait for NPC to repay the loan",                completed = false, location = home,
                 isLoanRepayStep = true}
         }
 
     else
-        -- Default: meet at NPC's farm to complete the task
         steps = {
             {id = 1, description = "Complete the task at NPC's farm", completed = false, location = home}
         }
@@ -880,106 +848,18 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
         return
     end
     
-    -- Transport-type favor progress
-    if favor.location and favor.location.type == "transport" then
-        -- Check if player has reached start location
-        if not favor.progressDetails.reachedStart and favor.location.start then
-            local distance = VectorHelper.distance3D(
-                playerPos.x, playerPos.y, playerPos.z,
-                favor.location.start.x, favor.location.start.y, favor.location.start.z
-            )
-            
-            if distance < 30 then
-                favor.progressDetails.reachedStart = true
-                favor.progress = 33
-                
-                if self.npcSystem.favorHUD then
-                    self.npcSystem.favorHUD:flashFavor("Arrived at pickup location", {0.3, 0.8, 1, 1})
-                end
-            end
-        end
-        
-        -- Check if player has reached destination
-        if favor.progressDetails.reachedStart and not favor.progressDetails.reachedDestination 
-           and favor.location.destination then
-            
-            local distance = VectorHelper.distance3D(
-                playerPos.x, playerPos.y, playerPos.z,
-                favor.location.destination.x, favor.location.destination.y, favor.location.destination.z
-            )
-            
-            if distance < 30 then
-                favor.progressDetails.reachedDestination = true
-                favor.progress = 66
-                
-                if self.npcSystem.favorHUD then
-                    self.npcSystem.favorHUD:flashFavor("Arrived at destination", {0.3, 0.8, 1, 1})
-                end
-            end
-        end
-    end
-    
-    -- Multi-step favor progress (sequential: only check the first incomplete step)
+    -- Multi-step favor progress
     if favor.steps and #favor.steps > 0 then
-        -- Awaiting player confirmation in NPC dialog — suppress proximity checks
-        if favor.awaitingConfirmation then return end
-
         local completedSteps = 0
-        local activeStep = nil
 
         for _, step in ipairs(favor.steps) do
-            if step.completed then
-                completedSteps = completedSteps + 1
-            elseif activeStep == nil then
-                activeStep = step  -- first incomplete step
-            end
-        end
-
-        -- Only check the active (first incomplete) step
-        if activeStep and activeStep.location then
-
-            if activeStep.isLoanRepayStep then
-                -- Dialog-driven only — proximity cannot complete a loan repay step
-
-            elseif activeStep.isPatrolStep then
-                local pd = activeStep.patrolData
-                if pd then
-                    for i, pos in ipairs(pd.positions) do
-                        if not pd.visited[i] then
-                            local dist = VectorHelper.distance3D(
-                                playerPos.x, playerPos.y, playerPos.z,
-                                pos.x, pos.y or playerPos.y, pos.z)
-                            if dist < 30 then
-                                pd.visited[i] = true
-                                pd.done = pd.done + 1
-                                local patrolText = string.format(
-                                    g_i18n:getText("npc_favor_watch_patrol") or "Patrol the property (%d/%d checked)",
-                                    pd.done, pd.required)
-                                activeStep.description = patrolText
-                                if self.npcSystem.favorHUD then
-                                    self.npcSystem.favorHUD:flashFavor(patrolText, {0.3, 0.8, 1, 1})
-                                end
-                            end
-                        end
-                    end
-                    if pd.done >= pd.required then
-                        activeStep.completed = true
-                        completedSteps = completedSteps + 1
-                        if self.npcSystem.favorHUD then
-                            self.npcSystem.favorHUD:flashFavor("Property patrol complete!", {0.3, 0.8, 1, 1})
-                        end
-                    end
-                end
-
-            else
-                -- Normal proximity step
+            if not step.completed and not step.isDialogStep and not step.isLoanRepayStep and step.location then
                 local distance = VectorHelper.distance3D(
                     playerPos.x, playerPos.y, playerPos.z,
-                    activeStep.location.x or 0, activeStep.location.y or 0, activeStep.location.z or 0)
+                    step.location.x or 0, step.location.y or 0, step.location.z or 0)
 
                 if distance < 30 then
-                    -- Deduct loan on step-1 arrival for loan_money favors
-                    if favor.type == "loan_money" and activeStep.id == 1
+                    if favor.type == "loan_money" and step.id == 1
                         and not (favor.taskData and favor.taskData.loanAmountDeducted) then
                         local loanAmount = (favor.taskData and favor.taskData.loanAmount) or 5000
                         local farmId = g_currentMission.player and g_currentMission.player.farmId
@@ -989,15 +869,19 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
                         if favor.taskData then favor.taskData.loanAmountDeducted = true end
                     end
 
-                    activeStep.completed = true
-                    completedSteps = completedSteps + 1
+                    step.completed = true
 
-                    if self.npcSystem.favorHUD then
-                        self.npcSystem.favorHUD:flashFavor(
-                            string.format("Step %d: %s", activeStep.id, activeStep.description),
-                            {0.3, 0.8, 1, 1})
-                    end
+                    self:queueNotification(
+                        "Favor Progress",
+                        string.format("Step %d completed: %s", step.id, step.description),
+                        "favor_progress",
+                        3000
+                    )
                 end
+            end
+
+            if step.completed then
+                completedSteps = completedSteps + 1
             end
         end
 
@@ -1007,21 +891,9 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
             favor.progress = newProgress
         end
 
-        -- Check if all steps are completed
-        if completedSteps == #favor.steps and favor.progress < 100 then
+        if completedSteps == #favor.steps then
             favor.progress = 100
-            local lastStep = favor.steps[#favor.steps]
-            if lastStep and lastStep.requiresConfirmation then
-                -- Pause here; player must press "Complete Favor" in NPC dialog
-                favor.awaitingConfirmation = true
-                if self.npcSystem.favorHUD then
-                    self.npcSystem.favorHUD:flashFavor(
-                        "Patrol done — talk to " .. (favor.npcName or "NPC") .. " to finish",
-                        {0.3, 1.0, 0.3, 1})
-                end
-            else
-                self:completeFavor(favor.id)
-            end
+            self:completeFavor(favor.id)
         end
     end
 end
@@ -1396,12 +1268,29 @@ end
 -- Skips weighted NPC-selection and cooldown checks (player is talking to this NPC directly).
 -- @param npc  NPC data table
 -- @return favor table if created, nil if no eligible favor types
-function NPCFavorSystem:generateFavorForNPC(npc)
+-- Generates a favor for a specific NPC.
+-- playerInitiated: if true, the player offered help — applies personality decline chance,
+-- marks the favor, and adds a 15% reward bonus.
+-- Returns the created favor, or nil if the NPC already has one, has nothing eligible,
+-- or (when playerInitiated) the NPC declines.
+function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
     if not npc or not npc.isActive then return nil end
 
     -- If this NPC already has any favor (pending or active), don't create another
     for _, favor in ipairs(self.activeFavors) do
         if favor.npcId == npc.id then return nil end
+    end
+
+    -- Personality-based decline when player proactively offers
+    if playerInitiated then
+        local declineChance = 0
+        if npc.personality == "grumpy" then declineChance = 0.35
+        elseif npc.personality == "greedy" then declineChance = 0.10
+        elseif npc.personality == "generous" then declineChance = 0.05
+        end
+        if math.random() < declineChance then
+            return "declined"  -- sentinel: caller shows personality-flavored refusal
+        end
     end
 
     local available = {}
@@ -1412,9 +1301,36 @@ function NPCFavorSystem:generateFavorForNPC(npc)
     end
     if #available == 0 then return nil end
 
-    local selectedType = available[math.random(#available)]
+    -- Personality-weighted selection
+    local weights = {}
+    local totalWeight = 0
+    local categoryBoost = NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS[npc.personality] or {}
+    for _, ft in ipairs(available) do
+        local w = 10 - ft.difficulty
+        local boost = categoryBoost[ft.category]
+        if boost then w = w * boost end
+        weights[ft.id] = math.max(0.1, w)
+        totalWeight = totalWeight + weights[ft.id]
+    end
+
+    local roll = math.random() * totalWeight
+    local cum = 0
+    local selectedType = available[1]
+    for _, ft in ipairs(available) do
+        cum = cum + weights[ft.id]
+        if roll <= cum then selectedType = ft; break end
+    end
+
     local favor = self:createFavor(npc, selectedType.id)
     if favor then
+        if playerInitiated then
+            favor.playerInitiated = true
+            -- 15% reward bonus for player proactively offering help
+            if favor.reward then
+                favor.reward.relationship = math.ceil((favor.reward.relationship or 0) * 1.15)
+                favor.reward.money        = math.ceil((favor.reward.money or 0) * 1.15)
+            end
+        end
         table.insert(self.activeFavors, favor)
         local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
         npc.favorCooldown = cooldownDays * 300
@@ -1531,13 +1447,87 @@ function NPCFavorSystem:getNPCFromFavor(favorId)
     if not favor then
         return nil
     end
-    
+
     for _, npc in ipairs(self.npcSystem.activeNPCs) do
         if npc.id == favor.npcId then
             return npc
         end
     end
-    
+
     return nil
+end
+
+function NPCFavorSystem:analyzeEncounterHistory(npc)
+    local result = {
+        recentInteractionCount = 0,
+        giftCount = 0,
+        ignoredCount = 0,
+        completedFavorCount = 0,
+        failedFavorCount = 0,
+        averageTone = 0,
+        memoryScore = 0,
+    }
+
+    if not npc or not npc.encounters or #npc.encounters == 0 then
+        return result
+    end
+
+    local currentTime = (g_currentMission and g_currentMission.time) or 0
+    local sevenDaysMs = 7 * 24 * 60 * 60 * 1000
+    local totalTone = 0
+    local toneCount = 0
+    local weightedScore = 0
+    local totalWeight = 0
+
+    for i, enc in ipairs(npc.encounters) do
+        local age = currentTime - (enc.time or 0)
+        local recencyWeight = 1.0 / i
+
+        if age <= sevenDaysMs then
+            result.recentInteractionCount = result.recentInteractionCount + 1
+        end
+
+        local encType = enc.type or ""
+        if encType == "gift_given" then
+            result.giftCount = result.giftCount + 1
+        elseif encType == "favor_completed" then
+            result.completedFavorCount = result.completedFavorCount + 1
+        elseif encType == "favor_failed" then
+            result.failedFavorCount = result.failedFavorCount + 1
+        elseif encType == "ignored" then
+            result.ignoredCount = result.ignoredCount + 1
+        end
+
+        local sentiment = enc.sentiment or "neutral"
+        local toneValue = 0
+        if sentiment == "positive" then
+            toneValue = 1
+        elseif sentiment == "negative" then
+            toneValue = -1
+        end
+        totalTone = totalTone + toneValue
+        toneCount = toneCount + 1
+
+        local contribution = toneValue * recencyWeight
+        if encType == "gift_given" or encType == "favor_completed" then
+            contribution = contribution + (0.3 * recencyWeight)
+        elseif encType == "favor_failed" or encType == "ignored" then
+            contribution = contribution - (0.3 * recencyWeight)
+        end
+
+        weightedScore = weightedScore + contribution
+        totalWeight = totalWeight + recencyWeight
+    end
+
+    if toneCount > 0 then
+        result.averageTone = totalTone / toneCount
+    end
+
+    if totalWeight > 0 then
+        local raw = weightedScore / totalWeight
+        result.memoryScore = math.max(-1, math.min(1, raw))
+    end
+
+    return result
 end
 

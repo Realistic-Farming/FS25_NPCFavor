@@ -1,38 +1,22 @@
-name: Other / General
-description: "⚠️ NOT for bugs, crashes, or feature requests. Use this only for questions or topics that genuinely do not fit any other template."
-labels: ["question"]
+name: Other
+description: Something that doesn't fit the other templates.
+labels: ["needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        ## ⚠️ Read this before continuing
-
-        **This template is NOT for:**
-        - Bug reports → use the **Bug Report** template
-        - Crashes or errors → use the **Bug Report** template
-        - Mod conflicts → use the **Compatibility Report** template
-        - Feature ideas → use the **Feature Request** template
-
-        If you use this template for any of the above, the issue will be **closed and marked `wontfix` without response.**
-
-        This template is only for things that genuinely do not fit anywhere else — for example, questions about how a mechanic works, or clarifying documentation.
-
-        **If you have a question, consider opening a [Discussion](https://github.com/TheCodingDad-TisonK/FS25_NPCFavor/discussions) instead — you'll get a faster and more helpful response there.**
-
-  - type: checkboxes
-    id: confirm
-    attributes:
-      label: Confirmation
-      options:
-        - label: I have read the warning above and confirmed this is NOT a bug, crash, feature request, or mod conflict.
-          required: true
-        - label: I have checked existing issues and discussions and could not find an answer.
-          required: true
-
+        Use this for questions, general feedback, or anything that doesn't fit Bug Report, Compatibility Report, or Feature Request.
+        For questions only, consider [Discussions](https://github.com/TheCodingDad-TisonK/FS25_NPCFavor/discussions) instead.
   - type: textarea
-    id: topic
+    id: description
     attributes:
-      label: What do you want to discuss or ask?
+      label: What's on your mind?
       description: Be as specific as possible.
     validations:
       required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything Else?
+    validations:
+      required: false

@@ -207,34 +207,42 @@ function NPCDialog:updateButtonStates()
             favorText = g_i18n:getText("npc_dialog_btn_favor_accept") or "Accept Favor"
         elseif sys.getActiveFavorForNPC then
             local active = sys:getActiveFavorForNPC(npc.id)
-            if active then
-                if active.awaitingConfirmation then
-                    favorText = g_i18n:getText("npc_dialog_btn_favor_complete") or "Complete Favor"
-                else
-                    -- Check if the current active step is a loan repay step
-                    local onLoanRepay = false
-                    if active.type == "loan_money" and active.steps then
-                        for _, step in ipairs(active.steps) do
-                            if not step.completed and step.isLoanRepayStep then
-                                onLoanRepay = true
-                                local loanAmt = (active.taskData and active.taskData.loanAmount) or 5000
-                                favorText = string.format(
-                                    g_i18n:getText("npc_favor_loan_repay_btn") or "Repay Loan ($%d)",
-                                    loanAmt)
+            if active and active.steps then
+                local readyStep = nil
+                for _, step in ipairs(active.steps) do
+                    if not step.completed and (step.isDialogStep or step.isLoanRepayStep) then
+                        local priorDone = true
+                        for _, s2 in ipairs(active.steps) do
+                            if s2.id < step.id and not s2.completed then
+                                priorDone = false
                                 break
                             end
                         end
+                        if priorDone then
+                            readyStep = step
+                            break
+                        end
                     end
-                    if not onLoanRepay then
-                        favorText = g_i18n:getText("npc_dialog_btn_favor_progress") or "Check progress"
-                    end
+                end
+                if readyStep and readyStep.isLoanRepayStep then
+                    local loanAmt = (active.taskData and active.taskData.loanAmount) or 5000
+                    favorText = string.format(g_i18n:getText("npc_favor_loan_repay_btn") or "Collect Repayment ($%d)", loanAmt)
+                elseif readyStep then
+                    favorText = g_i18n:getText("npc_dialog_btn_favor_complete") or "Complete favor"
+                else
+                    favorText = g_i18n:getText("npc_dialog_btn_favor_progress") or "Check favor progress"
                 end
             end
         end
     end
 
+    -- No active or pending favor — show "Offer help" to let player initiate
+    if favorEnabled and favorText == (g_i18n:getText("npc_dialog_btn_favor") or "Ask for favor") then
+        favorText = g_i18n:getText("npc_dialog_btn_offer_help") or "Offer help"
+    end
+
     if not favorEnabled then
-        favorText = g_i18n:getText("npc_dialog_btn_favor_locked") or "Ask for favor (need Neutral 25+)"
+        favorText = g_i18n:getText("npc_dialog_btn_favor_locked") or "Offer help (need Neutral 25+)"
     end
     self:setButtonEnabled("Favor", favorEnabled, favorText)
 
@@ -325,6 +333,19 @@ function NPCDialog:onClickTalk()
 
     local topic = self.npcSystem.interactionUI:getRandomConversationTopic(self.npc)
 
+    local tonePrefix = ""
+    if self.npcSystem.favorSystem then
+        local memory = self.npcSystem.favorSystem:analyzeEncounterHistory(self.npc)
+        local score = memory.memoryScore
+        if score > 0.6 then
+            tonePrefix = "It's always good to see you. "
+        elseif score < -0.6 then
+            tonePrefix = "Hmm. You again. "
+        elseif score < -0.2 then
+            tonePrefix = "Oh. Hi. "
+        end
+    end
+
     if self.npcSystem.relationshipManager then
         local success = self.npcSystem.relationshipManager:updateRelationship(self.npc.id, 1, "daily_interaction")
         if success then
@@ -332,13 +353,12 @@ function NPCDialog:onClickTalk()
             if info then
                 self.npc.relationship = info.value
             end
-            self:setResponse(self.npc.name .. ": \"" .. topic .. "\"")
+            self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"")
         else
-            -- Daily limit reached — still show topic but no relationship gain
-            self:setResponse(self.npc.name .. ": \"" .. topic .. "\"\n(Already chatted today — no relationship change)")
+            self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"\n(Already chatted today — no relationship change)")
         end
     else
-        self:setResponse(self.npc.name .. ": \"" .. topic .. "\"")
+        self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"")
     end
 
     self:updateDisplay()
@@ -442,7 +462,47 @@ function NPCDialog:onClickFavor()
         end
     end
 
-    -- 2c) Generic active / in-progress favor — show next step
+    -- 2c) Dialog-step or loan-repay step ready to be completed via dialog
+    if active and active.steps then
+        local readyStep = nil
+        for _, step in ipairs(active.steps) do
+            if not step.completed and (step.isDialogStep or step.isLoanRepayStep) then
+                local priorDone = true
+                for _, s2 in ipairs(active.steps) do
+                    if s2.id < step.id and not s2.completed then
+                        priorDone = false
+                        break
+                    end
+                end
+                if priorDone then
+                    readyStep = step
+                    break
+                end
+            end
+        end
+        if readyStep then
+            if readyStep.isLoanRepayStep then
+                local loanAmount = (active.taskData and active.taskData.loanAmount) or 5000
+                local farmId = g_currentMission.player and g_currentMission.player.farmId
+                if farmId then
+                    g_currentMission:addMoney(loanAmount, farmId, MoneyType.OTHER, true)
+                end
+                readyStep.completed = true
+                sys:completeFavor(active.id)
+                self:setResponse(string.format(
+                    "%s: \"Here's your $%d back — and a little extra for your trouble!\"",
+                    self.npc.name, loanAmount))
+            else
+                readyStep.completed = true
+                sys:completeFavor(active.id)
+                self:setResponse(self.npc.name .. ": \"" .. (g_i18n:getText("npc_dialog_favor_completed_confirm") or "Thanks so much for your help! Here's your reward.") .. "\"")
+            end
+            self:updateButtonStates()
+            return
+        end
+    end
+
+    -- 2d) Generic active / in-progress favor — show next step
     if active then
         local progress = active.progress or 0
         self:setResponse(string.format(
@@ -452,17 +512,42 @@ function NPCDialog:onClickFavor()
         return
     end
 
-    -- 3) No favor yet — generate one specifically for this NPC and accept it immediately
-    local newFavor = sys:generateFavorForNPC(self.npc)
-    if newFavor then
-        sys:acceptFavorForNPC(self.npc.id)  -- pending → active, sets startTime
-        self:setResponse(string.format(
-            "%s: \"Could you help me? %s — First: %s\"",
-            self.npc.name,
-            newFavor.description or "",
-            stepSummary(newFavor)))
+    -- 3) No favor — player offers help. Generate a favor with personality-aware decline chance.
+    local personality = self.npc.personality or "friendly"
+    local result = sys:generateFavorForNPC(self.npc, true)
+
+    if result == "declined" then
+        -- Personality-flavored refusal
+        local refusals = {
+            grumpy      = "I don't need your help. I manage fine on my own.",
+            greedy      = "Hmm... I'll pass for now. Come back when I have something worth your time.",
+            generous    = "That's very kind, but I'm all sorted today. Maybe another time!",
+            friendly    = "Oh! Thanks for offering — I'm good for now, but I'll remember this!",
+            hardworking = "Appreciate it, but I've got everything under control.",
+        }
+        local msg = refusals[personality] or "I'm alright for now, but thank you."
+        self:setResponse(self.npc.name .. ": \"" .. msg .. "\"")
+
+    elseif result then
+        -- Personality-flavored acceptance
+        local acceptances = {
+            grumpy      = "Fine. I suppose I could use a hand. Don't make a mess of it. First: %s",
+            greedy      = "Well, since you're offering... %s. And don't expect a small reward.",
+            generous    = "Oh, that's so thoughtful of you! I'd love the help. First: %s",
+            friendly    = "Really? That's amazing, thank you! Let's start with: %s",
+            hardworking = "Good timing — I could use the extra hands. Here's what needs doing: %s",
+        }
+        local template = acceptances[personality] or "Yes, I could use help! First: %s"
+        local responseText = string.format(self.npc.name .. ": \"" .. template .. "\"", stepSummary(result))
+        if self.npcSystem.favorSystem then
+            local memory = self.npcSystem.favorSystem:analyzeEncounterHistory(self.npc)
+            if memory.completedFavorCount >= 3 then
+                responseText = responseText .. " You've helped before — I trust you'll come through again."
+            end
+        end
+        self:setResponse(responseText)
     else
-        self:setResponse(self.npc.name .. ": \"I don't need anything right now, but thanks for asking!\"")
+        self:setResponse(self.npc.name .. ": \"I don't need anything right now — but thanks for asking!\"")
     end
 
     self:updateButtonStates()

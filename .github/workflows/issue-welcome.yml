@@ -28,22 +28,22 @@ jobs:
           script: |
             const author = context.payload.issue.user.login;
             const repoName = context.repo.repo;
-            const modName = repoName.replace('FS25_', '').replace(/([A-Z])/g, ' $1').trim();
 
             const body = [
-              `Hey @${author}, thanks for opening this issue! 👋`,
+              `Hey @${author}, welcome to the village! 🏡`,
               ``,
-              `@TheCodingDad-TisonK has been notified and will take a look as soon as possible.`,
+              `Thanks for opening this issue — the neighbors have been notified. @TheCodingDad-TisonK will stop by as soon as possible.`,
               ``,
-              `**While you wait, please double-check the following:**`,
+              `**While you wait, please make sure you've included:**`,
               ``,
-              `- [ ] You are running the latest version of ${modName} (visible in the mod manager)`,
-              `- [ ] Your issue includes relevant lines from \`log.txt\``,
+              `- [ ] You are running the latest version of NPC Favor (visible in the mod manager)`,
+              `- [ ] Your issue includes the relevant \`[NPC Favor]\` lines from \`log.txt\``,
               `  - Log location: \`Documents/My Games/FarmingSimulator2025/log.txt\``,
-              `  - Search for \`[${modName}]\` — paste the relevant section in your issue`,
-              `- [ ] You have searched [existing issues](https://github.com/${context.repo.owner}/${repoName}/issues) for a similar report`,
+              `  - Search for \`[NPC Favor]\` and paste the relevant section here`,
+              `- [ ] If this involves a specific NPC (Mia, Hans, etc.) — note their name and what quest or interaction triggered the problem`,
+              `- [ ] You have searched [existing issues](https://github.com/${context.repo.owner}/${repoName}/issues) to avoid duplicates`,
               ``,
-              `> **Important:** If this issue is missing a log snippet, it may be closed without investigation. A log is almost always required to reproduce bugs.`,
+              `> **Note:** Issues without a log snippet are difficult to investigate and may be closed. A log is almost always required to reproduce bugs.`,
             ].join('\n');
 
             await github.rest.issues.createComment({
