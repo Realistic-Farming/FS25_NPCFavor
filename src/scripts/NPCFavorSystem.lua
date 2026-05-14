@@ -46,6 +46,15 @@ NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS = {
     hardworking = {fieldwork = 2.0, delivery = 1.8, transport = 1.5, repair = 1.2},
 }
 
+-- Per-role category weight multipliers — layered on top of personality weights.
+-- Shopkeepers skew toward delivery/social; farmhands toward fieldwork/equipment.
+NPCFavorSystem.ROLE_CATEGORY_WEIGHTS = {
+    farmer     = {fieldwork = 1.6, harvest = 1.5, equipment = 1.2, delivery = 1.0, repair = 1.1},
+    farmhand   = {fieldwork = 1.9, harvest = 1.7, equipment = 1.5, delivery = 1.2, repair = 1.3},
+    shopkeeper = {delivery = 1.8, financial = 1.6, social = 1.4, transport = 1.3, fieldwork = 0.5},
+    worker     = {repair = 1.7, equipment = 1.5, delivery = 1.3, fieldwork = 0.9, financial = 1.1},
+}
+
 function NPCFavorSystem.new(npcSystem)
     local self = setmetatable({}, NPCFavorSystem_mt)
     
@@ -485,6 +494,13 @@ function NPCFavorSystem:generateFavorRequest()
         local categoryBoost = NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS[selectedNPC.personality]
         if categoryBoost then
             local boost = categoryBoost[favorType.category]
+            if boost then weight = weight * boost end
+        end
+
+        -- Role-preferred favor categories (stacked on top of personality)
+        local roleBoost = NPCFavorSystem.ROLE_CATEGORY_WEIGHTS[selectedNPC.role]
+        if roleBoost then
+            local boost = roleBoost[favorType.category]
             if boost then weight = weight * boost end
         end
 
@@ -1301,14 +1317,17 @@ function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
     end
     if #available == 0 then return nil end
 
-    -- Personality-weighted selection
+    -- Personality + role weighted selection
     local weights = {}
     local totalWeight = 0
     local categoryBoost = NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS[npc.personality] or {}
+    local roleBoost = NPCFavorSystem.ROLE_CATEGORY_WEIGHTS[npc.role] or {}
     for _, ft in ipairs(available) do
         local w = 10 - ft.difficulty
-        local boost = categoryBoost[ft.category]
-        if boost then w = w * boost end
+        local pBoost = categoryBoost[ft.category]
+        if pBoost then w = w * pBoost end
+        local rBoost = roleBoost[ft.category]
+        if rBoost then w = w * rBoost end
         weights[ft.id] = math.max(0.1, w)
         totalWeight = totalWeight + weights[ft.id]
     end
@@ -1529,5 +1548,59 @@ function NPCFavorSystem:analyzeEncounterHistory(npc)
     end
 
     return result
+end
+
+--- Fire a context-driven favor request for a specific NPC, biased toward a category.
+-- Called by NPCScheduler on severe weather or other world events.
+-- @param npc      Target NPC (must be active and not already have a favor)
+-- @param context  String hint: "weather_emergency", "missed_delivery", or "equipment_failure"
+-- @return favor table or nil
+function NPCFavorSystem:triggerContextualFavor(npc, context)
+    if not npc or not npc.isActive then return nil end
+    if not self:canNPCRequestFavor(npc) then return nil end
+
+    -- Category bias by context
+    local urgentCategories = {
+        weather_emergency  = {"repair", "fieldwork", "animal_care"},
+        missed_delivery    = {"delivery", "transport"},
+        equipment_failure  = {"repair", "equipment"},
+    }
+    local biasCategories = urgentCategories[context] or {"repair"}
+
+    -- Build candidate list restricted to biased categories where possible
+    local preferred, fallback = {}, {}
+    for _, ft in ipairs(self.favorTypes) do
+        if self:checkFavorRequirements(npc, ft) then
+            local isPreferred = false
+            for _, cat in ipairs(biasCategories) do
+                if ft.category == cat then isPreferred = true; break end
+            end
+            if isPreferred then
+                table.insert(preferred, ft)
+            else
+                table.insert(fallback, ft)
+            end
+        end
+    end
+
+    local pool = #preferred > 0 and preferred or fallback
+    if #pool == 0 then return nil end
+
+    local selectedType = pool[math.random(#pool)]
+    local favor = self:createFavor(npc, selectedType.id)
+    if favor then
+        favor.isUrgent = true
+        favor.urgentContext = context
+        table.insert(self.activeFavors, favor)
+        local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
+        npc.favorCooldown = cooldownDays * 300
+        self.npcFavorCooldowns[npc.id] = npc.favorCooldown
+
+        if self.npcSystem.settings and self.npcSystem.settings.debugMode then
+            print(string.format("[NPC Favor] Contextual favor '%s' triggered for %s (context: %s)",
+                selectedType.id, npc.name, context))
+        end
+    end
+    return favor
 end
 

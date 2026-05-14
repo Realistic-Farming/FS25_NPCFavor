@@ -651,21 +651,32 @@ function NPCScheduler:getScheduleForNPC(npc)
     if not npc then
         return self.scheduleTemplates.farmer.spring
     end
-    
+
+    -- Role takes precedence over personality for schedule type.
+    -- Shopkeepers and generic workers use the worker (shift-based) template;
+    -- farmers and farmhands get the full seasonal farmer template.
     local npcType = "farmer"  -- Default
-    
-    if npc.personality == "worker" or npc.personality == "perfectionist" then
+
+    local role = npc.role or "farmer"
+    if role == "shopkeeper" or role == "worker" then
         npcType = "worker"
-    elseif npc.personality == "casual" or npc.personality == "lazy" then
-        npcType = "casual"
+    elseif role == "farmhand" or role == "farmer" then
+        npcType = "farmer"
+    else
+        -- Personality fallback when role is unrecognised
+        if npc.personality == "worker" or npc.personality == "perfectionist" then
+            npcType = "worker"
+        elseif npc.personality == "casual" or npc.personality == "lazy" then
+            npcType = "casual"
+        end
     end
-    
-    -- Get seasonal schedule for farmers
+
     if npcType == "farmer" then
         local season = self:getCurrentSeason()
         return self.scheduleTemplates.farmer[season] or self.scheduleTemplates.farmer.spring
     else
-        return self.scheduleTemplates[npcType].default
+        return self.scheduleTemplates[npcType] and self.scheduleTemplates[npcType].default
+            or self.scheduleTemplates.farmer.spring
     end
 end
 
@@ -931,8 +942,56 @@ function NPCScheduler:cleanupOldInteractions()
 end
 
 function NPCScheduler:updateWeatherEffects(dt)
-    -- This would integrate with the game's weather system
-    -- For now, it's a placeholder for future implementation
+    if not self.npcSystem or not self.npcSystem.favorSystem then return end
+    if not self.npcSystem.settings or not self.npcSystem.settings.enableFavors then return end
+
+    -- Accumulate time since last weather-triggered favor check
+    self._weatherCheckTimer = (self._weatherCheckTimer or 0) + dt
+    if self._weatherCheckTimer < 120 then return end  -- check every 2 real minutes
+    self._weatherCheckTimer = 0
+
+    local wf = self:getWeatherFactor()
+    -- Only trigger contextual favors during genuinely severe weather (wf < 0.5)
+    if wf >= 0.5 then return end
+
+    -- Don't spam — one weather-urgent favor per in-game day
+    local today = self.currentDay or 0
+    if self._lastWeatherFavorDay == today then return end
+
+    -- Find a candidate NPC (prefer farmers/farmhands who'd be most affected)
+    local candidates = {}
+    if self.npcSystem.activeNPCs then
+        for _, npc in ipairs(self.npcSystem.activeNPCs) do
+            if npc and npc.isActive and npc.favorCooldown <= 0 then
+                local role = npc.role or "farmer"
+                if role == "farmer" or role == "farmhand" then
+                    table.insert(candidates, npc)
+                end
+            end
+        end
+        -- Fall back to any available NPC if no farmers found
+        if #candidates == 0 then
+            for _, npc in ipairs(self.npcSystem.activeNPCs) do
+                if npc and npc.isActive and npc.favorCooldown <= 0 then
+                    table.insert(candidates, npc)
+                end
+            end
+        end
+    end
+
+    if #candidates == 0 then return end
+
+    local npc = candidates[math.random(#candidates)]
+    local favor = self.npcSystem.favorSystem:triggerContextualFavor(npc, "weather_emergency")
+    if favor then
+        self._lastWeatherFavorDay = today
+        if self.npcSystem.settings.showNotifications then
+            self.npcSystem:showNotification(
+                "Weather Emergency",
+                string.format("%s needs help — the weather is making things difficult!", npc.name)
+            )
+        end
+    end
 end
 
 function NPCScheduler:updateSeasonalSchedule(npc, month)

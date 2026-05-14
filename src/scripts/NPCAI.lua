@@ -2515,6 +2515,20 @@ function NPCAI:updateGatheringState(npc, dt)
         if math.abs(cdx) > 0.01 or math.abs(cdz) > 0.01 then
             npc.rotation.y = math.atan2(cdx, cdz)
         end
+
+        -- Periodic speech bubbles while standing in the group.
+        -- Each NPC has an independent staggered timer so they don't all
+        -- speak simultaneously. Initialised with a random offset on first use.
+        if npc.groupSpeechTimer == nil then
+            npc.groupSpeechTimer = math.random() * 12  -- stagger: 0-12s before first bubble
+        end
+        npc.groupSpeechTimer = npc.groupSpeechTimer + dt
+        if npc.groupSpeechTimer >= 14 then
+            npc.groupSpeechTimer = -(math.random() * 6)  -- reset with 0-6s extra gap
+            local partner = self:findNearestGatheringPartner(npc)
+            npc.greetingText = self:generateNPCConversationTopic(npc, partner or npc)
+            npc.greetingTimer = 4.0
+        end
     end
 
     -- Update gathering timer
@@ -2562,7 +2576,30 @@ function NPCAI:clearGatheringData(npc)
     npc.gatheringType = nil
     npc.gatheringTimer = nil
     npc.gatheringDuration = nil
-    npc.gatheringData = nil  -- Also clear Step 9 event gathering data
+    npc.gatheringData = nil
+    npc.groupSpeechTimer = nil
+end
+
+--- Find the nearest other NPC who is also in GATHERING state (a group-mate).
+-- Used to pick a "conversation partner" for speech bubble generation during group gatherings.
+-- @param npc  The NPC looking for a partner
+-- @return NPC table or nil
+function NPCAI:findNearestGatheringPartner(npc)
+    if not self.npcSystem or not self.npcSystem.activeNPCs then return nil end
+    local bestDist = 15
+    local bestPartner = nil
+    for _, other in ipairs(self.npcSystem.activeNPCs) do
+        if other ~= npc and other.isActive and other.aiState == self.STATES.GATHERING then
+            local dx = other.position.x - npc.position.x
+            local dz = other.position.z - npc.position.z
+            local dist = math.sqrt(dx * dx + dz * dz)
+            if dist < bestDist then
+                bestDist = dist
+                bestPartner = other
+            end
+        end
+    end
+    return bestPartner
 end
 
 --- Try to form a small chatting group of 3-4 NPCs (including the initiator).
