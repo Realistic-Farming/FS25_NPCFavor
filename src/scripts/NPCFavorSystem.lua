@@ -704,26 +704,26 @@ function NPCFavorSystem:generateFavorSteps(favorType, npc)
     if favorType.id == "borrow_tractor" then
         steps = {
             {id = 1, description = "Go to NPC's farm", completed = false, location = npc.homePosition},
-            {id = 2, description = "Find the tractor", completed = false, location = nil},
-            {id = 3, description = "Use tractor for a day", completed = false, location = nil},
-            {id = 4, description = "Return tractor", completed = false, location = npc.homePosition}
+            {id = 2, description = "Return tractor to NPC's farm", completed = false, location = npc.homePosition}
         }
     elseif favorType.id == "help_harvest" then
         steps = {
             {id = 1, description = "Go to the field", completed = false, location = npc.assignedField and npc.assignedField.center or npc.homePosition},
-            {id = 2, description = "Harvest the crops", completed = false, location = nil},
-            {id = 3, description = "Transport harvest to storage", completed = false, location = nil}
+            {id = 2, description = "Return to NPC's farm", completed = false, location = npc.homePosition}
         }
     elseif favorType.id == "transport_goods" then
         steps = {
             {id = 1, description = "Load goods at NPC's farm", completed = false, location = npc.homePosition},
-            {id = 2, description = "Transport to market", completed = false, location = self:findNearestSellPoint(npc.homePosition.x, npc.homePosition.z)},
-            {id = 3, description = "Sell goods", completed = false, location = nil}
+            {id = 2, description = "Transport to market", completed = false, location = self:findNearestSellPoint(npc.homePosition.x, npc.homePosition.z)}
+        }
+    elseif favorType.id == "watch_property" then
+        steps = {
+            {id = 1, description = "Go to NPC's property", completed = false, location = npc.homePosition},
+            {id = 2, description = "Patrol complete — talk to NPC to finish", completed = false, location = npc.homePosition, isDialogStep = true}
         }
     else
-        -- Default single step
         steps = {
-            {id = 1, description = "Complete the task", completed = false, location = nil}
+            {id = 1, description = "Go to NPC's farm", completed = false, location = npc.homePosition}
         }
     end
     
@@ -741,65 +741,20 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
         return
     end
     
-    -- Transport-type favor progress
-    if favor.location and favor.location.type == "transport" then
-        -- Check if player has reached start location
-        if not favor.progressDetails.reachedStart and favor.location.start then
-            local distance = VectorHelper.distance3D(
-                playerPos.x, playerPos.y, playerPos.z,
-                favor.location.start.x, favor.location.start.y, favor.location.start.z
-            )
-            
-            if distance < 30 then
-                favor.progressDetails.reachedStart = true
-                favor.progress = 33
-                
-                self:queueNotification(
-                    "Favor Progress",
-                    "You've arrived at the pickup location",
-                    "favor_progress",
-                    3000
-                )
-            end
-        end
-        
-        -- Check if player has reached destination
-        if favor.progressDetails.reachedStart and not favor.progressDetails.reachedDestination 
-           and favor.location.destination then
-            
-            local distance = VectorHelper.distance3D(
-                playerPos.x, playerPos.y, playerPos.z,
-                favor.location.destination.x, favor.location.destination.y, favor.location.destination.z
-            )
-            
-            if distance < 30 then
-                favor.progressDetails.reachedDestination = true
-                favor.progress = 66
-                
-                self:queueNotification(
-                    "Favor Progress",
-                    "You've arrived at the destination",
-                    "favor_progress",
-                    3000
-                )
-            end
-        end
-    end
-    
     -- Multi-step favor progress
     if favor.steps and #favor.steps > 0 then
         local completedSteps = 0
-        
+
         for _, step in ipairs(favor.steps) do
-            if not step.completed and step.location then
+            if not step.completed and not step.isDialogStep and step.location then
                 local distance = VectorHelper.distance3D(
                     playerPos.x, playerPos.y, playerPos.z,
                     step.location.x or 0, step.location.y or 0, step.location.z or 0
                 )
-                
+
                 if distance < 30 then
                     step.completed = true
-                    
+
                     self:queueNotification(
                         "Favor Progress",
                         string.format("Step %d completed: %s", step.id, step.description),
@@ -808,20 +763,20 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
                     )
                 end
             end
-            
+
             if step.completed then
                 completedSteps = completedSteps + 1
             end
         end
-        
+
         -- Update overall progress
         local newProgress = (completedSteps / #favor.steps) * 100
         if newProgress > favor.progress then
             favor.progress = newProgress
         end
-        
-        -- Check if all steps are completed
-        if completedSteps == #favor.steps and favor.progress < 100 then
+
+        -- Check if all steps are completed (dialog steps must be completed via dialog)
+        if completedSteps == #favor.steps then
             favor.progress = 100
             self:completeFavor(favor.id)
         end

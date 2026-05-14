@@ -205,7 +205,29 @@ function NPCDialog:updateButtonStates()
         local activeFavors = self.npcSystem.favorSystem:getActiveFavors()
         for _, favor in ipairs(activeFavors) do
             if favor.npcId == npc.id then
-                favorText = g_i18n:getText("npc_dialog_btn_favor_progress") or "Check favor progress"
+                local hasReadyDialogStep = false
+                if favor.steps then
+                    for _, step in ipairs(favor.steps) do
+                        if not step.completed and step.isDialogStep then
+                            local priorDone = true
+                            for _, s2 in ipairs(favor.steps) do
+                                if s2.id < step.id and not s2.completed then
+                                    priorDone = false
+                                    break
+                                end
+                            end
+                            if priorDone then
+                                hasReadyDialogStep = true
+                                break
+                            end
+                        end
+                    end
+                end
+                if hasReadyDialogStep then
+                    favorText = g_i18n:getText("npc_dialog_btn_favor_complete") or "Complete favor"
+                else
+                    favorText = g_i18n:getText("npc_dialog_btn_favor_progress") or "Check favor progress"
+                end
                 break
             end
         end
@@ -351,6 +373,35 @@ function NPCDialog:onClickFavor()
     end
 
     if activeFavor then
+        -- Check if there is a pending dialog-completion step ready to be finished
+        local pendingDialogStep = nil
+        if activeFavor.steps then
+            for _, step in ipairs(activeFavor.steps) do
+                if not step.completed and step.isDialogStep then
+                    -- Check all prior non-dialog steps are done
+                    local priorDone = true
+                    for _, s2 in ipairs(activeFavor.steps) do
+                        if s2.id < step.id and not s2.completed then
+                            priorDone = false
+                            break
+                        end
+                    end
+                    if priorDone then
+                        pendingDialogStep = step
+                        break
+                    end
+                end
+            end
+        end
+
+        if pendingDialogStep then
+            pendingDialogStep.completed = true
+            self.npcSystem.favorSystem:completeFavor(activeFavor.id)
+            self:setResponse(self.npc.name .. ": \"" .. (g_i18n:getText("npc_dialog_favor_completed_confirm") or "Thanks so much for your help! Here's your reward.") .. "\"")
+            self:updateButtonStates()
+            return
+        end
+
         local timeRemaining = activeFavor.timeRemaining or 0
         local hours = timeRemaining / (60 * 60 * 1000)
         local timeText
