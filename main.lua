@@ -63,6 +63,7 @@ if modDirectory then
     -- Configuration & settings
     source(modDirectory .. "src/settings/NPCConfig.lua")
     source(modDirectory .. "src/settings/NPCSettings.lua")
+    source(modDirectory .. "src/settings/NPCSettingsPanel.lua")
     source(modDirectory .. "src/settings/NPCSettingsIntegration.lua")
 
     -- Multiplayer events (must load before NPCSystem which references them)
@@ -315,9 +316,19 @@ end
 
 local npcInteractActionEventId = nil
 local npcInteractOriginalFunc = nil
-local favorMenuActionEventId = nil     -- NEW for F6
-local npcListActionEventId = nil       -- NEW for F7
-local hudEditModeActionEventId = nil   -- NEW for F8
+local favorMenuActionEventId = nil
+local npcListActionEventId = nil
+local hudEditModeActionEventId = nil
+local npcSettingsActionEventId = nil
+
+local function npcSettingsActionCallback(self, actionName, inputValue, callbackState, isAnalog)
+    if inputValue <= 0 then return end
+    if not npcSystem then return end
+    if g_gui and (g_gui:getIsGuiVisible() or g_gui:getIsDialogVisible()) then return end
+    if npcSystem.settingsPanel then
+        npcSystem.settingsPanel:toggle()
+    end
+end
 
 local function npcInteractActionCallback(self, actionName, inputValue, callbackState, isAnalog)
     if inputValue <= 0 then
@@ -503,6 +514,23 @@ local function hookNPCInteractInput()
                 end
             end
 
+            -- Register F5: NPC Settings Panel
+            local npcSettingsActionId = InputAction.NPC_SETTINGS
+            if npcSettingsActionId ~= nil then
+                local success, eventId = g_inputBinding:registerActionEvent(
+                    npcSettingsActionId,
+                    NPCSystem,
+                    npcSettingsActionCallback,
+                    false, true, false, false, nil, true
+                )
+                if success and eventId ~= nil then
+                    npcSettingsActionEventId = eventId
+                    g_inputBinding:setActionEventActive(eventId, true)
+                    g_inputBinding:setActionEventTextPriority(eventId, GS_PRIO_NORMAL)
+                    g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_NPC_SETTINGS") or "NPC Settings")
+                end
+            end
+
             -- Register Right-click: HUD Edit Mode
             local hudEditActionId = InputAction.HUD_EDIT_MODE
             if hudEditActionId ~= nil then
@@ -573,6 +601,15 @@ if FSBaseMission and FSBaseMission.update then
         end
     end)
 end
+
+-- Mouse listener: routes mouse events to the settings panel overlay
+local npcMouseHandler = {}
+function npcMouseHandler:mouseEvent(posX, posY, isDown, isUp, button, eventUsed)
+    if npcSystem and npcSystem.settingsPanel then
+        npcSystem.settingsPanel:onMouseEvent(posX, posY, isDown, isUp, button, eventUsed)
+    end
+end
+addModEventListener(npcMouseHandler)
 
 -- Multiplayer: send full NPC state + settings to newly joining players
 if FSBaseMission and FSBaseMission.sendInitialClientState then

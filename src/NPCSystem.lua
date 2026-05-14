@@ -224,6 +224,7 @@ function NPCSystem.new(mission, modDirectory, modName)
     self.interactionUI = NPCInteractionUI.new(self)
     self.favorHUD = NPCFavorHUD.new(self)
     self.settingsIntegration = NPCSettingsIntegration.new(self)
+    self.settingsPanel = NPCSettingsPanel.new(self.settings)
 
     self.fieldWork = NPCFieldWork.new()
     self.gui = NPCFavorGUI.new(self)
@@ -284,6 +285,9 @@ function NPCSystem:onMissionLoaded()
     
     if self.settingsIntegration and self.settingsIntegration.initialize then
         self.settingsIntegration:initialize()
+    end
+    if self.settingsPanel then
+        self.settingsPanel:initialize()
     end
 
     -- Load saved settings from disk
@@ -2441,6 +2445,11 @@ function NPCSystem:update(dt)
             self:checkPlayerProximity(npc)
         end
     end
+
+    -- Settings panel update (cursor + camera freeze while open)
+    if self.settingsPanel then
+        self.settingsPanel:update()
+    end
 end
 
 --- Draw loop, called every frame from FSBaseMission.draw.
@@ -2459,6 +2468,11 @@ function NPCSystem:draw()
     -- Moveable favor list HUD (replaces old interactionUI:drawFavorList)
     if self.favorHUD and self.favorHUD.draw then
         self.favorHUD:draw()
+    end
+
+    -- Custom settings panel (drawn on top of everything)
+    if self.settingsPanel then
+        self.settingsPanel:draw()
     end
 end
 
@@ -4278,5 +4292,9 @@ function NPCSystem:delete()
     end
     if self.contractorBridge then
         self.contractorBridge:delete()
+    end
+    if self.settingsPanel then
+        self.settingsPanel:delete()
+        self.settingsPanel = nil
     end
 end
