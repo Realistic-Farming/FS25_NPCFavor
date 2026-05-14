@@ -27,6 +27,8 @@
 -- FS25 NPC Favor Mod - Settings Data (NPCSettings)
 -- =========================================================
 
+local SETTINGS_SCHEMA_VERSION = "1.2.4"
+
 ---@class NPCSettings
 NPCSettings = {}
 local NPCSettings_mt = Class(NPCSettings)
@@ -142,6 +144,11 @@ function NPCSettings:load()
 
     print(string.format("[NPC Settings] Loading settings from %s", xmlPath))
 
+    local savedSchemaVersion = xml:getString("NPCSettings#schemaVersion", "0.0.0")
+    if savedSchemaVersion ~= SETTINGS_SCHEMA_VERSION then
+        print(string.format("[NPC Settings] Schema version mismatch: file=%s current=%s", savedSchemaVersion, SETTINGS_SCHEMA_VERSION))
+    end
+
     local function getBool(path, default) return xml:getBool("NPCSettings."..path, default) end
     local function getInt(path, default) return xml:getInt("NPCSettings."..path, default) end
     local function getFloat(path, default) return xml:getFloat("NPCSettings."..path, default) end
@@ -242,6 +249,8 @@ function NPCSettings:saveToXMLFile(missionInfo)
 
     local xml = XMLFile.create("npc_settings", xmlPath, "NPCSettings")
     if not xml then return end
+
+    xml:setString("NPCSettings#schemaVersion", SETTINGS_SCHEMA_VERSION)
 
     local function setBool(path, value) xml:setBool("NPCSettings."..path, value) end
     local function setInt(path, value) xml:setInt("NPCSettings."..path, value) end
