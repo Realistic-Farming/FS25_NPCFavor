@@ -233,8 +233,13 @@ function NPCDialog:updateButtonStates()
         end
     end
 
+    -- No active or pending favor — show "Offer help" to let player initiate
+    if favorEnabled and favorText == (g_i18n:getText("npc_dialog_btn_favor") or "Ask for favor") then
+        favorText = g_i18n:getText("npc_dialog_btn_offer_help") or "Offer help"
+    end
+
     if not favorEnabled then
-        favorText = g_i18n:getText("npc_dialog_btn_favor_locked") or "Ask for favor (need Neutral 25+)"
+        favorText = g_i18n:getText("npc_dialog_btn_favor_locked") or "Offer help (need Neutral 25+)"
     end
     self:setButtonEnabled("Favor", favorEnabled, favorText)
 
@@ -452,17 +457,37 @@ function NPCDialog:onClickFavor()
         return
     end
 
-    -- 3) No favor yet — generate one specifically for this NPC and accept it immediately
-    local newFavor = sys:generateFavorForNPC(self.npc)
-    if newFavor then
-        sys:acceptFavorForNPC(self.npc.id)  -- pending → active, sets startTime
+    -- 3) No favor — player offers help. Generate a favor with personality-aware decline chance.
+    local personality = self.npc.personality or "friendly"
+    local result = sys:generateFavorForNPC(self.npc, true)
+
+    if result == "declined" then
+        -- Personality-flavored refusal
+        local refusals = {
+            grumpy      = "I don't need your help. I manage fine on my own.",
+            greedy      = "Hmm... I'll pass for now. Come back when I have something worth your time.",
+            generous    = "That's very kind, but I'm all sorted today. Maybe another time!",
+            friendly    = "Oh! Thanks for offering — I'm good for now, but I'll remember this!",
+            hardworking = "Appreciate it, but I've got everything under control.",
+        }
+        local msg = refusals[personality] or "I'm alright for now, but thank you."
+        self:setResponse(self.npc.name .. ": \"" .. msg .. "\"")
+
+    elseif result then
+        -- Personality-flavored acceptance
+        local acceptances = {
+            grumpy      = "Fine. I suppose I could use a hand. Don't make a mess of it. First: %s",
+            greedy      = "Well, since you're offering... %s. And don't expect a small reward.",
+            generous    = "Oh, that's so thoughtful of you! I'd love the help. First: %s",
+            friendly    = "Really? That's amazing, thank you! Let's start with: %s",
+            hardworking = "Good timing — I could use the extra hands. Here's what needs doing: %s",
+        }
+        local template = acceptances[personality] or "Yes, I could use help! First: %s"
         self:setResponse(string.format(
-            "%s: \"Could you help me? %s — First: %s\"",
-            self.npc.name,
-            newFavor.description or "",
-            stepSummary(newFavor)))
+            self.npc.name .. ": \"" .. template .. "\"",
+            stepSummary(result)))
     else
-        self:setResponse(self.npc.name .. ": \"I don't need anything right now, but thanks for asking!\"")
+        self:setResponse(self.npc.name .. ": \"I don't need anything right now — but thanks for asking!\"")
     end
 
     self:updateButtonStates()

@@ -36,6 +36,16 @@
 NPCFavorSystem = {}
 NPCFavorSystem_mt = Class(NPCFavorSystem)
 
+-- Per-personality category weight multipliers for favor type selection.
+-- Higher = that personality generates this category more often.
+NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS = {
+    generous    = {animal_care = 2.0, repair = 1.5, fieldwork = 1.2},
+    greedy      = {financial = 2.5, security = 1.8, delivery = 1.2},
+    friendly    = {fieldwork = 1.8, delivery = 1.4, animal_care = 1.5, transport = 1.2},
+    grumpy      = {repair = 1.6, security = 1.4, financial = 1.2},
+    hardworking = {fieldwork = 2.0, delivery = 1.8, transport = 1.5, repair = 1.2},
+}
+
 function NPCFavorSystem.new(npcSystem)
     local self = setmetatable({}, NPCFavorSystem_mt)
     
@@ -456,11 +466,11 @@ function NPCFavorSystem:generateFavorRequest()
             weight = weight + (favorType.difficulty * 0.5)
         end
         
-        -- Personality preferences
-        if selectedNPC.personality == "generous" and favorType.difficulty <= 1 then
-            weight = weight * 1.5
-        elseif selectedNPC.personality == "greedy" and favorType.difficulty >= 2 then
-            weight = weight * 1.5
+        -- Personality-preferred favor categories
+        local categoryBoost = NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS[selectedNPC.personality]
+        if categoryBoost then
+            local boost = categoryBoost[favorType.category]
+            if boost then weight = weight * boost end
         end
 
         -- 4j: Seasonal favor weighting
@@ -666,60 +676,11 @@ function NPCFavorSystem:checkFavorRequirements(npc, favorType)
     end
     
     -- Check equipment requirements
-    if favorType.requirements.hasTractor then
-        local hasTractor = false
-        for _, vehicle in ipairs(npc.assignedVehicles) do
-            if vehicle.type == "tractor" then
-                hasTractor = true
-                break
-            end
-        end
-        if not hasTractor then
-            return false
-        end
-    end
-    
-    if favorType.requirements.hasHarvester then
-        local hasHarvester = false
-        for _, vehicle in ipairs(npc.assignedVehicles) do
-            if vehicle.type == "harvester" then
-                hasHarvester = true
-                break
-            end
-        end
-        if not hasHarvester then
-            return false
-        end
-    end
-    
-    if favorType.requirements.hasTrailer then
-        local hasTrailer = false
-        for _, vehicle in ipairs(npc.assignedVehicles) do
-            if vehicle.type == "trailer" then
-                hasTrailer = true
-                break
-            end
-        end
-        if not hasTrailer then
-            return false
-        end
-    end
-    
-    if favorType.requirements.hasTruck then
-        local hasTruck = false
-        for _, vehicle in ipairs(npc.assignedVehicles) do
-            if vehicle.type == "truck" then
-                hasTruck = true
-                break
-            end
-        end
-        if not hasTruck then
-            return false
-        end
-    end
-    
-    -- Add more requirement checks as needed
-    
+    -- Note: hasTractor / hasHarvester / hasTrailer / hasTruck requirements are intentionally
+    -- not enforced here. NPC vehicle props are not functional yet (see roadmap), so
+    -- npc.assignedVehicles is always empty and those checks would silently block three
+    -- favor types from ever generating. The relationship gate is sufficient for now.
+
     return true
 end
 
@@ -1396,12 +1357,29 @@ end
 -- Skips weighted NPC-selection and cooldown checks (player is talking to this NPC directly).
 -- @param npc  NPC data table
 -- @return favor table if created, nil if no eligible favor types
-function NPCFavorSystem:generateFavorForNPC(npc)
+-- Generates a favor for a specific NPC.
+-- playerInitiated: if true, the player offered help — applies personality decline chance,
+-- marks the favor, and adds a 15% reward bonus.
+-- Returns the created favor, or nil if the NPC already has one, has nothing eligible,
+-- or (when playerInitiated) the NPC declines.
+function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
     if not npc or not npc.isActive then return nil end
 
     -- If this NPC already has any favor (pending or active), don't create another
     for _, favor in ipairs(self.activeFavors) do
         if favor.npcId == npc.id then return nil end
+    end
+
+    -- Personality-based decline when player proactively offers
+    if playerInitiated then
+        local declineChance = 0
+        if npc.personality == "grumpy" then declineChance = 0.35
+        elseif npc.personality == "greedy" then declineChance = 0.10
+        elseif npc.personality == "generous" then declineChance = 0.05
+        end
+        if math.random() < declineChance then
+            return "declined"  -- sentinel: caller shows personality-flavored refusal
+        end
     end
 
     local available = {}
@@ -1412,9 +1390,36 @@ function NPCFavorSystem:generateFavorForNPC(npc)
     end
     if #available == 0 then return nil end
 
-    local selectedType = available[math.random(#available)]
+    -- Personality-weighted selection
+    local weights = {}
+    local totalWeight = 0
+    local categoryBoost = NPCFavorSystem.PERSONALITY_CATEGORY_WEIGHTS[npc.personality] or {}
+    for _, ft in ipairs(available) do
+        local w = 10 - ft.difficulty
+        local boost = categoryBoost[ft.category]
+        if boost then w = w * boost end
+        weights[ft.id] = math.max(0.1, w)
+        totalWeight = totalWeight + weights[ft.id]
+    end
+
+    local roll = math.random() * totalWeight
+    local cum = 0
+    local selectedType = available[1]
+    for _, ft in ipairs(available) do
+        cum = cum + weights[ft.id]
+        if roll <= cum then selectedType = ft; break end
+    end
+
     local favor = self:createFavor(npc, selectedType.id)
     if favor then
+        if playerInitiated then
+            favor.playerInitiated = true
+            -- 15% reward bonus for player proactively offering help
+            if favor.reward then
+                favor.reward.relationship = math.ceil((favor.reward.relationship or 0) * 1.15)
+                favor.reward.money        = math.ceil((favor.reward.money or 0) * 1.15)
+            end
+        end
         table.insert(self.activeFavors, favor)
         local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
         npc.favorCooldown = cooldownDays * 300

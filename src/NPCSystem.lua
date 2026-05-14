@@ -2328,6 +2328,15 @@ function NPCSystem:update(dt)
             self:ejectPlayerFromNPCVehicles()
         end
 
+        -- Periodic auto-save (every 5 real minutes) to prevent data loss on crash
+        self.autoSaveTimer = (self.autoSaveTimer or 0) + dt
+        if self.autoSaveTimer >= 300 then
+            self.autoSaveTimer = 0
+            if g_currentMission and g_currentMission.missionInfo and self.isInitialized then
+                self:saveToXMLFile(g_currentMission.missionInfo)
+            end
+        end
+
         -- Bug 1 fix: orphan vehicle cleanup — remove vehicles whose NPC left DRIVING state
         -- after the async spawn completed (e.g. NPC went to sleep mid-commute).
         self.orphanCheckTimer = (self.orphanCheckTimer or 0) + dt
