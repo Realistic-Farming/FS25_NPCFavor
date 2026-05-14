@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-05-13T18:50:47Z
-**Days tracked:** 43 | **Download snapshots:** 203 (hourly)
+**Last updated:** 2026-05-14T18:25:39Z
+**Days tracked:** 44 | **Download snapshots:** 206 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 485 | 155 |
-| Git Clones | 918 | 277 |
+| Page Views | 463 | 151 |
+| Git Clones | 908 | 271 |
 
-> **Engagement:** 3.1 pages per visitor (14-day avg)
+> **Engagement:** 3.0 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 725 of 155 visitors cloned or downloaded (**467.7%**)
+> **14-day conversion:** 721 of 151 visitors cloned or downloaded (**477.4%**)
 >
-> Unique cloners: 277 | Release downloads: 448
+> Unique cloners: 271 | Release downloads: 450
 
 ---
 
@@ -42,9 +42,9 @@
 
 | Channel | Count |
 |---------|-------|
-| Zip Downloads | 448 |
-| Git Clones (14-day) | 918 |
-| **Total Acquisitions** | **1366** |
+| Zip Downloads | 450 |
+| Git Clones (14-day) | 908 |
+| **Total Acquisitions** | **1358** |
 
 ---
 
@@ -54,9 +54,9 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 203 | 52 |
+| github.com | 193 | 50 |
 | kingmods.net | 74 | 28 |
-| Google | 51 | 30 |
+| Google | 48 | 28 |
 | Bing | 15 | 6 |
 | forbidden-mods.de | 5 | 3 |
 | chatgpt.com | 1 | 1 |
@@ -81,10 +81,10 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/TheCodingDad-TisonK/FS25_NPCFavor` | 307 | 137 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.3.0` | 34 | 17 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor` | 287 | 131 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.3.0` | 28 | 15 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.4.0` | 26 | 25 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/releases` | 22 | 17 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/releases` | 21 | 16 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/issues` | 14 | 12 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/wiki` | 14 | 11 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/tree/development` | 14 | 5 |
