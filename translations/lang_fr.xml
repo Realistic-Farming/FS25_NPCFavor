@@ -36,9 +36,9 @@
 		<text name="npc_favor_transport_goods" text="Transporter des marchandises au marché" />
 		<text name="npc_favor_fix_fence" text="Réparer la clôture cassée" />
 		<text name="npc_favor_deliver_seeds" text="Livrer des graines à ma ferme" />
-		<text name="npc_favor_water_animals" text="Water my animals" />
-		<text name="npc_favor_retrieve_equipment" text="Retrieve stuck equipment" />
-		<text name="npc_favor_pick_up_supplies" text="Pick up supplies for me" />
+		<text name="npc_favor_water_animals" text="Abreuver mes animaux" />
+        <text name="npc_favor_retrieve_equipment" text="Récupérer un équipement bloqué" />
+        <text name="npc_favor_pick_up_supplies" text="Récupérer des fournitures pour moi" />
 		<text name="npc_notification_favor_request" text="%s demande une faveur !" />
 		<text name="npc_notification_favor_completed" text="Vous avez aidé %s. Relation améliorée !" />
 		<text name="npc_notification_npc_working" text="%s travaille maintenant sur son champ" />
@@ -134,7 +134,7 @@
 		<text name="npc_allow_multi_favors_long" text="Permettre d'accepter plusieurs faveurs en même temps" />
 		<text name="npc_max_active_favors_short" text="Max faveurs actives" />
 		<text name="npc_max_active_favors_long" text="Nombre maximum de faveurs actives simultanément" />
-		<text name="npc_rel_decay_short" text="Déclin relation" />
+		<text name="npc_rel_decay_short" text="Déclin de relation" />
 		<text name="npc_rel_decay_long" text="Les relations diminuent lentement si elles ne sont pas entretenues" />
 		<text name="npc_favor_management_title" text="Faveurs actives (%d)" />
 		<text name="npc_favor_management_footer" text="Annuler la faveur réduit la relation de 10  |  Terminer pour finir manuellement" />
@@ -175,12 +175,12 @@
 		<text name="npc_hud_cancelled" text="Annulé: %s" />
 		<text name="npc_hud_perfect" text="Parfait! %s bonus!" />
 		<text name="npc_admin_col_personality" text="Personnalité" />
-		<text name="npc_favor_watch_property" text="Watch my property" />
-		<text name="npc_favor_loan_money" text="Loan me some money" />
-		<text name="npc_favor_watch_patrol" text="Patrol the property (%d/%d checked)" />
-		<text name="npc_favor_loan_repay_btn" text="Repay Loan ($%d)" />
-		<text name="npc_dialog_btn_favor_accept" text="Accept Favor" />
-		<text name="npc_dialog_btn_favor_complete" text="Complete Favor" />
-		<text name="npc_decay_warning" text="Relationship with %s will decay soon!" />
+		<text name="npc_favor_watch_property" text="Surveiller ma propriété" />
+        <text name="npc_favor_loan_money" text="Me prêter de l'argent" />
+        <text name="npc_favor_watch_patrol" text="Patrouiller la propriété (%d/%d vérifiés)" />
+        <text name="npc_favor_loan_repay_btn" text="Rembourser le prêt ($%d)" />
+        <text name="npc_dialog_btn_favor_accept" text="Accepter la faveur" />
+        <text name="npc_dialog_btn_favor_complete" text="Terminer la faveur" />
+        <text name="npc_decay_warning" text="La relation avec %s va bientôt se détériorer !" />
 	</texts>
 </l10n>
