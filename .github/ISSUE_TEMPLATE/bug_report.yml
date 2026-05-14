@@ -17,7 +17,7 @@ body:
     attributes:
       label: Mod Version
       description: Found in modDesc.xml or the in-game mod manager.
-      placeholder: "e.g. 1.2.2.6"
+      placeholder: "e.g. 1.2.0.0"
     validations:
       required: true
 
@@ -47,7 +47,7 @@ body:
     attributes:
       label: What happened?
       description: Describe the bug clearly. What did you see? What did you expect to see?
-      placeholder: "NPC relationship never increases even after completing favor quests."
+      placeholder: "Mia stopped responding to gift deliveries after completing the first quest. Her favor meter hasn't changed in several in-game days."
     validations:
       required: true
 
@@ -57,10 +57,10 @@ body:
       label: Steps to Reproduce
       description: Exact steps that trigger the bug. If you cannot reproduce it reliably, say so.
       placeholder: |
-        1. Start a new game on Elmcreek
-        2. Talk to an NPC and accept a favor quest
-        3. Complete the quest
-        4. Relationship level stays at 0
+        1. Start a save with NPCFavor active
+        2. Complete Mia's first quest (deliver grain)
+        3. Bring another gift the next day
+        4. No dialog appears, favor does not increase
     validations:
       required: true
 
@@ -73,8 +73,8 @@ body:
         If there are errors (lines containing "Error" or "attempt to"), include the full stack trace.
       render: text
       placeholder: |
-        [NPC Favor] Starting mod initialization...
-        [NPC Favor] NPC system initialized. NPCs spawned: 4
+        [NPC Favor] Initialized. NPCs loaded: 4
+        [NPC Favor] Mia: favor=0.42, questState=IDLE
         ...
     validations:
       required: true
@@ -84,7 +84,7 @@ body:
     attributes:
       label: Other Mods Loaded
       description: List any other mods active in this save. You can paste the mod list from the game's mod manager.
-      placeholder: "FS25_SeasonalCropStress, Courseplay, AutoDrive, ..."
+      placeholder: "FS25_SoilFertilizer, Courseplay, AutoDrive, ..."
     validations:
       required: true
 

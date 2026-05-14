@@ -40,7 +40,6 @@ jobs:
                 per_page: 100
               });
 
-              // Find when owner last replied
               const ownerAssociations = ['OWNER', 'MEMBER', 'COLLABORATOR'];
               const ownerComments = comments.data.filter(c =>
                 ownerAssociations.includes(c.author_association) && c.user.type !== 'Bot'
@@ -51,7 +50,6 @@ jobs:
               const age = now - lastOwnerReply;
               if (age < twentyFourHours) continue;
 
-              // Check if user replied after the owner's last comment
               const author = issue.user.login;
               const userRepliedAfter = comments.data.some(c =>
                 c.user.login === author &&
@@ -60,16 +58,17 @@ jobs:
               if (userRepliedAfter) continue;
 
               const closeBody = [
-                `Hey @${author} — this issue has been automatically closed because there was no follow-up within **24 hours** of the last response.`,
+                `Hey @${author} — it looks like the village has gone quiet on this one. This issue is being closed automatically because there was no follow-up within **24 hours** of the last response.`,
                 ``,
-                `This is not a rejection. If you still have the problem, please **reopen this issue** and include:`,
+                `This is not a rejection! If you still have the problem, please **reopen this issue** and include:`,
                 ``,
-                `- The relevant lines from your \`log.txt\``,
+                `- The relevant \`[NPC Favor]\` lines from your \`log.txt\``,
                 `  - Location: \`Documents/My Games/FarmingSimulator2025/log.txt\``,
                 `- Your mod version (visible in the mod manager)`,
+                `- Which NPC, quest, or interaction is involved`,
                 `- Steps to reproduce the issue`,
                 ``,
-                `We look forward to helping you once we have the details!`,
+                `The neighbors are always happy to help — we just need a little more detail!`,
               ].join('\n');
 
               await github.rest.issues.createComment({

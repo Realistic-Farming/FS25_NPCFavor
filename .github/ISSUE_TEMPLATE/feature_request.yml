@@ -8,14 +8,14 @@ body:
         **Before opening this request:**
         - Check the roadmap in the README — your idea may already be planned.
         - Check open issues to avoid duplicates.
-        - Keep requests scoped and specific. "Better NPCs" will be closed. "Show the relationship level as a number next to the NPC name in the interaction menu" is actionable.
+        - Keep requests scoped and specific. "Improve NPCs" will be closed. "Show NPC favor level as a number tooltip on the minimap icon" is actionable.
 
   - type: textarea
     id: problem
     attributes:
       label: What problem does this solve?
       description: Describe the situation or frustration this would address. Focus on the problem, not the solution.
-      placeholder: "I can't tell how close I am to the next relationship tier without guessing."
+      placeholder: "I never know if Hans is in a good mood before I drive all the way to his farm. There's no quick way to check favor levels without being near the NPC."
     validations:
       required: true
 
@@ -24,7 +24,7 @@ body:
     attributes:
       label: Proposed Solution
       description: Describe what you want to happen. Be specific about the behavior, not just the concept.
-      placeholder: "Display the current relationship value (e.g. 47/100) in the NPC interaction menu next to the NPC's name."
+      placeholder: "Add a small favor indicator to each NPC's map icon — green/yellow/red circle — so I can see their mood at a glance on the minimap."
     validations:
       required: true
 
@@ -41,11 +41,11 @@ body:
     attributes:
       label: Which part of the mod does this relate to?
       options:
-        - NPC System & Spawning
-        - Relationships & Favor Quests
-        - Dialog & Notifications
-        - NPC AI & Behavior
-        - Settings / Difficulty
+        - NPC Behavior
+        - Quest System
+        - Relationship Tracking
+        - Dialogue
+        - UI / HUD
         - Multiplayer
         - Mod Compatibility
         - Other
@@ -56,6 +56,6 @@ body:
     id: additional
     attributes:
       label: Anything Else?
-      description: Screenshots, mockups, or any extra context.
+      description: Screenshots, mockups, references to how other mods handle this, or any extra context.
     validations:
       required: false
