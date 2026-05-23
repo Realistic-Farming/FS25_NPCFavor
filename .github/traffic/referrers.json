@@ -2181,5 +2181,52 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-05-23": [
+    {
+      "referrer": "github.com",
+      "count": 190,
+      "uniques": 54
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 110,
+      "uniques": 44
+    },
+    {
+      "referrer": "Google",
+      "count": 29,
+      "uniques": 20
+    },
+    {
+      "referrer": "chatgpt.com",
+      "count": 3,
+      "uniques": 1
+    },
+    {
+      "referrer": "Bing",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "alice.yandex.ru",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "search.brave.com",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "yandex.com.tr",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "yandex.ru",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
