@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="105">
     <author>TisonK</author>
-    <version>1.2.5.0</version>
+    <version>1.2.5.1</version>
     <modName>FS25_NPCFavor</modName>
     <title>
         <en>NPC Favor - Living Neighborhood</en>
@@ -51,17 +51,9 @@
         <actionBinding action="NPC_INTERACT">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_e" />
         </actionBinding>
-        <actionBinding action="FAVOR_MENU">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_F6" />
-        </actionBinding>
-        <actionBinding action="NPC_LIST">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_F7" />
-        </actionBinding>
-        <actionBinding action="HUD_EDIT_MODE">
-            <binding device="KB_MOUSE_DEFAULT" input="MOUSE_BUTTON_RIGHT" />
-        </actionBinding>
-        <actionBinding action="NPC_SETTINGS">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_F5" />
-        </actionBinding>
+        <actionBinding action="FAVOR_MENU" />
+        <actionBinding action="NPC_LIST" />
+        <actionBinding action="HUD_EDIT_MODE" />
+        <actionBinding action="NPC_SETTINGS" />
     </inputBinding>
 </modDesc>
