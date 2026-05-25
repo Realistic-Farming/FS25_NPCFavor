@@ -9108,7 +9108,7 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-05-25T06:18:34Z",
+    "timestamp": "2026-05-25T18:19:18Z",
     "date": "2026-05-25",
     "views": {
       "count": 465,
@@ -9221,7 +9221,16 @@
       {
         "assets": [
           {
-            "downloads": 12,
+            "downloads": 8,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.5.2"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 15,
             "name": "FS25_NPCFavor.zip"
           }
         ],
