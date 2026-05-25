@@ -36,9 +36,9 @@
 		<text name="npc_favor_transport_goods" text="Waren zum Markt transportieren" />
 		<text name="npc_favor_fix_fence" text="Kaputten Zaun reparieren" />
 		<text name="npc_favor_deliver_seeds" text="Samen zu meiner Farm liefern" />
-		<text name="npc_favor_water_animals" text="Water my animals" />
-		<text name="npc_favor_retrieve_equipment" text="Retrieve stuck equipment" />
-		<text name="npc_favor_pick_up_supplies" text="Pick up supplies for me" />
+		<text name="npc_favor_water_animals" text="Meine Tiere tränken" />
+		<text name="npc_favor_retrieve_equipment" text="Feststeckendes Gerät bergen" />
+		<text name="npc_favor_pick_up_supplies" text="Vorräte für mich abholen" />
 		<text name="npc_notification_favor_request" text="%s bittet um einen Gefallen!" />
 		<text name="npc_notification_favor_completed" text="Du hast %s geholfen. Beziehung verbessert!" />
 		<text name="npc_notification_npc_working" text="%s arbeitet jetzt auf seinem Feld" />
@@ -143,7 +143,7 @@
 		<text name="button_complete" text="Abschließen" />
 		<text name="input_FAVOR_MENU" text="Gefallen-Menü" />
 		<text name="input_NPC_LIST" text="NPC-Liste" />
-			<text name="npc_schedule_plans" text="Meine Pläne:" />
+		<text name="npc_schedule_plans" text="Meine Pläne:" />
 		<text name="input_HUD_EDIT_MODE" text="HUD-Bearbeitung umschalten" />
 		<text name="npc_hud_drag_hint" text="Ziehen zum Verschieben | Ecken zum Skalieren" />
 		<text name="npc_hud_locked_short" text="Gefallen-HUD sperren" />
@@ -156,10 +156,10 @@
 		<text name="npc_admin_footer" text="Bearbeiten klicken, um NPC-Beziehungswerte anzupassen" />
 		<text name="npc_admin_edit_title" text="NPC bearbeiten: %s" />
 		<text name="npc_admin_relationship_label" text="Beziehung:" />
-		<text name="npc_admin_increase" text="Beziehung erhÃ¶hen" />
+		<text name="npc_admin_increase" text="Beziehung erhöhen" />
 		<text name="npc_admin_decrease" text="Beziehung verringern" />
 		<text name="npc_admin_adjusted" text="Angepasst: %s%d (jetzt %d/100)" />
-		<text name="npc_admin_back" text="ZurÃ¼ck" />
+		<text name="npc_admin_back" text="Zurück" />
 		<text name="npc_admin_edit" text="Bearb." />
 		<text name="npc_hud_compass_n" text="N" />
 		<text name="npc_hud_compass_ne" text="NO" />
@@ -174,108 +174,108 @@
 		<text name="npc_hud_failed" text="Fehlgeschlagen: %s" />
 		<text name="npc_hud_cancelled" text="Abgebrochen: %s" />
 		<text name="npc_hud_perfect" text="Perfekt! %s Bonus!" />
-		<text name="npc_admin_col_personality" text="PersÃ¶nlichkeit" />
-		<text name="npc_favor_watch_property" text="Watch my property" />
-		<text name="npc_favor_loan_money" text="Loan me some money" />
-		<text name="npc_favor_watch_patrol" text="Patrol the property (%d/%d checked)" />
-		<text name="npc_favor_loan_repay_btn" text="Repay Loan ($%d)" />
-		<text name="npc_dialog_btn_favor_accept" text="Accept Favor" />
-		<text name="npc_dialog_btn_favor_complete" text="Complete Favor" />
+		<text name="npc_admin_col_personality" text="Persönlichkeit" />
+		<text name="npc_favor_watch_property" text="Mein Grundstück bewachen" />
+		<text name="npc_favor_loan_money" text="Mir etwas Geld leihen" />
+		<text name="npc_favor_watch_patrol" text="Grundstück patrouillieren (%d/%d geprüft)" />
+		<text name="npc_favor_loan_repay_btn" text="Darlehen zurückzahlen (%d$)" />
+		<text name="npc_dialog_btn_favor_accept" text="Gefallen annehmen" />
+		<text name="npc_dialog_btn_favor_complete" text="Gefallen abschließen" />
 		<text name="npc_decay_warning" text="(Kein Gespräch seit %d Tagen — Beziehung gefährdet!)" />
-	
+
 		<!-- ===== Settings Panel (v1.2.5.0) ===== -->
 		<!-- Categories -->
-		<text name="npc_panel_cat_behavior"         text="NPC Behavior" />
-		<text name="npc_panel_cat_behavior_desc"    text="NPC scheduling, activity level and social drives" />
-		<text name="npc_panel_cat_display"          text="Display" />
-		<text name="npc_panel_cat_display_desc"     text="HUD elements, names and map markers" />
-		<text name="npc_panel_cat_gameplay"         text="Gameplay" />
-		<text name="npc_panel_cat_gameplay_desc"    text="Favors, gifts and relationship system" />
+		<text name="npc_panel_cat_behavior"         text="NPC-Verhalten" />
+		<text name="npc_panel_cat_behavior_desc"    text="NPC-Zeitplanung, Aktivitätsniveau und soziale Antriebe" />
+		<text name="npc_panel_cat_display"          text="Anzeige" />
+		<text name="npc_panel_cat_display_desc"     text="HUD-Elemente, Namen und Kartenmarkierungen" />
+		<text name="npc_panel_cat_gameplay"         text="Spielmechanik" />
+		<text name="npc_panel_cat_gameplay_desc"    text="Gefallen, Geschenke und Beziehungssystem" />
 		<!-- Section headers -->
-		<text name="npc_panel_hdr_core"             text="Core" />
-		<text name="npc_panel_hdr_schedule"         text="Schedule" />
-		<text name="npc_panel_hdr_social"           text="Social" />
+		<text name="npc_panel_hdr_core"             text="Kern" />
+		<text name="npc_panel_hdr_schedule"         text="Zeitplan" />
+		<text name="npc_panel_hdr_social"           text="Soziales" />
 		<text name="npc_panel_hdr_hud"              text="HUD" />
-		<text name="npc_panel_hdr_world"            text="World" />
-		<text name="npc_panel_hdr_favors"           text="Favors" />
-		<text name="npc_panel_hdr_relations"        text="Relations" />
-		<text name="npc_panel_hdr_admin_sys"        text="System Control" />
-		<text name="npc_panel_hdr_admin_actions"    text="Admin Actions" />
+		<text name="npc_panel_hdr_world"            text="Welt" />
+		<text name="npc_panel_hdr_favors"           text="Gefallen" />
+		<text name="npc_panel_hdr_relations"        text="Beziehungen" />
+		<text name="npc_panel_hdr_admin_sys"        text="Systemsteuerung" />
+		<text name="npc_panel_hdr_admin_actions"    text="Admin-Aktionen" />
 		<!-- UI strings -->
-		<text name="npc_panel_btn_back"             text="Back" />
-		<text name="npc_panel_btn_close_hint"       text="F5 to close" />
-		<text name="npc_panel_btn_open"             text="Open" />
-		<text name="npc_panel_btn_configure"        text="Configure" />
-		<text name="npc_panel_btn_reset"            text="Reset Category" />
-		<text name="npc_panel_admin_yes"            text="Admin: Yes" />
-		<text name="npc_panel_admin_no"             text="Admin: No" />
-		<text name="npc_panel_multiplayer"          text="Multiplayer" />
-		<text name="npc_panel_singleplayer"         text="Singleplayer" />
-		<text name="npc_panel_select_category"      text="Select a category to configure" />
-		<text name="npc_panel_admin_only"           text="Admin only - cannot change this setting" />
+		<text name="npc_panel_btn_back"             text="Zurück" />
+		<text name="npc_panel_btn_close_hint"       text="F5 zum Schließen" />
+		<text name="npc_panel_btn_open"             text="Öffnen" />
+		<text name="npc_panel_btn_configure"        text="Konfigurieren" />
+		<text name="npc_panel_btn_reset"            text="Kategorie zurücksetzen" />
+		<text name="npc_panel_admin_yes"            text="Admin: Ja" />
+		<text name="npc_panel_admin_no"             text="Admin: Nein" />
+		<text name="npc_panel_multiplayer"          text="Mehrspieler" />
+		<text name="npc_panel_singleplayer"         text="Einzelspieler" />
+		<text name="npc_panel_select_category"      text="Kategorie zum Konfigurieren auswählen" />
+		<text name="npc_panel_admin_only"           text="Nur Admin – diese Einstellung kann nicht geändert werden" />
 		<!-- Input action -->
-		<text name="input_NPC_SETTINGS"             text="NPC Settings" />
+		<text name="input_NPC_SETTINGS"             text="NPC-Einstellungen" />
 		<!-- Favor frequency options -->
-		<text name="npc_freq_1"                     text="Very Often" />
-		<text name="npc_freq_2"                     text="Often" />
+		<text name="npc_freq_1"                     text="Sehr oft" />
+		<text name="npc_freq_2"                     text="Oft" />
 		<text name="npc_freq_3"                     text="Normal" />
-		<text name="npc_freq_4"                     text="Rarely" />
-		<text name="npc_freq_5"                     text="Very Rarely" />
+		<text name="npc_freq_4"                     text="Selten" />
+		<text name="npc_freq_5"                     text="Sehr selten" />
 		<!-- Activity level options -->
-		<text name="npc_activity_low"               text="Low" />
+		<text name="npc_activity_low"               text="Niedrig" />
 		<text name="npc_activity_normal"            text="Normal" />
-		<text name="npc_activity_high"              text="High" />
+		<text name="npc_activity_high"              text="Hoch" />
 		<!-- Difficulty options -->
-		<text name="npc_diff_easy"                  text="Easy" />
+		<text name="npc_diff_easy"                  text="Einfach" />
 		<text name="npc_diff_normal"                text="Normal" />
-		<text name="npc_diff_hard"                  text="Hard" />
+		<text name="npc_diff_hard"                  text="Schwer" />
 		<!-- New setting labels -->
-		<text name="npc_favor_freq_short"           text="Favor Frequency" />
-		<text name="npc_work_start_short"           text="Work Day Start" />
-		<text name="npc_work_end_short"             text="Work Day End" />
-		<text name="npc_activity_level_short"       text="Activity Level" />
-		<text name="npc_socialize_short"            text="Enable Socializing" />
-		<text name="npc_help_player_short"          text="Offer Help to Player" />
-		<text name="npc_favor_time_limit_short"     text="Favor Time Limit" />
-		<text name="npc_favor_difficulty_short"     text="Favor Difficulty" />
-		<text name="npc_rel_system_short"           text="Relationship System" />
-		<text name="npc_show_paths_short"           text="Show NPC Paths" />
-		<text name="npc_show_ai_short"              text="AI Decisions" />
+		<text name="npc_favor_freq_short"           text="Gefallen-Häufigkeit" />
+		<text name="npc_work_start_short"           text="Arbeitstag-Beginn" />
+		<text name="npc_work_end_short"             text="Arbeitstag-Ende" />
+		<text name="npc_activity_level_short"       text="Aktivitätsniveau" />
+		<text name="npc_socialize_short"            text="Sozialisieren aktivieren" />
+		<text name="npc_help_player_short"          text="Spieler Hilfe anbieten" />
+		<text name="npc_favor_time_limit_short"     text="Gefallen-Zeitlimit" />
+		<text name="npc_favor_difficulty_short"     text="Gefallen-Schwierigkeit" />
+		<text name="npc_rel_system_short"           text="Beziehungssystem" />
+		<text name="npc_show_paths_short"           text="NPC-Pfade anzeigen" />
+		<text name="npc_show_ai_short"              text="KI-Entscheidungen" />
 		<!-- Setting descriptions -->
-		<text name="npc_desc_enabled"               text="Enable or disable the entire NPC system" />
-		<text name="npc_desc_maxNPCs"               text="Maximum active NPCs in the world" />
-		<text name="npc_desc_favorFrequency"        text="How often NPCs generate new favor requests" />
-		<text name="npc_desc_npcWorkStart"          text="Hour NPCs start their work day" />
-		<text name="npc_desc_npcWorkEnd"            text="Hour NPCs end their work day" />
-		<text name="npc_desc_npcActivityLevel"      text="Overall NPC movement and activity rate" />
-		<text name="npc_desc_npcSocialize"          text="NPCs interact with each other and the player" />
-		<text name="npc_desc_npcHelpPlayer"         text="NPCs may proactively offer to help the player" />
-		<text name="npc_desc_showFavorList"         text="Show active favors list on the HUD" />
-		<text name="npc_desc_favorHudScale"         text="Size of the favor list overlay" />
-		<text name="npc_desc_favorHudLocked"        text="Prevent accidental HUD repositioning" />
-		<text name="npc_desc_showNames"             text="Display NPC names above their heads" />
-		<text name="npc_desc_showRelationshipBars"  text="Show relationship bars in conversation" />
-		<text name="npc_desc_showMapMarkers"        text="Show NPC positions on the map" />
-		<text name="npc_desc_showNotifications"     text="Pop-up messages for NPC events" />
-		<text name="npc_desc_enableFavors"          text="Allow NPCs to request favors from you" />
-		<text name="npc_desc_allowMultipleFavors"   text="Accept more than one active favor at a time" />
-		<text name="npc_desc_maxActiveFavors"       text="Cap on simultaneous active favors" />
-		<text name="npc_desc_favorTimeLimit"        text="Favors expire if not completed in time" />
-		<text name="npc_desc_favorDifficulty"       text="Affects favor time limits and rewards" />
-		<text name="npc_desc_enableGifts"           text="Give gifts to improve relationships" />
-		<text name="npc_desc_enableRelationshipSystem" text="Track relationship tiers with each NPC" />
-		<text name="npc_desc_relationshipDecay"     text="Relationships slowly degrade without contact" />
-		<text name="npc_desc_debugMode"             text="Log NPC decisions to console" />
-		<text name="npc_desc_showPaths"             text="Visualise NPC road paths in-world" />
-		<text name="npc_desc_showAIDecisions"       text="Log AI state transitions to console" />
+		<text name="npc_desc_enabled"               text="Das gesamte NPC-System aktivieren oder deaktivieren" />
+		<text name="npc_desc_maxNPCs"               text="Maximale Anzahl aktiver NPCs in der Welt" />
+		<text name="npc_desc_favorFrequency"        text="Wie oft NPCs neue Gefallen-Anfragen erstellen" />
+		<text name="npc_desc_npcWorkStart"          text="Stunde, zu der NPCs ihren Arbeitstag beginnen" />
+		<text name="npc_desc_npcWorkEnd"            text="Stunde, zu der NPCs ihren Arbeitstag beenden" />
+		<text name="npc_desc_npcActivityLevel"      text="Allgemeines NPC-Bewegungs- und Aktivitätsniveau" />
+		<text name="npc_desc_npcSocialize"          text="NPCs interagieren miteinander und mit dem Spieler" />
+		<text name="npc_desc_npcHelpPlayer"         text="NPCs können dem Spieler proaktiv Hilfe anbieten" />
+		<text name="npc_desc_showFavorList"         text="Aktive Gefallenliste auf dem HUD anzeigen" />
+		<text name="npc_desc_favorHudScale"         text="Größe der Gefallen-Liste auf dem Bildschirm" />
+		<text name="npc_desc_favorHudLocked"        text="Versehentliches Verschieben des HUD verhindern" />
+		<text name="npc_desc_showNames"             text="NPC-Namen über ihren Köpfen anzeigen" />
+		<text name="npc_desc_showRelationshipBars"  text="Beziehungsbalken im Gespräch anzeigen" />
+		<text name="npc_desc_showMapMarkers"        text="NPC-Positionen auf der Karte anzeigen" />
+		<text name="npc_desc_showNotifications"     text="Popup-Nachrichten für NPC-Ereignisse" />
+		<text name="npc_desc_enableFavors"          text="NPCs erlauben, Gefallen von dir zu erbitten" />
+		<text name="npc_desc_allowMultipleFavors"   text="Mehr als einen aktiven Gefallen gleichzeitig annehmen" />
+		<text name="npc_desc_maxActiveFavors"       text="Obergrenze für gleichzeitig aktive Gefallen" />
+		<text name="npc_desc_favorTimeLimit"        text="Gefallen verfallen, wenn sie nicht rechtzeitig erledigt werden" />
+		<text name="npc_desc_favorDifficulty"       text="Beeinflusst Gefallen-Zeitlimits und Belohnungen" />
+		<text name="npc_desc_enableGifts"           text="Geschenke geben, um Beziehungen zu verbessern" />
+		<text name="npc_desc_enableRelationshipSystem" text="Beziehungsstufen mit jedem NPC verfolgen" />
+		<text name="npc_desc_relationshipDecay"     text="Beziehungen bauen sich ohne Kontakt langsam ab" />
+		<text name="npc_desc_debugMode"             text="NPC-Entscheidungen in der Konsole protokollieren" />
+		<text name="npc_desc_showPaths"             text="NPC-Straßenpfade in der Spielwelt visualisieren" />
+		<text name="npc_desc_showAIDecisions"       text="KI-Zustandsübergänge in der Konsole protokollieren" />
 		<!-- Admin action labels -->
-		<text name="npc_admin_save_label"           text="Save NPC Data" />
-		<text name="npc_admin_save_desc"            text="Force-write NPC state and settings to disk now" />
-		<text name="npc_admin_reset_label"          text="Reset All Settings" />
-		<text name="npc_admin_reset_desc"           text="Restore all settings to their default values" />
-		<text name="npc_admin_save_ok"              text="NPC data saved." />
-		<text name="npc_admin_save_fail"            text="Save failed - check log." />
-		<text name="npc_admin_reset_ok"             text="Settings reset to defaults." />
+		<text name="npc_admin_save_label"           text="NPC-Daten speichern" />
+		<text name="npc_admin_save_desc"            text="NPC-Zustand und Einstellungen jetzt auf die Festplatte schreiben" />
+		<text name="npc_admin_reset_label"          text="Alle Einstellungen zurücksetzen" />
+		<text name="npc_admin_reset_desc"           text="Alle Einstellungen auf ihre Standardwerte zurücksetzen" />
+		<text name="npc_admin_save_ok"              text="NPC-Daten gespeichert." />
+		<text name="npc_admin_save_fail"            text="Speichern fehlgeschlagen – Protokoll prüfen." />
+		<text name="npc_admin_reset_ok"             text="Einstellungen auf Standard zurückgesetzt." />
 
 		<!-- ===== Backstory / Flavor text (v1.2.5.0) ===== -->
 		<text name="npc_backstory_hardworking"  text="Als Frühaufsteher bekannt, der keinen Tag auf dem Feld verpasst." />
