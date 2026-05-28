@@ -728,25 +728,16 @@ addModEventListener({
         -- Guard helper: any GUI overlay or dialog is open
         local isGuiOpen = g_gui and (g_gui:getIsGuiVisible() or g_gui:getIsDialogVisible())
 
-        -- RMB: exit edit mode if active; enter only when cursor is over the HUD.
-        -- Never consume RMB during normal play — preserves CoursePlay, AutoDrive, and
-        -- other mods that rely on right-click. Works in vehicles and on foot.
+        -- RMB: exit edit mode only. Edit mode is entered exclusively via the
+        -- HUD_EDIT_MODE key binding — never via right-click — so RMB is never
+        -- consumed during normal play, preserving CoursePlay, AutoDrive, etc.
         -- FS25 mouseEvent button numbers: 1=left, 3=right, 2=middle
         if isDown and button == 3 then
-            if npcSystem and npcSystem.favorHUD then
-                local hud = npcSystem.favorHUD
-                if hud.editMode then
-                    hud:exitEditMode()
-                    return true
-                elseif not isGuiOpen
-                    and not (npcSystem.settings and npcSystem.settings.favorHudLocked)
-                    and hud:isPointerOverHUD(posX, posY) then
-                    print("[NPC Favor] RMB over HUD — entering edit mode")
-                    hud:enterEditMode()
-                    return true
-                end
+            if npcSystem and npcSystem.favorHUD and npcSystem.favorHUD.editMode then
+                npcSystem.favorHUD:exitEditMode()
+                return true
             end
-            return eventUsed  -- Don't consume RMB when not relevant
+            return false
         end
 
         -- Pass mouse events to HUD when in edit mode (for drag/resize)
