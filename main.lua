@@ -418,16 +418,11 @@ local function npcListActionCallback(self, actionName, inputValue, callbackState
     end
 end
 
--- Right-click: Toggle HUD Edit Mode (on foot only)
+-- Toggle HUD Edit Mode via key binding (works on foot and in vehicle)
 local function hudEditModeActionCallback(actionName, inputValue, callbackState, isAnalog)
     print("[NPC Favor] HUD edit callback fired — action=" .. tostring(actionName) .. " inputValue=" .. tostring(inputValue))
     if not npcSystem or not npcSystem.favorHUD then
         print("[NPC Favor] HUD edit blocked: npcSystem or favorHUD is nil")
-        return
-    end
-    -- Only allow when player is on foot (not in vehicle)
-    if g_localPlayer and g_localPlayer.getIsInVehicle and g_localPlayer:getIsInVehicle() then
-        print("[NPC Favor] HUD edit blocked: player is in vehicle")
         return
     end
     -- Don't toggle if a dialog/GUI is open
@@ -733,26 +728,25 @@ addModEventListener({
         -- Guard helper: any GUI overlay or dialog is open
         local isGuiOpen = g_gui and (g_gui:getIsGuiVisible() or g_gui:getIsDialogVisible())
 
-        -- Right-click toggle: bypass action event system, detect raw input
+        -- RMB: exit edit mode if active; enter only when cursor is over the HUD.
+        -- Never consume RMB during normal play — preserves CoursePlay, AutoDrive, and
+        -- other mods that rely on right-click. Works in vehicles and on foot.
         -- FS25 mouseEvent button numbers: 1=left, 3=right, 2=middle
         if isDown and button == 3 then
             if npcSystem and npcSystem.favorHUD then
-                -- Guard: not in vehicle
-                if g_localPlayer and g_localPlayer.getIsInVehicle and g_localPlayer:getIsInVehicle() then
-                    return eventUsed
+                local hud = npcSystem.favorHUD
+                if hud.editMode then
+                    hud:exitEditMode()
+                    return true
+                elseif not isGuiOpen
+                    and not (npcSystem.settings and npcSystem.settings.favorHudLocked)
+                    and hud:isPointerOverHUD(posX, posY) then
+                    print("[NPC Favor] RMB over HUD — entering edit mode")
+                    hud:enterEditMode()
+                    return true
                 end
-                -- Guard: no GUI/dialog/popup open
-                if isGuiOpen then
-                    return eventUsed
-                end
-                -- Guard: HUD not locked
-                if npcSystem.settings and npcSystem.settings.favorHudLocked then
-                    return eventUsed
-                end
-                print("[NPC Favor] Right-click toggle via mouseEvent — editMode=" .. tostring(npcSystem.favorHUD.editMode))
-                npcSystem.favorHUD:toggleEditMode()
-                return true
             end
+            return eventUsed  -- Don't consume RMB when not relevant
         end
 
         -- Pass mouse events to HUD when in edit mode (for drag/resize)

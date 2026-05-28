@@ -413,6 +413,11 @@ function NPCFavorHUD:hitTestButton(posX, posY)
     return nil
 end
 
+function NPCFavorHUD:isPointerOverHUD(posX, posY)
+    local x, y, w, h = self:getHUDRect()
+    return posX >= x and posX <= x + w and posY >= y and posY <= y + h
+end
+
 -- =========================================================
 -- Flash Notification System
 -- =========================================================
