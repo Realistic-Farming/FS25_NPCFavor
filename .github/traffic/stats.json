@@ -10468,26 +10468,26 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-06-04T00:22:40Z",
+    "timestamp": "2026-06-04T12:34:01Z",
     "date": "2026-06-04",
     "views": {
       "count": 427,
-      "uniques": 135
+      "uniques": 133
     },
     "clones": {
-      "count": 852,
-      "uniques": 316
+      "count": 868,
+      "uniques": 324
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 249,
+        "count": 250,
         "uniques": 70
       },
       {
         "referrer": "Google",
-        "count": 50,
-        "uniques": 24
+        "count": 48,
+        "uniques": 23
       },
       {
         "referrer": "kingmods.net",
@@ -10496,8 +10496,8 @@
       },
       {
         "referrer": "Bing",
-        "count": 3,
-        "uniques": 2
+        "count": 6,
+        "uniques": 3
       },
       {
         "referrer": "chatgpt.com",
@@ -10529,7 +10529,7 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor",
         "title": "Overview",
-        "count": 258,
+        "count": 259,
         "uniques": 113
       },
       {
@@ -10541,8 +10541,8 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases",
         "title": "/releases",
-        "count": 26,
-        "uniques": 17
+        "count": 28,
+        "uniques": 18
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.2",
@@ -10553,8 +10553,8 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.0",
         "title": "/releases/tag/v1.2.5.0",
-        "count": 21,
-        "uniques": 15
+        "count": 20,
+        "uniques": 14
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.1",
@@ -10583,8 +10583,8 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/tree/development",
         "title": "/tree/development",
-        "count": 8,
-        "uniques": 3
+        "count": 7,
+        "uniques": 2
       }
     ],
     "releases": [
@@ -10618,7 +10618,7 @@
       {
         "assets": [
           {
-            "downloads": 45,
+            "downloads": 46,
             "name": "FS25_NPCFavor.zip"
           }
         ],

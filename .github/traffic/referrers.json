@@ -2541,13 +2541,13 @@
   "2026-06-04": [
     {
       "referrer": "github.com",
-      "count": 249,
+      "count": 250,
       "uniques": 70
     },
     {
       "referrer": "Google",
-      "count": 50,
-      "uniques": 24
+      "count": 48,
+      "uniques": 23
     },
     {
       "referrer": "kingmods.net",
@@ -2556,8 +2556,8 @@
     },
     {
       "referrer": "Bing",
-      "count": 3,
-      "uniques": 2
+      "count": 6,
+      "uniques": 3
     },
     {
       "referrer": "chatgpt.com",
