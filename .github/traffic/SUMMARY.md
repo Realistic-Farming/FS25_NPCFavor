@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-06-05T00:01:33Z
-**Days tracked:** 59 | **Download snapshots:** 306 (hourly)
+**Last updated:** 2026-06-06T12:02:28Z
+**Days tracked:** 60 | **Download snapshots:** 309 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 427 | 133 |
-| Git Clones | 868 | 324 |
+| Page Views | 410 | 134 |
+| Git Clones | 817 | 314 |
 
-> **Engagement:** 3.2 pages per visitor (14-day avg)
+> **Engagement:** 3.0 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 915 of 133 visitors cloned or downloaded (**687.9%**)
+> **14-day conversion:** 908 of 134 visitors cloned or downloaded (**677.6%**)
 >
-> Unique cloners: 324 | Release downloads: 591
+> Unique cloners: 314 | Release downloads: 594
 
 ---
 
@@ -42,9 +42,9 @@
 
 | Channel | Count |
 |---------|-------|
-| Zip Downloads | 591 |
-| Git Clones (14-day) | 868 |
-| **Total Acquisitions** | **1459** |
+| Zip Downloads | 594 |
+| Git Clones (14-day) | 817 |
+| **Total Acquisitions** | **1411** |
 
 ---
 
@@ -54,9 +54,9 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 250 | 70 |
-| Google | 48 | 23 |
-| kingmods.net | 41 | 16 |
+| github.com | 235 | 69 |
+| Google | 49 | 24 |
+| kingmods.net | 39 | 15 |
 | Bing | 6 | 3 |
 | chatgpt.com | 2 | 2 |
 | DuckDuckGo | 2 | 1 |
@@ -82,15 +82,15 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/TheCodingDad-TisonK/FS25_NPCFavor` | 259 | 113 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.3` | 30 | 24 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/releases` | 28 | 18 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor` | 252 | 113 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.3` | 32 | 25 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/releases` | 26 | 17 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.2` | 22 | 19 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.0` | 20 | 14 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.1` | 16 | 13 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/issues` | 10 | 9 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/wiki` | 10 | 8 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/issues/46` | 8 | 7 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.0` | 11 | 8 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/issues` | 9 | 8 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/wiki` | 9 | 7 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/issues/46` | 7 | 6 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/tree/development` | 7 | 2 |
 
 ---
