@@ -96,6 +96,9 @@ if modDirectory then
     -- Main coordinator
     source(modDirectory .. "src/NPCSystem.lua")
 
+    -- Cross-mod integrations (load after the coordinator)
+    source(modDirectory .. "src/scripts/NPCFieldSentry.lua")
+
     print("[NPC Favor] All files loaded successfully")
 else
     print("[NPC Favor] ERROR - Could not find mod directory!")
