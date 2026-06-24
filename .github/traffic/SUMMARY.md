@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-06-23T18:57:58Z
-**Days tracked:** 74 | **Download snapshots:** 362 (hourly)
+**Last updated:** 2026-06-24T18:25:13Z
+**Days tracked:** 75 | **Download snapshots:** 364 (hourly)
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 259 | 96 |
-| Git Clones | 837 | 262 |
+| Page Views | 267 | 100 |
+| Git Clones | 907 | 269 |
 
 > **Engagement:** 2.6 pages per visitor (14-day avg)
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 898 of 96 visitors cloned or downloaded (**935.4%**)
+> **14-day conversion:** 907 of 100 visitors cloned or downloaded (**907.0%**)
 >
-> Unique cloners: 262 | Release downloads: 636
+> Unique cloners: 269 | Release downloads: 638
 
 ---
 
@@ -42,9 +42,9 @@
 
 | Channel | Count |
 |---------|-------|
-| Zip Downloads | 636 |
-| Git Clones (14-day) | 837 |
-| **Total Acquisitions** | **1473** |
+| Zip Downloads | 638 |
+| Git Clones (14-day) | 907 |
+| **Total Acquisitions** | **1545** |
 
 ---
 
@@ -54,13 +54,13 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 114 | 39 |
-| Google | 42 | 25 |
+| github.com | 120 | 42 |
+| Google | 43 | 26 |
 | Bing | 7 | 3 |
 | kingmods.net | 6 | 4 |
 | DuckDuckGo | 5 | 1 |
+| search.brave.com | 2 | 2 |
 | chatgpt.com | 1 | 1 |
-| search.brave.com | 1 | 1 |
 
 ---
 
@@ -80,16 +80,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/TheCodingDad-TisonK/FS25_NPCFavor` | 114 | 61 |
-| `/Realistic-Farming/FS25_NPCFavor` | 40 | 29 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor` | 112 | 59 |
+| `/Realistic-Farming/FS25_NPCFavor` | 48 | 35 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.3` | 15 | 12 |
-| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.6.0` | 8 | 7 |
+| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.6.0` | 9 | 7 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.6.0` | 8 | 6 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/tree/development` | 7 | 6 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/issues` | 6 | 6 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/releases` | 6 | 6 |
+| `/TheCodingDad-TisonK/FS25_NPCFavor/tree/development` | 6 | 5 |
 | `/TheCodingDad-TisonK/FS25_NPCFavor/pulls` | 6 | 2 |
-| `/TheCodingDad-TisonK/FS25_NPCFavor/issues/21` | 5 | 4 |
+| `/Realistic-Farming/FS25_NPCFavor/releases` | 5 | 5 |
 
 ---
 
