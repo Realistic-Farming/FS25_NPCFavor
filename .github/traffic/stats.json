@@ -14834,26 +14834,26 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-06-26T00:00:57Z",
+    "timestamp": "2026-06-26T18:19:00Z",
     "date": "2026-06-26",
     "views": {
-      "count": 267,
-      "uniques": 104
+      "count": 289,
+      "uniques": 105
     },
     "clones": {
-      "count": 993,
-      "uniques": 292
+      "count": 1019,
+      "uniques": 296
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 127,
-        "uniques": 45
+        "count": 155,
+        "uniques": 46
       },
       {
         "referrer": "Google",
-        "count": 46,
-        "uniques": 28
+        "count": 43,
+        "uniques": 26
       },
       {
         "referrer": "kingmods.net",
@@ -14876,6 +14876,11 @@
         "uniques": 1
       },
       {
+        "referrer": "alice.yandex.ru",
+        "count": 1,
+        "uniques": 1
+      },
+      {
         "referrer": "chatgpt.com",
         "count": 1,
         "uniques": 1
@@ -14885,26 +14890,26 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor",
         "title": "Overview",
-        "count": 102,
-        "uniques": 56
+        "count": 93,
+        "uniques": 53
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor",
         "title": "Overview",
-        "count": 63,
-        "uniques": 44
+        "count": 77,
+        "uniques": 49
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases/tag/v1.2.5.3",
         "title": "/releases/tag/v1.2.5.3",
-        "count": 15,
-        "uniques": 12
+        "count": 12,
+        "uniques": 9
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.6.0",
         "title": "/releases/tag/v1.2.6.0",
-        "count": 10,
-        "uniques": 8
+        "count": 11,
+        "uniques": 9
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases",
@@ -14921,8 +14926,8 @@
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/issues",
         "title": "/issues",
-        "count": 6,
-        "uniques": 6
+        "count": 5,
+        "uniques": 5
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor/releases",
@@ -14937,9 +14942,9 @@
         "uniques": 4
       },
       {
-        "path": "/TheCodingDad-TisonK/FS25_NPCFavor/tree/development",
-        "title": "/tree/development",
-        "count": 5,
+        "path": "/Realistic-Farming/FS25_NPCFavor/issues",
+        "title": "/issues",
+        "count": 4,
         "uniques": 4
       }
     ],
@@ -14947,7 +14952,7 @@
       {
         "assets": [
           {
-            "downloads": 23,
+            "downloads": 29,
             "name": "FS25_NPCFavor.zip"
           }
         ],

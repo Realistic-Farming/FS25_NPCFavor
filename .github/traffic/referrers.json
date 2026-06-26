@@ -3319,13 +3319,13 @@
   "2026-06-26": [
     {
       "referrer": "github.com",
-      "count": 127,
-      "uniques": 45
+      "count": 155,
+      "uniques": 46
     },
     {
       "referrer": "Google",
-      "count": 46,
-      "uniques": 28
+      "count": 43,
+      "uniques": 26
     },
     {
       "referrer": "kingmods.net",
@@ -3345,6 +3345,11 @@
     {
       "referrer": "yandex.ru",
       "count": 2,
+      "uniques": 1
+    },
+    {
+      "referrer": "alice.yandex.ru",
+      "count": 1,
       "uniques": 1
     },
     {
