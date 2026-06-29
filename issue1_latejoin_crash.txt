@@ -1,0 +1,49 @@
+Title: Late-join initialization crashes with "attempt to call a nil value (global 'load')"
+
+Description:
+When a player loads the mod mid-session (e.g. via loadMod or restarting an existing save),
+main.lua lines 706-713 execute a load(g_currentMission) call. In FS25's Lua 5.1 sandbox,
+load is not exposed as a global function, and even if it were, it requires a string argument
+(not a table/userdata). Passing g_currentMission to load() raises a runtime error:
+
+    main.lua:708: attempt to call a nil value (global 'load')
+
+What is wrong:
+- load(g_currentMission) is called at line 708 with a non-string, non-chunk argument.
+- The FS25 sandbox intentionally restricts globals; load/loadstring are not guaranteed
+  to exist (CLAUDE.md explicitly warns against sandbox-restricted functions).
+- This directly violates the mod's own CLAUDE.md rule: "No os.time()/load() — use
+  g_currentMission.time and proper init functions."
+- The intended behavior is already implemented: an init(g_currentMission) function is
+  defined earlier in main.lua and used by Mission00.load. The late-join path should call
+  the same init function, not an illegal sandbox escape.
+
+Correct fix:
+Replace the illegal load(g_currentMission) with a direct call to the mod's own init()
+function. The surrounding placeables check can remain unchanged.
+
+Replace this block in main.lua (lines 706-713):
+
+    -- Late-join: initialize if already in a mission
+    if g_currentMission and not npcSystem then
+        print("[NPC Favor] Already in mission, attempting immediate initialization...")
+        load(g_currentMission)
+        if g_currentMission.placeables and npcSystem then
+            print("[NPC Favor] Mission already loaded, calling onMissionLoaded...")
+            npcSystem:onMissionLoaded()
+        end
+    end
+
+With this:
+
+    -- Late-join: initialize if already in a mission
+    if g_currentMission and not npcSystem then
+        print("[NPC Favor] Already in mission, attempting immediate initialization...")
+        init(g_currentMission)
+        if g_currentMission.placeables and npcSystem then
+            print("[NPC Favor] Mission already loaded, calling onMissionLoaded...")
+            npcSystem:onMissionLoaded()
+        end
+    end
+
+This removes the sandbox violation and reuses the existing, tested initialization path.

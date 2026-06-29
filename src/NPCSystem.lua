@@ -661,9 +661,11 @@ function NPCSystem:initializeNPCs()
     -- Assign farmlands and fields to farmer NPCs (after all NPCs are created)
     self:assignFarmlands()
 
-    -- Phase B: Real vehicle spawning disabled — FS25 provides no reliable API
-    -- to prevent player entry into spawned vehicles. Keeping code for future use.
-    -- self:initializeNPCVehicles()
+    -- Phase B: Spawn real NPC vehicles. Player entry is blocked by lockNPCVehicle
+    -- (removes the vehicle from the interactive list, neutralizes getDistanceToNode
+    -- and interact, and re-locks after async finalization). Gated by the
+    -- npcDriveVehicles setting and npcVehicleMode inside initializeNPCVehicles.
+    self:initializeNPCVehicles()
 end
 
 --- Set up an NPC's home position, field assignment, vehicles, AI state, and entity.
@@ -1645,7 +1647,14 @@ function NPCSystem:spawnNPCTractor(npc, callback)
     loadingData:setAddToPhysics(true)
     loadingData:setIsSaved(false)  -- Don't persist — we respawn on load
 
-    loadingData:load(function(vehicle, loadingState, args)
+    loadingData:load(function(_, loadedVehicles, loadingState, args)
+        -- VehicleLoadingData calls back as (callbackTarget, loadedVehicles, loadingState, callbackArguments).
+        -- loadedVehicles is a list; the root vehicle is entry [1].
+        local vehicle = loadedVehicles and loadedVehicles[1] or nil
+        if vehicle and VehicleLoadingState ~= nil and loadingState ~= VehicleLoadingState.OK then
+            vehicle = nil
+        end
+
         if vehicle then
             npc.realTractor = vehicle
             npc.realTractor.isNPCVehicle = true  -- tag for identification
@@ -1657,8 +1666,8 @@ function NPCSystem:spawnNPCTractor(npc, callback)
             self:lockNPCVehicle(vehicle)
             print(string.format("[NPC Favor] Tractor locked for %s (not enterable)", npc.name or "?"))
 
-            -- Seat NPC character in the cab
-            self:seatNPCInVehicle(npc, vehicle)
+            -- The NPC is seated only on reaching the field and entering WORKING
+            -- state (activateNPCTractor), so the tractor stays parked until then.
 
             print(string.format("[NPC Favor] Real tractor spawned for %s at (%.0f, %.0f) — %s",
                 npc.name or "?", fieldEdgeX, fieldEdgeZ, tractorFile))
@@ -1879,9 +1888,16 @@ function NPCSystem:spawnNPCCar(npc, callback)
     loadingData:setAddToPhysics(true)
     loadingData:setIsSaved(false)
 
-    loadingData:load(function(vehicle, loadingState, args)
+    loadingData:load(function(_, loadedVehicles, loadingState, args)
         -- Clear pending flag regardless of outcome
         npc.pendingVehicleLoad = false
+
+        -- VehicleLoadingData calls back as (callbackTarget, loadedVehicles, loadingState, callbackArguments).
+        -- loadedVehicles is a list; the root vehicle is entry [1].
+        local vehicle = loadedVehicles and loadedVehicles[1] or nil
+        if vehicle and VehicleLoadingState ~= nil and loadingState ~= VehicleLoadingState.OK then
+            vehicle = nil
+        end
 
         if vehicle then
             -- Guard: NPC must still be in DRIVING state and awake

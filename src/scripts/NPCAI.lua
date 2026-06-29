@@ -135,6 +135,7 @@ function NPCAI.new(npcSystem)
         social      = { wake = 5.5,  workStart = 6.5, lunchDuration = 1.5, workEnd = 17.5, sleep = 22 },
         grumpy      = { wake = 5.5,  workStart = 6,   lunchDuration = 0.5, workEnd = 17.5, sleep = 21 },
         generous    = { wake = 5.5,  workStart = 6.5, lunchDuration = 1,   workEnd = 17.5, sleep = 22 },
+        loner       = { wake = 6.5,  workStart = 7.5, lunchDuration = 0.75, workEnd = 17, sleep = 21.5 },
     }
 
     -- Default schedule for personalities not listed above
@@ -221,164 +222,49 @@ function NPCAI:getDayType(day)
 end
 
 function NPCAI:getScheduledActivity(npc, hour, minute)
-    local sched = self:getPersonalitySchedule(npc)
-    local t = hour + minute / 60
-
-    local wake       = sched.wake
-    local workStart  = sched.workStart
-    local lunchStart = 12
-    local lunchEnd   = 12 + sched.lunchDuration
-    local workEnd    = sched.workEnd
-    local sleepTime  = sched.sleep
-
-    -- Seasonal schedule adjustment
-    local season = nil
-    if self.npcSystem.scheduler and self.npcSystem.scheduler.getCurrentSeason then
-        season = self.npcSystem.scheduler:getCurrentSeason()
-    end
-    if season == "winter" then
-        wake = wake + 1        -- sleep in during winter
-        workEnd = workEnd - 1  -- shorter work day
-    elseif season == "summer" then
-        wake = wake - 0.5      -- early summer mornings
-        workEnd = workEnd + 0.5 -- longer summer days
-        workStart = workStart - 0.5
-    end
-
-    -- 4b: Weekend/Sunday schedule variation
-    local gameDay = 1
-    if self.npcSystem.scheduler and self.npcSystem.scheduler.currentDay then
-        gameDay = self.npcSystem.scheduler.currentDay
-    elseif TimeHelper and TimeHelper.getGameDay then
-        gameDay = TimeHelper.getGameDay()
-    end
-    local dayType = self:getDayType(gameDay)
-
-    if dayType == "sunday" then
-        -- Sunday: no work, sleep in, extended social time
-        wake = wake + 2
-        sleepTime = math.min(sleepTime + 1, 24)
-
-        -- Sleeping
-        if sleepTime >= 24 then
-            if t >= (sleepTime - 24) and t < wake then
-                return "sleeping", "rest", "sleeping"
-            end
-        else
-            if t >= sleepTime or t < wake then
-                return "sleeping", "rest", "sleeping"
-            end
-        end
-
-        if t >= wake and t < wake + 1 then
-            return "wake_up", "idle", "waking up"
-        end
-        if t >= wake + 1 and t < 12 then
-            return "morning_leisure", "walk", "morning stroll"
-        end
-        if t >= 12 and t < 14 then
-            return "lunch", "socialize", "Sunday lunch"
-        end
-        if t >= 14 and t < 18 then
-            return "afternoon_social", "socialize", "Sunday socializing"
-        end
-        if t >= 18 and t < 20 then
-            return "dinner", "go_home", "Sunday dinner"
-        end
-        if t >= 20 and t < sleepTime then
-            return "evening_rest", "idle", "relaxing at home"
-        end
-        return nil, nil, nil
-    end
-
-    if dayType == "saturday" then
-        -- Saturday: half-day work, afternoon leisure
-        wake = wake + 1
-        workEnd = math.min(workEnd, 13)  -- half-day: work ends at 1pm max
-    end
-
-    local commuteToWorkStart = workStart - 0.5
-    local commuteHomeEnd     = workEnd + 0.5
-
-    local eveningSocialEnd
-    if npc.personality == "social" then
-        eveningSocialEnd = 21
-    elseif npc.personality == "grumpy" then
-        eveningSocialEnd = 19
-    else
-        eveningSocialEnd = 19
-    end
-
-    -- Saturday: extended evening social time
-    if dayType == "saturday" then
-        eveningSocialEnd = math.min(eveningSocialEnd + 1, 22)
-    end
-
-    local dinnerEnd = eveningSocialEnd + 1
-
-    -- Sleeping
-    if sleepTime >= 24 then
-        if t >= (sleepTime - 24) and t < wake then
-            return "sleeping", "rest", "sleeping"
-        end
-    else
-        if t >= sleepTime or t < wake then
-            return "sleeping", "rest", "sleeping"
+    -- Delegate to NPCScheduler which has the canonical schedule templates.
+    -- This eliminates duplicate schedule logic between NPCAI and NPCScheduler.
+    if self.npcSystem and self.npcSystem.scheduler and self.npcSystem.scheduler.getActivityForCurrentTime then
+        local activity = self.npcSystem.scheduler:getActivityForCurrentTime(npc)
+        if activity then
+            -- Map scheduler activity names to decision strings
+            local activityToDecision = {
+                -- Work activities
+                field_preparation = "work",
+                planting = "work",
+                irrigation = "work",
+                field_maintenance = "work",
+                harvesting = "work",
+                storage_work = "work",
+                indoor_work = "work",
+                equipment_repair = "work",
+                equipment_maintenance = "work",
+                planning = "work",
+                work_shift = "work",
+                chores = "work",
+                -- Movement activities
+                commute = "walk",
+                commute_home = "go_home",
+                -- Rest activities
+                sleeping = "rest",
+                sleep = "rest",
+                break_heat = "rest",
+                -- Social activities
+                lunch_social = "socialize",
+                evening_activities = "socialize",
+                -- Idle activities
+                personal_time = "idle",
+                dinner_relax = "idle",
+                leisure = "idle",
+                lunch_break = "idle",
+                breakfast = "idle",
+                morning_routine = "idle",
+            }
+            local decision = activityToDecision[activity] or "idle"
+            local displayAction = self.npcSystem.scheduler:getActivityDisplayName(activity) or activity
+            return activity, decision, displayAction
         end
     end
-
-    if t >= wake and t < wake + 1 then
-        return "wake_up", "idle", "waking up"
-    end
-
-    if t >= wake + 1 and t < commuteToWorkStart then
-        return "morning_routine", "walk", "morning walk"
-    end
-
-    if t >= commuteToWorkStart and t < workStart then
-        return "commute_to_work", "work", "commuting"
-    end
-
-    if t >= workStart and t < lunchStart then
-        return "work_morning", "work", "working"
-    end
-
-    if t >= lunchStart and t < lunchEnd then
-        return "lunch", "socialize", "at lunch"
-    end
-
-    if t >= lunchEnd then
-        -- Smart departure: calculate when NPC should leave to arrive home by 17:30
-        local departureTime = self:calculateDepartureTime(npc)
-
-        -- Cap: never leave before workEnd minus 1 hour (personality minimum work time)
-        local earliestDeparture = math.max(workEnd - 1, departureTime)
-
-        if t < earliestDeparture then
-            return "work_afternoon", "work", "working"
-        end
-
-        -- Commute window: from departure until commuteHomeEnd (ensures no schedule gap)
-        if t < commuteHomeEnd then
-            return "commute_home", "go_home", "heading home"
-        end
-    end
-
-    if t >= commuteHomeEnd and t < eveningSocialEnd then
-        return "evening_social", "socialize", "socializing"
-    end
-
-    if t >= eveningSocialEnd and t < dinnerEnd then
-        return "dinner", "go_home", "dinner"
-    end
-
-    if t >= dinnerEnd and t < sleepTime then
-        if math.random() < 0.2 then
-            return "leisure", "walk", "evening stroll"
-        end
-        return "leisure", "idle", "relaxing"
-    end
-
     return nil, nil, nil
 end
 
@@ -415,6 +301,24 @@ function NPCAI:updateSleepState(npc, hour)
             -- Clear any active path (they're home now)
             npc.path = nil
             npc.targetPosition = nil
+
+            -- Stop any active driving immediately. Without this, an NPC who falls
+            -- asleep mid-commute leaves their real car running the base game's
+            -- AI drive task with no one home to release it — the orphan-vehicle
+            -- sweep in NPCSystem catches it ~15s later, but until then the
+            -- engine keeps ticking AITaskDriveTo on a vehicle this NPC has
+            -- already abandoned, which is what crashes AITaskDriveTo:update.
+            npc.driveDestination = nil
+            npc.driveCallback = nil
+            if npc.currentVehicle then
+                npc.currentVehicle.isAvailable = true
+                npc.currentVehicle.currentTask = nil
+                npc.currentVehicle.driver = nil
+                npc.currentVehicle = nil
+            end
+            if npc.realCar and self.npcSystem and self.npcSystem.removeNPCCar then
+                pcall(function() self.npcSystem:removeNPCCar(npc) end)
+            end
 
             if self.npcSystem.settings.debugMode then
                 print(string.format("[NPC Favor] %s is going to sleep at home (hour=%d)", npc.name, hour))
@@ -492,6 +396,21 @@ function NPCAI:updateNPCState(npc, dt)
             -- Stop any active AI job
             if npc.activeAIJob and self.npcSystem and self.npcSystem.stopNPCFieldWork then
                 pcall(function() self.npcSystem:stopNPCFieldWork(npc) end)
+            end
+
+            -- Stop any active commute car too — same reasoning as updateSleepState:
+            -- an un-released car keeps running the base game's AI drive task
+            -- after this NPC has already moved on, which crashes AITaskDriveTo.
+            npc.driveDestination = nil
+            npc.driveCallback = nil
+            if npc.currentVehicle then
+                npc.currentVehicle.isAvailable = true
+                npc.currentVehicle.currentTask = nil
+                npc.currentVehicle.driver = nil
+                npc.currentVehicle = nil
+            end
+            if npc.realCar and self.npcSystem and self.npcSystem.removeNPCCar then
+                pcall(function() self.npcSystem:removeNPCCar(npc) end)
             end
 
             if self.npcSystem.settings.debugMode then

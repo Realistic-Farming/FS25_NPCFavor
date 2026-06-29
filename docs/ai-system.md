@@ -107,7 +107,7 @@ Needs are updated every frame by `NPCAI:updateNeeds()`.
 | energy | Fatigue level | Awake and active | Resting or sleeping |
 | social | Loneliness | Alone (any non-social state) | Socializing or gathering |
 | hunger | Need to eat | Over time (always) | During lunch slot |
-| workSatisfaction | Fulfillment from work | Working (inverted: value drops toward 0 = satisfied) | Idle or non-work states |
+| workSatisfaction | Fulfillment from work | Idle or non-work states | Working (rises toward 100 = satisfied) |
 
 ### Base Rates (per second)
 

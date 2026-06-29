@@ -1441,17 +1441,15 @@ function NPCEntity:updateNPCEntity(npc, dt)
                 pcall(function() setVisibility(entity.humanModel.rootNode, false) end)
             end
         end
-        -- Remove map hotspot while sleeping
+        -- Hide map hotspot while sleeping (keeps the icon overlay alive)
         if entity.mapHotspot then
-            self:removeMapHotspot(entity)
+            self:hideMapHotspot(entity)
         end
         return  -- Skip all other entity updates while sleeping
     end
 
-    -- Recreate hotspot if NPC woke up (sleeping removed it)
-    if not entity.mapHotspot then
-        self:createMapHotspot(entity, npc)
-    end
+    -- Re-show hotspot if NPC woke up (sleeping hid it, doesn't delete it)
+    self:showMapHotspot(entity, npc)
 
     entity.position.x = npc.position.x
     entity.position.z = npc.position.z
@@ -1497,7 +1495,7 @@ function NPCEntity:updateNPCEntity(npc, dt)
     self:updateVisibility(entity)
 
     -- Update map hotspot position
-    self:updateMapHotspot(entity, npc)
+    self:updateMapHotspot(entity, npc, dt)
 
     -- Apply NPC Y offset when seated in tractor/vehicle, plus model origin correction
     local npcYOffset = entity.npcYOffset or 0
@@ -1882,9 +1880,87 @@ end
 -- Map Hotspot Functions (FS25 PlaceableHotspot API)
 -- =========================================================
 -- FS25 uses PlaceableHotspot (concrete subclass of MapHotspot) for map markers.
--- MapHotspot is the abstract base with no icon — PlaceableHotspot provides the
--- icon, name, and category support needed for visible markers.
--- Pattern proven by FS25_Tardis, FS25_AutoDrive, FS25_AnimalHerdingLite.
+-- The drawable icon lives on hotspot.icon / hotspot.iconSmall as Overlay objects,
+-- built from a texture config registered with g_overlayManager. hotspot.width and
+-- hotspot.height must be set too, or the map draw loop crashes on icon.width.
+
+--- Register the NPC map-marker texture config with the overlay manager (once).
+-- g_overlayManager:addTextureConfigFile is the supported way to load an icon from
+-- a mod ZIP; Overlay.new with a raw ZIP path does not resolve. The slice id after
+-- registration is "npcFavor.npc".
+-- @return boolean  true if the texture config is registered and usable
+function NPCEntity:registerMapHotspotTexture()
+    if NPCEntity._mapHotspotTextureRegistered then return true end
+    if not g_overlayManager or not g_overlayManager.addTextureConfigFile then return false end
+
+    local modDir = self.npcSystem and self.npcSystem.modDirectory
+    if not modDir then return false end
+
+    local path = modDir .. "textures/npcMapHotspot.xml"
+    if fileExists and not fileExists(path) then return false end
+
+    local ok = pcall(function()
+        g_overlayManager:addTextureConfigFile(path, "npcFavor")
+    end)
+    NPCEntity._mapHotspotTextureRegistered = ok
+    return ok
+end
+
+--- Resolve a portrait image for an NPC's in-map detail card. InGameMenuMapFrame
+-- calls placeable:getImageFilename() on the hotspot's attached placeable to draw
+-- the big picture above the name (this is how Fields of Stories shows per-character
+-- art there). We don't ship per-character portraits yet, so this tries
+-- images/portraits/<seed>.dds|.png first -- drop files there named after
+-- npc.appearanceSeed (1, 2, 3...) to add real per-character art later -- and
+-- falls back to the mod's own icon so the card is never blank.
+-- @param npc  NPC data table (for appearanceSeed)
+-- @return string|nil  Absolute path to an image file, or nil if none exists
+function NPCEntity:getPortraitImagePath(npc)
+    local modDir = self.npcSystem and self.npcSystem.modDirectory
+    if not modDir or not fileExists then return nil end
+
+    local seed = (npc and (npc.appearanceSeed or npc.id)) or 1
+    local candidates = {
+        "images/portraits/" .. tostring(seed) .. ".dds",
+        "images/portraits/" .. tostring(seed) .. ".png",
+        "icon.dds",
+    }
+    for _, rel in ipairs(candidates) do
+        local path = modDir .. rel
+        if fileExists(path) then
+            return path
+        end
+    end
+    return nil
+end
+
+--- Build a no-op placeable shim for a standalone map hotspot. PlaceableHotspot is
+-- normally owned by a placeable, and the in-map detail panel may call placeable
+-- methods, so we hand it an object that answers everything safely.
+-- @param npc  NPC data table (for the display name and portrait)
+-- @return table  Proxy safe to pass to hotspot:setPlaceable
+function NPCEntity:buildHotspotPlaceableProxy(npc)
+    local name = (npc and npc.name) or "NPC"
+    local farmId = (g_localPlayer and g_localPlayer.farmId) or 1
+    local entityManager = self
+    return setmetatable({
+        canBeSold        = function() return false end,
+        getName          = function() return tostring(name) end,
+        getImageFilename = function() return entityManager:getPortraitImagePath(npc) end,
+        getDailyUpkeep   = function() return 0 end,
+        getAge           = function() return 0 end,
+        ownerFarmId      = farmId,
+        storeItem        = nil,
+        specializations  = {},
+    }, {
+        __index = function(_, k)
+            if type(k) == "string" and k:sub(1, 5) == "spec_" then
+                return nil
+            end
+            return function() return nil end
+        end,
+    })
+end
 
 function NPCEntity:createMapHotspot(entity, npc)
     if not entity or entity.mapHotspot then return end
@@ -1896,14 +1972,36 @@ function NPCEntity:createMapHotspot(entity, npc)
         return
     end
 
+    -- The marker needs a real icon Overlay or the map draw loop crashes on
+    -- icon.width. Register the texture config first; if that fails, skip the
+    -- marker entirely rather than add a half-built hotspot.
+    if not self:registerMapHotspotTexture() then
+        if not NPCEntity.hotspotOverlayWarned then
+            NPCEntity.hotspotOverlayWarned = true
+            print("[NPCEntity] Map marker texture unavailable. NPC map markers disabled.")
+        end
+        return
+    end
+
     local ok = pcall(function()
         local name = (npc and npc.name) or "NPC"
-        local hotspot = PlaceableHotspot.new()
 
-        -- Use built-in exclamation mark icon. Custom icon.dds via Overlay.new
-        -- fails when the mod runs from a ZIP (DirectStorage can't resolve the
-        -- path outside mission-load context). The built-in type icon works reliably.
-        hotspot.placeableType = PlaceableHotspot.TYPE.EXCLAMATION_MARK
+        local mainW, mainH = 28, 28
+        local smallW, smallH = 14, 14
+        if getNormalizedScreenValues then
+            mainW, mainH = getNormalizedScreenValues(28, 28)
+            smallW, smallH = getNormalizedScreenValues(14, 14)
+        end
+
+        -- Build the icon overlays from the registered slice. If createOverlay
+        -- gives us nothing, bail before adding the hotspot (keeps draw safe).
+        local icon = g_overlayManager:createOverlay("npcFavor.npc", 0, 0, mainW, mainH)
+        if not icon then return end
+
+        local hotspot = PlaceableHotspot.new()
+        hotspot.width, hotspot.height = mainW, mainH
+        hotspot.icon = icon
+        hotspot.iconSmall = g_overlayManager:createOverlay("npcFavor.npc", 0, 0, smallW, smallH) or icon
 
         -- Set display name (setName for hover tooltip)
         hotspot:setName(name)
@@ -1916,28 +2014,28 @@ function NPCEntity:createMapHotspot(entity, npc)
             hotspot:setOwnerFarmId(AccessHandler.EVERYONE or 0)
         end
 
-        -- Guard: PlaceableHotspot.new() can succeed but leave overlay nil
-        -- when created standalone (not tied to a real placeable). The game's
-        -- draw loop accesses overlay.width, causing the :213 crash.
-        -- Do NOT create fallback Overlay objects — Overlay.new() with game
-        -- texture paths returns a zombie object (non-nil but broken) from
-        -- mod context, which still crashes during draw.
-        if hotspot.overlay == nil then
-            if hotspot.getIcon then
-                pcall(function() hotspot:getIcon() end)
-            end
-            if hotspot.overlay == nil then
-                if hotspot.delete then pcall(function() hotspot:delete() end) end
-                if not NPCEntity.hotspotOverlayWarned then
-                    NPCEntity.hotspotOverlayWarned = true
-                    print("[NPCEntity] Warning: Map hotspot overlay could not be initialized. NPC map markers disabled.")
-                end
-                return
+        -- Give the standalone hotspot a safe placeable shim for the map panel.
+        -- setPlaceable can reset the icons on some builds, so reassign after.
+        if hotspot.setPlaceable then
+            pcall(function() hotspot:setPlaceable(self:buildHotspotPlaceableProxy(npc)) end)
+            hotspot.icon = icon
+            hotspot.iconSmall = hotspot.iconSmall or icon
+        end
+
+        -- Wire up the engine's native "Visit" teleport button (shown on the
+        -- hotspot detail panel once a teleport target is set). Reuses the same
+        -- building-aware safe-approach logic as the dialog/console "Go" buttons,
+        -- so Visit never drops the player inside a wall or on top of the NPC.
+        if hotspot.setTeleportWorldPosition and NPCTeleport and NPCTeleport.getSafeApproachPosition then
+            local tx, ty, tz = NPCTeleport.getSafeApproachPosition(self.npcSystem, npc)
+            if tx then
+                pcall(function() hotspot:setTeleportWorldPosition(tx, ty, tz) end)
             end
         end
 
         g_currentMission:addMapHotspot(hotspot)
         entity.mapHotspot = hotspot
+        entity.teleportTargetTimer = 0
     end)
 
     if not ok then
@@ -1960,13 +2058,67 @@ function NPCEntity:removeMapHotspot(entity)
         end)
         entity.mapHotspot = nil
     end
+    entity.mapHotspotHidden = nil
 end
 
-function NPCEntity:updateMapHotspot(entity, npc)
+--- Unregister an NPC's hotspot from the live map draw list WITHOUT destroying its
+-- icon overlay (used while the NPC sleeps). The old behaviour called
+-- removeMapHotspot (which deletes the icon Overlay) every time an NPC fell
+-- asleep, then createMapHotspot (which allocates a brand new overlay from the
+-- same "npcFavor.npc" slice) every time they woke up. With every NPC doing that
+-- nightly, deleting one NPC's overlay could free a graphics-entity id that a
+-- different, still-awake NPC's hotspot was still holding -- that's what threw
+-- "Unknown entity id ... setOverlayColor/renderOverlay/setOverlayRotation" every
+-- frame. Hiding instead of deleting keeps each NPC's overlay handle alive and
+-- unique for the entity's whole lifetime, so there's nothing left to go stale.
+function NPCEntity:hideMapHotspot(entity)
+    if entity and entity.mapHotspot and not entity.mapHotspotHidden then
+        pcall(function()
+            if g_currentMission and g_currentMission.removeMapHotspot then
+                g_currentMission:removeMapHotspot(entity.mapHotspot)
+            end
+        end)
+        entity.mapHotspotHidden = true
+    end
+end
+
+--- Re-register a previously hidden hotspot (NPC woke up), or create one from
+-- scratch if this entity never had one yet. See hideMapHotspot for why this
+-- doesn't recreate the icon overlay on every wake-up.
+function NPCEntity:showMapHotspot(entity, npc)
+    if not entity then return end
+    if entity.mapHotspot and entity.mapHotspotHidden then
+        pcall(function()
+            if g_currentMission and g_currentMission.addMapHotspot then
+                g_currentMission:addMapHotspot(entity.mapHotspot)
+            end
+        end)
+        entity.mapHotspotHidden = false
+    elseif not entity.mapHotspot then
+        self:createMapHotspot(entity, npc)
+    end
+end
+
+function NPCEntity:updateMapHotspot(entity, npc, dt)
     if not entity or not entity.mapHotspot then return end
     pcall(function()
         entity.mapHotspot:setWorldPosition(entity.position.x, entity.position.z)
     end)
+
+    -- Keep the native "Visit" teleport target roughly in sync with the NPC's
+    -- current position. Throttled to ~once/second since this involves a
+    -- building-interior check, not something we want every single frame for
+    -- every NPC.
+    if entity.mapHotspot.setTeleportWorldPosition and NPCTeleport and NPCTeleport.getSafeApproachPosition then
+        entity.teleportTargetTimer = (entity.teleportTargetTimer or 0) + (dt or 0)
+        if entity.teleportTargetTimer >= 1 then
+            entity.teleportTargetTimer = 0
+            local tx, ty, tz = NPCTeleport.getSafeApproachPosition(self.npcSystem, npc)
+            if tx then
+                pcall(function() entity.mapHotspot:setTeleportWorldPosition(tx, ty, tz) end)
+            end
+        end
+    end
 end
 
 --- Toggle all NPC map hotspots on or off (called when showMapMarkers setting changes).

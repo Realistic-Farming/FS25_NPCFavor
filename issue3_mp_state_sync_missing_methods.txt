@@ -1,0 +1,89 @@
+Title: Multiplayer NPC state sync crashes because NPCSystem is missing collectSyncData and applyNetworkState
+
+Description:
+NPCStateSyncEvent is wired into the multiplayer loop:
+  - NPCStateSyncEvent.broadcastState() calls g_NPCSystem:collectSyncData()
+  - NPCStateSyncEvent:run() calls      g_NPCSystem:applyNetworkState(npcDataArray)
+
+A full codebase search for both method names confirms that neither exists anywhere
+in src/NPCSystem.lua or any other Lua file in the mod. When multiplayer is active,
+the server broadcast or the client receive handler hits one of these missing methods
+and throws a hard runtime error:
+
+    attempt to call a nil value (field 'collectSyncData')   -- server side
+    attempt to call a nil value (field 'applyNetworkState') -- client side
+
+What is wrong:
+- The event class is fully implemented (stream write/read, MAX_NPC_COUNT cap,
+  stream drain, client-only gate in run()) but the NPCSystem side was never
+  finished.
+- There is no serialization path from NPCSystem's internal activeNPCs tables into
+  the flat `{id,name,x,y,z,aiState,...}` layout that the stream expects.
+- There is no deserialization path to apply a received packet back onto live NPC
+  data tables.
+- Result: multiplayer NPC sync is completely non-functional. Clients only see NPCs
+  spawned locally and never receive position, state, or relationship updates from
+  the server.
+
+Correct fix:
+Add both methods to src/NPCSystem.lua. Place them near the multiplayer section or
+after the existing event-related helpers. The implementation matches the exact field
+layout written by NPCStateSyncEvent:writeStream.
+
+Add to src/NPCSystem.lua:
+
+--- Build a flat sync payload from active NPCs. Matches the field order written
+--- by NPCStateSyncEvent:writeStream.
+function NPCSystem:collectSyncData()
+    local data = {}
+    for _, npc in ipairs(self.activeNPCs or {}) do
+        table.insert(data, {
+            id            = npc.id or 0,
+            name          = npc.name or "",
+            personality   = npc.personality or "",
+            x             = npc.position and npc.position.x or 0,
+            y             = npc.position and npc.position.y or 0,
+            z             = npc.position and npc.position.z or 0,
+            aiState       = npc.aiState or "idle",
+            relationship  = npc.relationship or 0,
+            isActive      = npc.isActive or false,
+            currentAction = npc.currentAction or "idle",
+        })
+    end
+    return data
+end
+
+--- Apply a server sync packet to local NPCs. Updatable fields are position,
+--- aiState, relationship, isActive, and currentAction. Name/personality are
+--- included in the packet so clients can resolve newly joined NPCs that did not
+--- exist locally before the sync.
+function NPCSystem:applyNetworkState(npcDataArray)
+    if not npcDataArray then return end
+
+    -- Build a fast lookup of existing NPCs by id
+    local byId = {}
+    for _, npc in ipairs(self.activeNPCs or {}) do
+        byId[npc.id] = npc
+    end
+
+    for _, entry in ipairs(npcDataArray) do
+        local npc = byId[entry.id]
+        if npc and npc.position then
+            -- Update existing NPC state
+            npc.position.x    = entry.x
+            npc.position.y    = entry.y
+            npc.position.z    = entry.z
+            npc.aiState       = entry.aiState
+            npc.relationship  = entry.relationship
+            npc.isActive      = entry.isActive
+            npc.currentAction = entry.currentAction
+        end
+        -- Note: we deliberately do not create new NPCs here. Entity creation is
+        -- handled separately by NPCStateSyncEvent's on-join bulk send combined
+        -- with the existing spawn pipeline, so this method only mutates state.
+    end
+end
+
+With these two methods present, NPCStateSyncEvent.broadcastState() and
+NPCStateSyncEvent:run() will no longer error, and multiplayer clients will receive
+live NPC position and state updates from the server.

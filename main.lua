@@ -422,7 +422,8 @@ local function npcListActionCallback(self, actionName, inputValue, callbackState
 end
 
 -- Toggle HUD Edit Mode via key binding (works on foot and in vehicle)
-local function hudEditModeActionCallback(actionName, inputValue, callbackState, isAnalog)
+local function hudEditModeActionCallback(self, actionName, inputValue, callbackState, isAnalog)
+    if inputValue <= 0 then return end
     print("[NPC Favor] HUD edit callback fired — action=" .. tostring(actionName) .. " inputValue=" .. tostring(inputValue))
     if not npcSystem or not npcSystem.favorHUD then
         print("[NPC Favor] HUD edit blocked: npcSystem or favorHUD is nil")
@@ -536,10 +537,11 @@ local function hookNPCInteractInput()
                     hudEditActionId,
                     NPCSystem,
                     hudEditModeActionCallback,
-                    false, true, false, false, nil, false
+                    false, true, false, false, nil, true
                 )
                 if success and eventId ~= nil then
                     hudEditModeActionEventId = eventId
+                    g_inputBinding:setActionEventActive(eventId, true)
                     g_inputBinding:setActionEventTextPriority(eventId, GS_PRIO_NORMAL)
                     g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_HUD_EDIT_MODE") or "Toggle HUD Edit")
                 end

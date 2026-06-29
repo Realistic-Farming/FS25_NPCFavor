@@ -1,0 +1,52 @@
+Title: Multiplayer settings changes are not synced to other clients
+
+Description:
+NPCSettingsPanel:requestChange() is the sole entry point for all settings updates
+(enabled, maxNPCs, showNames, debugMode, etc.). It writes the new value into the
+local settings table, but never broadcasts the change over the network. The event
+system already provides NPCSettingsSyncEvent.sendSingleToServer(key, value) for
+exactly this purpose, but requestChange never calls it.
+
+What is wrong:
+- In a multiplayer session, only the client that clicked the toggle sees the change.
+- The host/server retains its own value; other clients retain stale defaults or old
+  sync snapshots.
+- This breaks the "server-authoritative settings" design documented in CLAUDE.md and
+  used by every other TisonK mod (e.g. FS25_SoilFertilizer SettingsGUI,
+  FS25_WorkerCosts, FS25_FarmTablet).
+- The NPCSettingsSyncEvent infrastructure is fully implemented on the server side
+  (senderHasMasterRights, TYPE_SINGLE/BULK serialization, client run() handler)
+  but the client-side toggle button is not wired to it.
+
+Impact:
+- Settings drift between players in MP.
+- Master rights checks in the event are bypassed because the event is never sent.
+- Host and clients can end up with contradictory mod state mid-session.
+
+Correct fix:
+Add a single sendSingleToServer call at the end of requestChange, gated on
+g_client being non-nil. The event's own master-rights validation will still run on
+the server before applying.
+
+Minimal patch for src/settings/NPCSettingsPanel.lua,
+function NPCSettingsPanel:requestChange(id, value) (currently around line 380):
+
+    function NPCSettingsPanel:requestChange(id, value)
+        if not id then return end
+        if id == "maxNPCs" then
+            value = math.max(1, math.min(16, tonumber(value) or 8))
+        end
+        local settings = self.settings or g_NPCSystem.settings
+        if settings then
+            settings[id] = value
+        end
+        -- FIX: broadcast the change to the server so it can re-sync all clients
+        if g_client ~= nil and NPCSettingsSyncEvent and NPCSettingsSyncEvent.sendSingleToServer then
+            NPCSettingsSyncEvent.sendSingleToServer(id, value)
+        end
+    end
+
+This ensures every toggle or slider change goes through the existing validated
+multiplayer pipeline (master-rights check + NPCSettingsSyncEvent.run on server +
+broadcast to clients), matching the pattern established by the rest of the mod
+collection.
