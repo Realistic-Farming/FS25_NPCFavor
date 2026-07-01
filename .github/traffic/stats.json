@@ -16024,15 +16024,15 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-07-01T00:05:18Z",
+    "timestamp": "2026-07-01T12:25:33Z",
     "date": "2026-07-01",
     "views": {
-      "count": 334,
+      "count": 332,
       "uniques": 133
     },
     "clones": {
-      "count": 1033,
-      "uniques": 295
+      "count": 1010,
+      "uniques": 285
     },
     "referrers": [
       {
@@ -16042,13 +16042,13 @@
       },
       {
         "referrer": "kingmods.net",
-        "count": 40,
-        "uniques": 24
+        "count": 41,
+        "uniques": 25
       },
       {
         "referrer": "Google",
-        "count": 33,
-        "uniques": 27
+        "count": 31,
+        "uniques": 26
       },
       {
         "referrer": "search.brave.com",
@@ -16080,14 +16080,14 @@
       {
         "path": "/Realistic-Farming/FS25_NPCFavor",
         "title": "Overview",
-        "count": 144,
-        "uniques": 90
+        "count": 151,
+        "uniques": 94
       },
       {
         "path": "/TheCodingDad-TisonK/FS25_NPCFavor",
         "title": "Overview",
-        "count": 46,
-        "uniques": 26
+        "count": 39,
+        "uniques": 21
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.6.0",
@@ -16104,8 +16104,8 @@
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases",
         "title": "/releases",
-        "count": 14,
-        "uniques": 13
+        "count": 15,
+        "uniques": 14
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/issues",
@@ -16122,7 +16122,7 @@
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/tree/development",
         "title": "/tree/development",
-        "count": 6,
+        "count": 7,
         "uniques": 3
       },
       {
@@ -16142,7 +16142,7 @@
       {
         "assets": [
           {
-            "downloads": 46,
+            "downloads": 49,
             "name": "FS25_NPCFavor.zip"
           }
         ],
@@ -16256,7 +16256,7 @@
         "tag": "v1.0.0.0"
       }
     ],
-    "stars": 32,
+    "stars": 33,
     "forks": 3,
     "watchers": 5
   }
