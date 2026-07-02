@@ -52,7 +52,7 @@
   "v1.2.5.1": {
     "published_at": "2026-05-23T06:55:08Z",
     "tag": "v1.2.5.1",
-    "peak_downloads": 17
+    "peak_downloads": 18
   },
   "v1.2.5.2": {
     "published_at": "2026-05-25T11:26:16Z",
@@ -67,6 +67,6 @@
   "v1.2.6.0": {
     "published_at": "2026-06-18T20:57:29Z",
     "tag": "v1.2.6.0",
-    "peak_downloads": 51
+    "peak_downloads": 52
   }
 }
