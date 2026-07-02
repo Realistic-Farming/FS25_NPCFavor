@@ -16261,26 +16261,26 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-07-02T00:03:37Z",
+    "timestamp": "2026-07-02T12:51:11Z",
     "date": "2026-07-02",
     "views": {
-      "count": 332,
-      "uniques": 133
+      "count": 328,
+      "uniques": 137
     },
     "clones": {
-      "count": 1010,
-      "uniques": 285
+      "count": 1012,
+      "uniques": 292
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 176,
-        "uniques": 53
+        "count": 175,
+        "uniques": 56
       },
       {
         "referrer": "kingmods.net",
-        "count": 41,
-        "uniques": 25
+        "count": 42,
+        "uniques": 26
       },
       {
         "referrer": "Google",
@@ -16288,18 +16288,18 @@
         "uniques": 26
       },
       {
-        "referrer": "search.brave.com",
+        "referrer": "Bing",
         "count": 3,
-        "uniques": 3
+        "uniques": 2
+      },
+      {
+        "referrer": "search.brave.com",
+        "count": 2,
+        "uniques": 2
       },
       {
         "referrer": "yandex.ru",
         "count": 2,
-        "uniques": 1
-      },
-      {
-        "referrer": "Bing",
-        "count": 1,
         "uniques": 1
       },
       {
@@ -16317,20 +16317,20 @@
       {
         "path": "/Realistic-Farming/FS25_NPCFavor",
         "title": "Overview",
-        "count": 151,
-        "uniques": 94
-      },
-      {
-        "path": "/TheCodingDad-TisonK/FS25_NPCFavor",
-        "title": "Overview",
-        "count": 39,
-        "uniques": 21
+        "count": 164,
+        "uniques": 103
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.6.0",
         "title": "/releases/tag/v1.2.6.0",
-        "count": 24,
-        "uniques": 19
+        "count": 26,
+        "uniques": 20
+      },
+      {
+        "path": "/TheCodingDad-TisonK/FS25_NPCFavor",
+        "title": "Overview",
+        "count": 23,
+        "uniques": 15
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/wiki",
@@ -16379,7 +16379,7 @@
       {
         "assets": [
           {
-            "downloads": 50,
+            "downloads": 51,
             "name": "FS25_NPCFavor.zip"
           }
         ],
