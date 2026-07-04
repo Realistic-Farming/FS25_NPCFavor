@@ -2377,6 +2377,47 @@ function NPCSystem:restoreAllOwnershipFlips()
     end
 end
 
+--- Classify what job a field needs right now by reading its crop + growth state.
+-- Uses FieldState (verified: FieldState.new():update(x,z) -> fruitTypeIndex /
+-- growthState) + FruitTypeDesc growth predicates.
+-- @param field  assignedField-style table with .center
+-- @return string  "till" (empty/stubble/cultivated), "protect" (growing crop),
+--                 or "harvest" (ripe crop). Only "till" is acted on for now;
+--                 sowing + harvesting are staged follow-ups.
+function NPCSystem:getFieldJobType(field)
+    if not field or not field.center or FieldState == nil then return "till" end
+
+    local fruitIndex, growth
+    local ok = pcall(function()
+        local fs = FieldState.new()
+        fs:update(field.center.x, field.center.z)
+        fruitIndex = fs.fruitTypeIndex
+        growth = fs.growthState
+    end)
+    if not ok then return "till" end
+
+    -- No crop (or unknown) -> safe to till.
+    local unknown = (FruitType and FruitType.UNKNOWN) or 0
+    if not fruitIndex or fruitIndex == unknown or fruitIndex == 0 then
+        return "till"
+    end
+
+    local fruitDesc = g_fruitTypeManager and g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
+    if fruitDesc then
+        if fruitDesc.getIsHarvestable and fruitDesc:getIsHarvestable(growth) then
+            return "harvest"   -- ripe: don't till it under (real harvest is staged)
+        end
+        if fruitDesc.getIsCut and fruitDesc:getIsCut(growth) then
+            return "till"      -- stubble after harvest: fine to work under
+        end
+        if fruitDesc.getIsGrowing and fruitDesc:getIsGrowing(growth) then
+            return "protect"   -- growing crop: never plow it under
+        end
+    end
+    -- Unclassified but a crop is present: protect it rather than risk destroying it.
+    return "protect"
+end
+
 --- Start real AI tillage for an NPC: temporarily own the field, run AIJobFieldWork.
 -- @return boolean  true if the tillage job started
 function NPCSystem:startNPCFieldWorkOwned(npc)
@@ -2397,6 +2438,16 @@ function NPCSystem:startNPCFieldWorkOwned(npc)
     local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
     if not field or not field.center then return false end
     local cx, cz = field.center.x, field.center.z
+
+    -- Job-to-field matching: only till a field with no growing/ripe crop. A field
+    -- with a standing crop falls through to GoTo driving (drive/inspect), so an NPC
+    -- never plows a crop under. Sowing + harvesting are staged follow-ups.
+    if self:getFieldJobType(field) ~= "till" then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] %s: field has a crop, skipping tillage (drive/inspect)", npc.name or "?"))
+        end
+        return false
+    end
 
     local farmlandId
     pcall(function() farmlandId = g_farmlandManager:getFarmlandIdAtWorldPosition(cx, cz) end)
