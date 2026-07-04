@@ -1672,8 +1672,9 @@ function NPCSystem:getNPCJobRole(npc)
             role = "till"
         end
     else
-        -- Growing crop: not workable now. Give a tiller so the NPC just drives.
-        role = "till"
+        -- Growing crop: nothing to work. Give a BARE tractor (no implement) so the
+        -- NPC just drives out to inspect; never a plow dragged over a standing crop.
+        role = "inspect"
     end
 
     npc.jobRole = role
@@ -1707,6 +1708,7 @@ end
 -- @return string|nil  Implement XML path, or nil if unavailable
 function NPCSystem:getImplementFilename(npc)
     local role = self:getNPCJobRole(npc)
+    if role == "inspect" then return nil end  -- bare tractor, no implement
     if role == "harvest" then
         local combo = self.HARVEST_COMBOS and self.HARVEST_COMBOS[npc._harvestComboIndex or 1]
         return combo and combo.header
@@ -1833,6 +1835,22 @@ function NPCSystem:spawnNPCImplement(npc, tractor, callback)
     if not VehicleLoadingData or not tractor or tractor.rootNode == nil then
         if callback then callback(false) end
         return
+    end
+
+    -- Harvest: many combines spawn WITH a header from their store config, so the
+    -- cutter joint is already occupied. If the combine can already do field work,
+    -- skip spawning a header (attaching a second one fails and would otherwise
+    -- scrap a perfectly good combine).
+    if self:getNPCJobRole(npc) == "harvest" then
+        local canWork = false
+        pcall(function() canWork = tractor.getCanStartFieldWork ~= nil and tractor:getCanStartFieldWork() end)
+        if canWork then
+            if self.settings.debugMode then
+                print(string.format("[NPC Favor] %s combine already has a header, ready to harvest", npc.name or "?"))
+            end
+            if callback then callback(true) end
+            return
+        end
     end
 
     -- Implement depends on the NPC's job role (plow/cultivator, seeder, or header).
