@@ -4,6 +4,26 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 
 ---
 
+## v1.2.7.0 -- Real base-game AI field work (till / sow / harvest)
+
+Farmer NPCs now do real, game-AI-driven field work with their own equipment, matched to what each field actually needs.
+
+### NPC field work (NEW)
+- **Real base-game AI tillage**: an NPC's tractor + implement runs a genuine AIJobFieldWork and tills the ground. Because the AI helper needs the job's farm to own the field (and NPC farms do not own land), the field's farmland is temporarily borrowed by the local player's farm for the duration of the job, then restored. A save-hook safeguard restores every borrow before any save, so a temporary ownership can never persist.
+- **Full job-to-field matching**: each farmer NPC gets a job role and the matching equipment: till (tractor + plow/cultivator), sow (tractor + seeder, seeded), or harvest (self-propelled combine + header). An NPC only runs the AI job when the field's current state matches its role.
+- **Crop safety**: NPCs read the field's real crop and growth state and never plow or cut a growing crop. A harvester is only assigned to a field that is actually ripe.
+- **Fallbacks**: when the game AI cannot run (no implement, hire limit reached), the NPC drives its combo with base-game GoTo pathfinding, or a kinematic visual pass, so it always looks busy without errors.
+
+### Fixes
+- Fixed a VehicleCharacter crash from a wrong loadCharacter argument order (was calling a table), and 5 no-op vehicle deletions (g_currentMission:removeVehicle does not exist; use Vehicle:delete).
+- Eliminated a map-marker overlay render flood ("Unknown entity id ...") by sharing one never-freed overlay across all NPC markers.
+- Zeroed the AI cost on NPC jobs so they never trigger "Can't change money of spectator farm".
+
+### New console command
+- **npcDeleteVehicle [radius]** -- delete the nearest vehicle/implement to you (cleanup for stranded units); never deletes the vehicle you are in.
+
+---
+
 ## v1.2.2.6 -- Favor HUD Rework & Compass Navigation
 
 **Branch:** `feature/favor-ui-improvements` (PR #30)
