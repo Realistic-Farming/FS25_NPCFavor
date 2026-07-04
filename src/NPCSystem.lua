@@ -1652,12 +1652,30 @@ end
 -- @return string  role
 function NPCSystem:getNPCJobRole(npc)
     if npc.jobRole then return npc.jobRole end
-    local r = (npc.appearanceSeed or npc.id or 1) % 100
-    local role = "till"
-    if r >= 80 then role = "harvest"
-    elseif r >= 55 then role = "sow" end
-    if role == "sow" and (not self.SEEDER_POOL or #self.SEEDER_POOL == 0) then role = "till" end
-    if role == "harvest" and (not self.HARVEST_COMBOS or #self.HARVEST_COMBOS == 0) then role = "till" end
+
+    -- Field-aware: match the role to the assigned field's CURRENT need so we never
+    -- park a combine on a growing crop (or on bare ground). A harvester is only
+    -- assigned when the field is actually ripe; a field with a growing crop gets a
+    -- tractor+plow (which won't till it - the work gate protects the crop - so the
+    -- NPC just drives/inspects, far less jarring than a combine on standing peas).
+    local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
+    local need = field and self:getFieldJobType(field) or "open"
+
+    local role
+    if need == "harvest" and self.HARVEST_COMBOS and #self.HARVEST_COMBOS > 0 then
+        role = "harvest"
+    elseif need == "open" then
+        local r = (npc.appearanceSeed or npc.id or 1) % 100
+        if r >= 55 and self.SEEDER_POOL and #self.SEEDER_POOL > 0 then
+            role = "sow"
+        else
+            role = "till"
+        end
+    else
+        -- Growing crop: not workable now. Give a tiller so the NPC just drives.
+        role = "till"
+    end
+
     npc.jobRole = role
     return role
 end

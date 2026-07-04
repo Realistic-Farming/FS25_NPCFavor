@@ -1987,6 +1987,27 @@ function NPCEntity:_removeHotspotFromList(entity)
     entity.mapHotspotInList = false
 end
 
+--- One overlay shared by EVERY NPC map marker, created once and NEVER deleted.
+-- Per-NPC overlays were being freed (setPlaceable resets the icon, and hotspot
+-- deletion frees the overlay), after which the engine rendered the freed entity
+-- id every single frame ("Unknown entity id ... in renderOverlay"), flooding the
+-- log. A single, never-freed overlay makes that impossible: the entity always exists.
+-- @return table|nil  the shared Overlay, or nil if the texture is unavailable
+function NPCEntity:getSharedHotspotIcon()
+    if NPCEntity._sharedHotspotIcon ~= nil then
+        return NPCEntity._sharedHotspotIcon or nil  -- false means "tried and failed"
+    end
+    if not self:registerMapHotspotTexture() then
+        NPCEntity._sharedHotspotIcon = false
+        return nil
+    end
+    local w, h = 28, 28
+    if getNormalizedScreenValues then w, h = getNormalizedScreenValues(28, 28) end
+    local icon = g_overlayManager:createOverlay("npcFavor.npc", 0, 0, w, h)
+    NPCEntity._sharedHotspotIcon = icon or false
+    return icon or nil
+end
+
 function NPCEntity:createMapHotspot(entity, npc)
     if not entity or entity.mapHotspot then return end
     if not g_currentMission or not g_currentMission.addMapHotspot then return end
@@ -2018,15 +2039,14 @@ function NPCEntity:createMapHotspot(entity, npc)
             smallW, smallH = getNormalizedScreenValues(14, 14)
         end
 
-        -- Build the icon overlays from the registered slice. If createOverlay
-        -- gives us nothing, bail before adding the hotspot (keeps draw safe).
-        local icon = g_overlayManager:createOverlay("npcFavor.npc", 0, 0, mainW, mainH)
+        -- Use the single shared, never-freed overlay for both icon sizes.
+        local icon = self:getSharedHotspotIcon()
         if not icon then return end
 
         local hotspot = PlaceableHotspot.new()
         hotspot.width, hotspot.height = mainW, mainH
         hotspot.icon = icon
-        hotspot.iconSmall = g_overlayManager:createOverlay("npcFavor.npc", 0, 0, smallW, smallH) or icon
+        hotspot.iconSmall = icon
 
         -- Set display name (setName for hover tooltip)
         hotspot:setName(name)
@@ -2042,9 +2062,13 @@ function NPCEntity:createMapHotspot(entity, npc)
         -- Give the standalone hotspot a safe placeable shim for the map panel.
         -- setPlaceable can reset the icons on some builds, so reassign after.
         if hotspot.setPlaceable then
+            -- Null the icon during setPlaceable so it can never free our shared
+            -- overlay, then restore it.
+            hotspot.icon = nil
+            hotspot.iconSmall = nil
             pcall(function() hotspot:setPlaceable(self:buildHotspotPlaceableProxy(npc)) end)
             hotspot.icon = icon
-            hotspot.iconSmall = hotspot.iconSmall or icon
+            hotspot.iconSmall = icon
         end
 
         -- Wire up the engine's native "Visit" teleport button (shown on the
@@ -2074,14 +2098,14 @@ end
 
 function NPCEntity:removeMapHotspot(entity)
     if entity and entity.mapHotspot then
-        -- Pull it out of the draw list FIRST (separate pcall) so its overlays are
-        -- never freed while the engine is still rendering them.
-        self:_removeHotspotFromList(entity)
+        -- Null our references FIRST, then pull the hotspot from the draw list. Do
+        -- NOT call hotspot:delete(): its icon is the SHARED overlay used by every
+        -- marker, so deleting would free that overlay for all of them.
         pcall(function()
-            if entity.mapHotspot.delete then
-                entity.mapHotspot:delete()
-            end
+            entity.mapHotspot.icon = nil
+            entity.mapHotspot.iconSmall = nil
         end)
+        self:_removeHotspotFromList(entity)
         entity.mapHotspot = nil
     end
     entity.mapHotspotHidden = nil
