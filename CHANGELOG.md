@@ -24,6 +24,15 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - Fixed harvester headers never attaching: the New Holland combo pointed at a header file as its "combine", so two headers were being paired. It now uses the real combine (chSeries), and the header attaches and harvests.
 - Silenced the "Can't change money of spectator farm" log spam from every angle: NPC AI job cost is zeroed, NPC vehicles keep their fuel topped so the base game never auto-bills the spectator farm for a refuel, and (when installed) Worker Costs also drops any charge aimed at the spectator farm.
 
+### AI behaviour, multiplayer, and edge cases
+- Added the "loner" personality to the daily schedule so those NPCs keep to their own routine.
+- Schedule-aware commute speed boost (previously only in the evening), so NPCs running late move quicker at any time of day.
+- Group gatherings now show a speech bubble even when no direct social partner is found nearby.
+- Reduced NPC-to-NPC social pairing distance to 50m so neighbours pair up more naturally.
+- Split the movement-speed bookkeeping so an NPC's mood-based speed is preserved correctly across walk and run modes.
+- Clear stale gathering data when an NPC goes to sleep, and delegate scheduled-activity lookups to a single source (removes a duplicate code path).
+- Client-side orphan-vehicle detection in multiplayer, so a stranded NPC vehicle is cleaned up on clients too.
+
 ### New console command
 - **npcDeleteVehicle [radius]** -- delete the nearest vehicle/implement to you (cleanup for stranded units); never deletes the vehicle you are in.
 
