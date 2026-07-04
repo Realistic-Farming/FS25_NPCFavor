@@ -1901,9 +1901,14 @@ function NPCSystem:spawnNPCImplement(npc, tractor, callback)
             print(string.format("[NPC Favor] Implement attached for %s — %s", npc.name or "?", implementFile))
             if callback then callback(true) end
         else
-            -- Could not find a compatible joint. Delete the tool rather than
-            -- leave it sitting in the field; NPC falls back to visual work.
+            -- Could not attach. Delete the tool rather than leave it in the field.
             pcall(function() if implement.delete then implement:delete() end end)
+            -- A combine with no header is useless: remove it too so the NPC falls
+            -- back cleanly (prop/visual) instead of a headerless combine that can
+            -- do nothing.
+            if self:getNPCJobRole(npc) == "harvest" then
+                pcall(function() self:removeNPCTractor(npc) end)
+            end
             if self.settings.debugMode then
                 print(string.format("[NPC Favor] Implement attach failed for %s — removed, using visual work", npc.name or "?"))
             end
@@ -1927,6 +1932,7 @@ function NPCSystem:attachImplementToTractor(tractor, implement)
         local inputJoints = implement:getInputAttacherJoints()
         if not attacherJoints or not inputJoints then return false end
 
+        -- Pass 1: strict compatibility (jointType + getAttacherJointCompatibility).
         for aIdx, aJoint in ipairs(attacherJoints) do
             -- jointIndex 0 == this attacher joint is free (nothing attached)
             if (aJoint.jointIndex or 0) == 0 then
@@ -1940,6 +1946,20 @@ function NPCSystem:attachImplementToTractor(tractor, implement)
                             tractor:attachImplement(implement, iIdx, aIdx)
                             return true
                         end
+                    end
+                end
+            end
+        end
+
+        -- Pass 2: fall back to a jointType match alone. Header/cutter joints often
+        -- fail the strict subType compatibility check even for a valid pairing; a
+        -- slightly-relaxed attach is better than a headerless combine.
+        for aIdx, aJoint in ipairs(attacherJoints) do
+            if (aJoint.jointIndex or 0) == 0 then
+                for iIdx, iJoint in ipairs(inputJoints) do
+                    if aJoint.jointType == iJoint.jointType then
+                        tractor:attachImplement(implement, iIdx, aIdx)
+                        return true
                     end
                 end
             end
@@ -2660,6 +2680,10 @@ function NPCSystem:startGoToWaypoint(npc)
     end)
 
     if not pcall(function() job:setValues() end) then return false end
+
+    -- NPC GoTo jobs run under the spectator farm; zero the AI cost so it never
+    -- tries to charge it ("Can't change money of spectator farm").
+    job.getPricePerMs = function() return 0 end
 
     local farmId = npc.ownerFarmId or (FarmManager and FarmManager.SPECTATOR_FARM_ID) or 0
     local valid = false
