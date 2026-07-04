@@ -1525,10 +1525,25 @@ NPCSystem.TRACTOR_POOL = {
 -- Populated at runtime via discoverVehiclesFromStore or store-item validation.
 NPCSystem.COMMUTE_VEHICLE_POOL = {}
 
---- Pool of base-game implement XML paths (plows/cultivators for field work).
+--- Pool of base-game implement XML paths (plows/cultivators for TILL jobs).
 NPCSystem.IMPLEMENT_POOL = {
     "data/vehicles/poettinger/servoT6000Plus/servoT6000Plus.xml",
     "data/vehicles/kuhn/kuhnCultimer400/kuhnCultimer400.xml",
+}
+
+--- Seeders/planters for SOW jobs (tractor-drawn). Filled with seed after attach.
+NPCSystem.SEEDER_POOL = {
+    "data/vehicles/amazone/citan15001C/citan15001C.xml",
+    "data/vehicles/horsch/avatar1225/avatar1225.xml",
+    "data/vehicles/vaderstad/nzExtreme1425/nzExtreme1425.xml",
+}
+
+--- Self-propelled combine + matching header pairs for HARVEST jobs. The combine
+-- is the work vehicle (npc.realTractor); the header attaches to it. Paired by
+-- brand so the header actually fits the combine.
+NPCSystem.HARVEST_COMBOS = {
+    { combine = "data/vehicles/claas/lexion6900/lexion6900.xml",   header = "data/vehicles/claas/convioFlex1080/convioFlex1080.xml" },
+    { combine = "data/vehicles/newHolland/cr980_830/cr980_830.xml", header = "data/vehicles/newHolland/varifeed28/varifeed28.xml" },
 }
 
 --- Max NPCs allowed to run a real game AI field-work job at once. The game AI
@@ -1576,6 +1591,23 @@ function NPCSystem:validateVehiclePools()
     self.TRACTOR_POOL = validTractors
     self.IMPLEMENT_POOL = validImplements
 
+    -- Validate seeder pool (SOW role)
+    local validSeeders = {}
+    for _, path in ipairs(self.SEEDER_POOL or {}) do
+        local ok, item = pcall(function() return g_storeManager:getItemByXMLFilename(path) end)
+        if ok and item then table.insert(validSeeders, path) end
+    end
+    self.SEEDER_POOL = validSeeders
+
+    -- Validate harvest combos (HARVEST role): keep only combos whose combine AND header both exist
+    local validCombos = {}
+    for _, combo in ipairs(self.HARVEST_COMBOS or {}) do
+        local okC, itemC = pcall(function() return g_storeManager:getItemByXMLFilename(combo.combine) end)
+        local okH, itemH = pcall(function() return g_storeManager:getItemByXMLFilename(combo.header) end)
+        if okC and itemC and okH and itemH then table.insert(validCombos, combo) end
+    end
+    self.HARVEST_COMBOS = validCombos
+
     -- Build commute vehicle pool: try car/pickup discovery first, fall back to tractors
     local commuteKeywords = {"car", "pickup", "sedan", "hatchback", "suv"}
     local foundCars = {}
@@ -1590,8 +1622,8 @@ function NPCSystem:validateVehiclePools()
     -- spawned a real tractor that didn't get cleaned up reliably.
     self.COMMUTE_VEHICLE_POOL = foundCars
 
-    print(string.format("[NPC Favor] Vehicle pools validated: %d tractors, %d implements, %d commute",
-        #self.TRACTOR_POOL, #self.IMPLEMENT_POOL, #self.COMMUTE_VEHICLE_POOL))
+    print(string.format("[NPC Favor] Vehicle pools validated: %d tractors, %d implements, %d seeders, %d harvest combos, %d commute",
+        #self.TRACTOR_POOL, #self.IMPLEMENT_POOL, #self.SEEDER_POOL, #self.HARVEST_COMBOS, #self.COMMUTE_VEHICLE_POOL))
 end
 
 --- Discover valid vehicles from the store by category keyword.
@@ -1613,25 +1645,81 @@ function NPCSystem:discoverVehiclesFromStore(keyword)
     return results
 end
 
---- Select a tractor filename based on NPC's appearance seed for consistent variety.
+--- Job role for a farmer NPC: "till" (plow/cultivate), "sow" (seeder) or
+-- "harvest" (combine). Assigned once from the appearance seed, weighted toward
+-- tillage, and downgraded to "till" if the role's pool is empty.
 -- @param npc  NPC data table
--- @return string  Vehicle XML path
-function NPCSystem:getTractorFilename(npc)
-    local seed = npc.appearanceSeed or npc.id or 1
-    local index = (seed % #self.TRACTOR_POOL) + 1
+-- @return string  role
+function NPCSystem:getNPCJobRole(npc)
+    if npc.jobRole then return npc.jobRole end
+    local r = (npc.appearanceSeed or npc.id or 1) % 100
+    local role = "till"
+    if r >= 80 then role = "harvest"
+    elseif r >= 55 then role = "sow" end
+    if role == "sow" and (not self.SEEDER_POOL or #self.SEEDER_POOL == 0) then role = "till" end
+    if role == "harvest" and (not self.HARVEST_COMBOS or #self.HARVEST_COMBOS == 0) then role = "till" end
+    npc.jobRole = role
+    return role
+end
+
+--- The work VEHICLE for an NPC based on their job role: a combine for harvest
+-- (also records the paired header via npc._harvestComboIndex), else a tractor.
+-- @param npc  NPC data table
+-- @return string|nil  Vehicle XML path
+function NPCSystem:getWorkVehicleFilename(npc)
+    local role = self:getNPCJobRole(npc)
+    if role == "harvest" and self.HARVEST_COMBOS and #self.HARVEST_COMBOS > 0 then
+        local idx = ((npc.appearanceSeed or npc.id or 1) % #self.HARVEST_COMBOS) + 1
+        npc._harvestComboIndex = idx
+        return self.HARVEST_COMBOS[idx].combine
+    end
+    if not self.TRACTOR_POOL or #self.TRACTOR_POOL == 0 then return nil end
+    local index = ((npc.appearanceSeed or npc.id or 1) % #self.TRACTOR_POOL) + 1
     return self.TRACTOR_POOL[index]
 end
 
---- Select a field-work implement for an NPC from the validated pool.
--- Seed is offset from the tractor pick so tractor/implement choices vary
--- independently (a plow behind one Fendt, a cultivator behind another).
+--- Backwards-compatible alias (till/sow both drive a tractor; harvest a combine).
+function NPCSystem:getTractorFilename(npc)
+    return self:getWorkVehicleFilename(npc)
+end
+
+--- The IMPLEMENT for an NPC based on their job role: the paired header for
+-- harvest, a seeder for sow, else a plow/cultivator for till.
 -- @param npc  NPC data table
--- @return string|nil  Implement XML path, or nil if the pool is empty
+-- @return string|nil  Implement XML path, or nil if unavailable
 function NPCSystem:getImplementFilename(npc)
+    local role = self:getNPCJobRole(npc)
+    if role == "harvest" then
+        local combo = self.HARVEST_COMBOS and self.HARVEST_COMBOS[npc._harvestComboIndex or 1]
+        return combo and combo.header
+    elseif role == "sow" then
+        if not self.SEEDER_POOL or #self.SEEDER_POOL == 0 then return nil end
+        local index = (((npc.appearanceSeed or npc.id or 1) + 3) % #self.SEEDER_POOL) + 1
+        return self.SEEDER_POOL[index]
+    end
     if not self.IMPLEMENT_POOL or #self.IMPLEMENT_POOL == 0 then return nil end
-    local seed = (npc.appearanceSeed or npc.id or 1) + 7
-    local index = (seed % #self.IMPLEMENT_POOL) + 1
+    local index = (((npc.appearanceSeed or npc.id or 1) + 7) % #self.IMPLEMENT_POOL) + 1
     return self.IMPLEMENT_POOL[index]
+end
+
+--- Fill a seeder's fill units with SEEDS so it can actually sow (best-effort).
+-- @param implement  the attached seeder vehicle
+function NPCSystem:fillSeederWithSeed(implement)
+    if not implement or not implement.getFillUnits or not g_fillTypeManager then return end
+    local seedsIndex = g_fillTypeManager:getFillTypeIndexByName("SEEDS")
+    if not seedsIndex then return end
+    local farmId = (implement.getOwnerFarmId and implement:getOwnerFarmId()) or 1
+    local units = implement:getFillUnits()
+    if not units then return end
+    for i = 1, #units do
+        pcall(function()
+            if implement.getFillUnitSupportsFillType and implement:getFillUnitSupportsFillType(i, seedsIndex) then
+                local cap = (implement.getFillUnitCapacity and implement:getFillUnitCapacity(i)) or 1000
+                local tt = (ToolType and ToolType.UNDEFINED) or 0
+                implement:addFillUnitFillLevel(farmId, i, cap, seedsIndex, tt)
+            end
+        end)
+    end
 end
 
 --- Spawn a real FS25 vehicle for an NPC farmer using VehicleLoadingData.
@@ -1728,16 +1816,14 @@ function NPCSystem:spawnNPCImplement(npc, tractor, callback)
         if callback then callback(false) end
         return
     end
-    if not self.IMPLEMENT_POOL or #self.IMPLEMENT_POOL == 0 then
-        if self.settings.debugMode then
-            print(string.format("[NPC Favor] No implements in pool for %s — visual work only", npc.name or "?"))
-        end
-        if callback then callback(false) end
-        return
-    end
 
+    -- Implement depends on the NPC's job role (plow/cultivator, seeder, or header).
     local implementFile = self:getImplementFilename(npc)
     if not implementFile then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] No implement for %s (role=%s) — visual work only",
+                npc.name or "?", self:getNPCJobRole(npc)))
+        end
         if callback then callback(false) end
         return
     end
@@ -1790,6 +1876,10 @@ function NPCSystem:spawnNPCImplement(npc, tractor, callback)
 
         if self:attachImplementToTractor(tractor, implement) then
             npc.realImplement = implement
+            -- Sowers need seed loaded to actually plant.
+            if self:getNPCJobRole(npc) == "sow" then
+                pcall(function() self:fillSeederWithSeed(implement) end)
+            end
             print(string.format("[NPC Favor] Implement attached for %s — %s", npc.name or "?", implementFile))
             if callback then callback(true) end
         else
@@ -2381,11 +2471,10 @@ end
 -- Uses FieldState (verified: FieldState.new():update(x,z) -> fruitTypeIndex /
 -- growthState) + FruitTypeDesc growth predicates.
 -- @param field  assignedField-style table with .center
--- @return string  "till" (empty/stubble/cultivated), "protect" (growing crop),
---                 or "harvest" (ripe crop). Only "till" is acted on for now;
---                 sowing + harvesting are staged follow-ups.
+-- @return string  "open" (no crop / stubble: tillable + sowable), "harvest"
+--                 (ripe crop), or "protect" (growing crop, never touched).
 function NPCSystem:getFieldJobType(field)
-    if not field or not field.center or FieldState == nil then return "till" end
+    if not field or not field.center or FieldState == nil then return "open" end
 
     local fruitIndex, growth
     local ok = pcall(function()
@@ -2394,24 +2483,24 @@ function NPCSystem:getFieldJobType(field)
         fruitIndex = fs.fruitTypeIndex
         growth = fs.growthState
     end)
-    if not ok then return "till" end
+    if not ok then return "open" end
 
-    -- No crop (or unknown) -> safe to till.
+    -- No crop (or unknown) -> open ground: tillable and sowable.
     local unknown = (FruitType and FruitType.UNKNOWN) or 0
     if not fruitIndex or fruitIndex == unknown or fruitIndex == 0 then
-        return "till"
+        return "open"
     end
 
     local fruitDesc = g_fruitTypeManager and g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
     if fruitDesc then
         if fruitDesc.getIsHarvestable and fruitDesc:getIsHarvestable(growth) then
-            return "harvest"   -- ripe: don't till it under (real harvest is staged)
+            return "harvest"   -- ripe: harvesters only
         end
         if fruitDesc.getIsCut and fruitDesc:getIsCut(growth) then
-            return "till"      -- stubble after harvest: fine to work under
+            return "open"      -- stubble after harvest: fine to work under
         end
         if fruitDesc.getIsGrowing and fruitDesc:getIsGrowing(growth) then
-            return "protect"   -- growing crop: never plow it under
+            return "protect"   -- growing crop: never plow or cut it
         end
     end
     -- Unclassified but a crop is present: protect it rather than risk destroying it.
@@ -2439,12 +2528,18 @@ function NPCSystem:startNPCFieldWorkOwned(npc)
     if not field or not field.center then return false end
     local cx, cz = field.center.x, field.center.z
 
-    -- Job-to-field matching: only till a field with no growing/ripe crop. A field
-    -- with a standing crop falls through to GoTo driving (drive/inspect), so an NPC
-    -- never plows a crop under. Sowing + harvesting are staged follow-ups.
-    if self:getFieldJobType(field) ~= "till" then
+    -- Job-to-field matching: run the AI only when the field's current need matches
+    -- this NPC's job role. "open" (no crop / stubble) is worked by tillers + sowers;
+    -- "harvest" (ripe) by harvesters; a "protect" (growing) field is never touched.
+    -- A mismatch falls through to GoTo driving (drive/inspect).
+    local need = self:getFieldJobType(field)
+    local role = self:getNPCJobRole(npc)
+    local matches = (need == "harvest" and role == "harvest")
+        or (need == "open" and (role == "till" or role == "sow"))
+    if not matches then
         if self.settings.debugMode then
-            print(string.format("[NPC Favor] %s: field has a crop, skipping tillage (drive/inspect)", npc.name or "?"))
+            print(string.format("[NPC Favor] %s (role=%s): field need=%s, skipping (drive/inspect)",
+                npc.name or "?", role, need))
         end
         return false
     end
