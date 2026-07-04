@@ -311,6 +311,13 @@ function NPCAI:updateSleepState(npc, hour)
             npc.driveDestination = nil
             npc.driveCallback = nil
             if npc.currentVehicle then
+                -- Tell the engine to stop the AI drive task so AITaskDriveTo
+                -- won't crash later trying to index a nil vehicle reference.
+                pcall(function()
+                    if npc.currentVehicle.stopAI then
+                        npc.currentVehicle:stopAI()
+                    end
+                end)
                 npc.currentVehicle.isAvailable = true
                 npc.currentVehicle.currentTask = nil
                 npc.currentVehicle.driver = nil
@@ -404,6 +411,11 @@ function NPCAI:updateNPCState(npc, dt)
             npc.driveDestination = nil
             npc.driveCallback = nil
             if npc.currentVehicle then
+                pcall(function()
+                    if npc.currentVehicle.stopAI then
+                        npc.currentVehicle:stopAI()
+                    end
+                end)
                 npc.currentVehicle.isAvailable = true
                 npc.currentVehicle.currentTask = nil
                 npc.currentVehicle.driver = nil
@@ -682,6 +694,21 @@ function NPCAI:handleStuckNPC(npc)
     -- Clear drive state (prevents orphaned callbacks)
     npc.driveDestination = nil
     npc.driveCallback = nil
+
+    -- SECOND SAFETY NET: if stopDriving missed it for any reason, make sure
+    -- the vehicle's AI task is explicitly terminated so AITaskDriveTo
+    -- doesn't crash on a nil vehicle reference.
+    if npc.currentVehicle then
+        pcall(function()
+            if npc.currentVehicle.stopAI then
+                npc.currentVehicle:stopAI()
+            end
+        end)
+        npc.currentVehicle.isAvailable = true
+        npc.currentVehicle.currentTask = nil
+        npc.currentVehicle.driver = nil
+        npc.currentVehicle = nil
+    end
 
     -- Reset to idle
     self:setState(npc, self.STATES.IDLE)
@@ -1543,6 +1570,17 @@ function NPCAI:updateWorkingState(npc, dt)
         workDuration = 180  -- 3 minutes
     end
 
+    -- Base-game AI drives the combo when a GoTo chain is active: follow its real
+    -- position for HUD/proximity and skip our own kinematic row movement.
+    if npc.goToActive then
+        if npc.realTractor and npc.realTractor.rootNode then
+            pcall(function()
+                local wx, wy, wz = getWorldTranslation(npc.realTractor.rootNode)
+                if wx then npc.position.x, npc.position.y, npc.position.z = wx, wy, wz end
+            end)
+        end
+    else
+
     -- Move along field work rows
     if npc.fieldWorkPath and npc.fieldWorkIndex then
         local target = npc.fieldWorkPath[npc.fieldWorkIndex]
@@ -1580,6 +1618,16 @@ function NPCAI:updateWorkingState(npc, dt)
             end
         end
     end
+
+    -- Drive the real combo kinematically so it follows the field-work rows.
+    -- The attached implement follows via its joint.
+    if npc.usingComboFieldWork and npc.realTractor and npc.realTractor.rootNode then
+        pcall(function()
+            setTranslation(npc.realTractor.rootNode, npc.position.x, npc.position.y, npc.position.z)
+            setRotation(npc.realTractor.rootNode, 0, npc.rotation.y, 0)
+        end)
+    end
+    end  -- end of the "if npc.goToActive then ... else" block
 
     -- After work duration, decide next action
     if npc.workTimer > workDuration then
@@ -1986,25 +2034,30 @@ function NPCAI:startWorking(npc)
         -- At field, start working
         self:setState(npc, self.STATES.WORKING)
 
-        -- Try real tractor activation (hybrid or realistic mode)
-        local usedRealVehicle = false
+        -- Drive a real combo across the field if we have one (hybrid/realistic),
+        -- otherwise fall back to the tractor prop. Either way we traverse the
+        -- field rows via initFieldWork below.
+        local usingCombo = false
         local mode = self.npcSystem and self.npcSystem.settings and self.npcSystem.settings.npcVehicleMode
         if npc.realTractor and (mode == "realistic" or mode == "hybrid") then
             pcall(function()
-                usedRealVehicle = self.npcSystem:activateNPCTractor(npc)
+                usingCombo = self.npcSystem:activateNPCTractor(npc)
             end)
         end
+        -- activateNPCTractor owns npc.goToActive / npc.usingComboFieldWork.
 
-        if not usedRealVehicle then
-            -- Show tractor prop (visual fallback)
+        if not usingCombo then
+            -- No real combo: show the tractor prop instead
+            npc.usingComboFieldWork = false
+            npc.goToActive = false
             local entityMgr = self.npcSystem.entityManager
             if entityMgr then
                 pcall(function() entityMgr:updateWorkingVisuals(npc, true) end)
             end
-
-            -- Set up field traversal: NPC will walk rows across the field with tractor
-            self:initFieldWork(npc)
         end
+
+        -- Field traversal path (rows) for the prop and the kinematic combo fallback
+        self:initFieldWork(npc)
 
         if math.random() < 0.7 and self.npcSystem.settings.showNotifications then
             self.npcSystem:showNotification(

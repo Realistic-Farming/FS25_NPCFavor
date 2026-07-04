@@ -54,6 +54,7 @@ function NPCFavorGUI:registerConsoleCommands()
     addConsoleCommand("npcFavors", "Open favor management dialog", "npcFavors", self)
     addConsoleCommand("npcAdmin", "Open NPC admin panel", "npcAdmin", self)
     addConsoleCommand("npcForceFavor", "Force a favor request (testing)", "npcForceFavor", self)
+    addConsoleCommand("npcDeleteVehicle", "Delete the nearest vehicle/implement to you [radius]", "npcDeleteVehicle", self)
 
     print("[NPC Favor] Console commands registered successfully")
 end
@@ -119,6 +120,7 @@ npcFavors           - Open favor management dialog
 npcAdmin            - Open NPC admin panel (adjust relationships)
 npcVehicleMode [mode] - Switch vehicle mode (hybrid/realistic/visual)
 npcForceFavor       - Force generate a favor request (testing)
+npcDeleteVehicle [r] - Delete the nearest vehicle/implement to you (r = radius, default 30m)
 npcTest             - Test function
 
 === Interaction ===
@@ -163,6 +165,13 @@ end
 function NPCFavorGUI:npcTest()
     print("[NPC Favor] Test function called - console commands are working!")
     return "NPC Favor test successful. Type 'npcHelp' for commands."
+end
+
+function NPCFavorGUI:npcDeleteVehicle(radius)
+    if not g_NPCSystem then
+        return "NPC System not initialized"
+    end
+    return g_NPCSystem:consoleCommandDeleteNearestVehicle(radius)
 end
 
 function NPCFavorGUI:npcForceFavor()

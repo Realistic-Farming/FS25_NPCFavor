@@ -1962,6 +1962,31 @@ function NPCEntity:buildHotspotPlaceableProxy(npc)
     })
 end
 
+--- Add a hotspot to the engine's live map draw list exactly once.
+-- entity.mapHotspotInList is the single source of truth for membership, so this
+-- is idempotent: calling it twice never double-registers (a duplicate would keep
+-- rendering a freed overlay after delete -> the "Unknown entity id" spam).
+function NPCEntity:_addHotspotToList(entity)
+    if not entity or not entity.mapHotspot or entity.mapHotspotInList then return end
+    pcall(function()
+        if g_currentMission and g_currentMission.addMapHotspot then
+            g_currentMission:addMapHotspot(entity.mapHotspot)
+        end
+    end)
+    entity.mapHotspotInList = true
+end
+
+--- Remove a hotspot from the engine's draw list exactly once (does NOT delete it).
+function NPCEntity:_removeHotspotFromList(entity)
+    if not entity or not entity.mapHotspot or not entity.mapHotspotInList then return end
+    pcall(function()
+        if g_currentMission and g_currentMission.removeMapHotspot then
+            g_currentMission:removeMapHotspot(entity.mapHotspot)
+        end
+    end)
+    entity.mapHotspotInList = false
+end
+
 function NPCEntity:createMapHotspot(entity, npc)
     if not entity or entity.mapHotspot then return end
     if not g_currentMission or not g_currentMission.addMapHotspot then return end
@@ -2033,8 +2058,9 @@ function NPCEntity:createMapHotspot(entity, npc)
             end
         end
 
-        g_currentMission:addMapHotspot(hotspot)
         entity.mapHotspot = hotspot
+        entity.mapHotspotInList = false
+        self:_addHotspotToList(entity)
         entity.teleportTargetTimer = 0
     end)
 
@@ -2048,10 +2074,10 @@ end
 
 function NPCEntity:removeMapHotspot(entity)
     if entity and entity.mapHotspot then
+        -- Pull it out of the draw list FIRST (separate pcall) so its overlays are
+        -- never freed while the engine is still rendering them.
+        self:_removeHotspotFromList(entity)
         pcall(function()
-            if g_currentMission and g_currentMission.removeMapHotspot then
-                g_currentMission:removeMapHotspot(entity.mapHotspot)
-            end
             if entity.mapHotspot.delete then
                 entity.mapHotspot:delete()
             end
@@ -2059,40 +2085,41 @@ function NPCEntity:removeMapHotspot(entity)
         entity.mapHotspot = nil
     end
     entity.mapHotspotHidden = nil
+    entity.mapHotspotInList = nil
 end
 
---- Unregister an NPC's hotspot from the live map draw list WITHOUT destroying its
--- icon overlay (used while the NPC sleeps). The old behaviour called
--- removeMapHotspot (which deletes the icon Overlay) every time an NPC fell
--- asleep, then createMapHotspot (which allocates a brand new overlay from the
--- same "npcFavor.npc" slice) every time they woke up. With every NPC doing that
--- nightly, deleting one NPC's overlay could free a graphics-entity id that a
--- different, still-awake NPC's hotspot was still holding -- that's what threw
--- "Unknown entity id ... setOverlayColor/renderOverlay/setOverlayRotation" every
--- frame. Hiding instead of deleting keeps each NPC's overlay handle alive and
--- unique for the entity's whole lifetime, so there's nothing left to go stale.
+--- Unregister an NPC's hotspot from the engine's live map draw list WITHOUT
+-- destroying its icon overlay (used while the NPC sleeps).
+--
+-- The engine's IngameMap:drawHotspot iterates its internal hotspots table and
+-- calls hotspot:render() on every entry — it does NOT check any custom flag on
+-- the entity. Simply setting a flag left the hotspot registered, so the engine
+-- kept calling render → PlaceableHotspot:render → Overlay:renderCustom →
+-- setOverlayRotation on stale entity IDs, producing the "Unknown entity id"
+-- error every frame.
+--
+-- The fix: call removeMapHotspot to pull the hotspot out of the engine's draw
+-- list, but do NOT call hotspot:delete() so the overlay entity IDs stay valid.
+-- When the NPC wakes up, showMapHotspot re-adds the same hotspot object via
+-- addMapHotspot, reusing the original overlay entities.
 function NPCEntity:hideMapHotspot(entity)
     if entity and entity.mapHotspot and not entity.mapHotspotHidden then
-        pcall(function()
-            if g_currentMission and g_currentMission.removeMapHotspot then
-                g_currentMission:removeMapHotspot(entity.mapHotspot)
-            end
-        end)
+        self:_removeHotspotFromList(entity)
         entity.mapHotspotHidden = true
     end
 end
 
 --- Re-register a previously hidden hotspot (NPC woke up), or create one from
--- scratch if this entity never had one yet. See hideMapHotspot for why this
--- doesn't recreate the icon overlay on every wake-up.
+-- scratch if this entity never had one yet.
+--
+-- Because hideMapHotspot only removes the hotspot from the draw list (no
+-- delete()), the overlay entity IDs are still valid. We just re-add the same
+-- hotspot object so the engine draws it again.
 function NPCEntity:showMapHotspot(entity, npc)
     if not entity then return end
     if entity.mapHotspot and entity.mapHotspotHidden then
-        pcall(function()
-            if g_currentMission and g_currentMission.addMapHotspot then
-                g_currentMission:addMapHotspot(entity.mapHotspot)
-            end
-        end)
+        -- Re-add the existing hotspot to the engine's draw list (idempotent).
+        self:_addHotspotToList(entity)
         entity.mapHotspotHidden = false
     elseif not entity.mapHotspot then
         self:createMapHotspot(entity, npc)

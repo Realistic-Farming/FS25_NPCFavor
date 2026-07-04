@@ -365,6 +365,15 @@ function NPCSystem:onMissionLoaded()
 
                 self.isInitialized = true
                 self.initializing = false
+
+                -- Watch for the game ending an NPC's AI field-work job (field
+                -- finished, blocked, vehicle deleted) so we release the NPC and
+                -- free its job slot instead of leaking it. Subscribe once.
+                if not self._aiJobMsgSubscribed and g_messageCenter and MessageType and MessageType.AI_JOB_STOPPED then
+                    g_messageCenter:subscribe(MessageType.AI_JOB_STOPPED, self.onAIJobStopped, self)
+                    self._aiJobMsgSubscribed = true
+                end
+
                 print("[NPC Favor] Initialized with " .. tostring(self.npcCount) .. " NPCs")
                 
                 return true -- Remove updater
@@ -1504,8 +1513,12 @@ end
 
 --- Pool of base-game tractor XML paths for variety.
 -- These are validated at runtime via g_storeManager; invalid entries are removed.
+-- Medium-class Fendts (500/700 Vario) so they look right AND have the power to
+-- pull the field-work implements in IMPLEMENT_POOL (the Vario 200 was far too
+-- small under a 6-furrow plow).
 NPCSystem.TRACTOR_POOL = {
-    "data/vehicles/fendt/vario200/vario200.xml",
+    "data/vehicles/fendt/vario700/vario700.xml",
+    "data/vehicles/fendt/vario500/vario500.xml",
 }
 
 --- Pool of commute vehicles (cars/pickups). Falls back to TRACTOR_POOL if empty.
@@ -1517,6 +1530,11 @@ NPCSystem.IMPLEMENT_POOL = {
     "data/vehicles/poettinger/servoT6000Plus/servoT6000Plus.xml",
     "data/vehicles/kuhn/kuhnCultimer400/kuhnCultimer400.xml",
 }
+
+--- Max NPCs allowed to run a real game AI field-work job at once. The game AI
+-- limit (maxNumHirables) is SHARED with the player's own hired helpers, so we
+-- cap our usage low to always leave the player room to hire.
+NPCSystem.MAX_NPC_AI_JOBS = 2
 
 --- Validate vehicle pools against the store manager at runtime.
 -- Removes entries that aren't registered storeitems and discovers alternatives.
@@ -1604,6 +1622,18 @@ function NPCSystem:getTractorFilename(npc)
     return self.TRACTOR_POOL[index]
 end
 
+--- Select a field-work implement for an NPC from the validated pool.
+-- Seed is offset from the tractor pick so tractor/implement choices vary
+-- independently (a plow behind one Fendt, a cultivator behind another).
+-- @param npc  NPC data table
+-- @return string|nil  Implement XML path, or nil if the pool is empty
+function NPCSystem:getImplementFilename(npc)
+    if not self.IMPLEMENT_POOL or #self.IMPLEMENT_POOL == 0 then return nil end
+    local seed = (npc.appearanceSeed or npc.id or 1) + 7
+    local index = (seed % #self.IMPLEMENT_POOL) + 1
+    return self.IMPLEMENT_POOL[index]
+end
+
 --- Spawn a real FS25 vehicle for an NPC farmer using VehicleLoadingData.
 -- Gracefully falls back to nil if VehicleLoadingData API is unavailable.
 -- @param npc       NPC data table (requires npc.assignedField)
@@ -1671,6 +1701,12 @@ function NPCSystem:spawnNPCTractor(npc, callback)
 
             print(string.format("[NPC Favor] Real tractor spawned for %s at (%.0f, %.0f) — %s",
                 npc.name or "?", fieldEdgeX, fieldEdgeZ, tractorFile))
+
+            -- Give the tractor a field-work implement so it is actually
+            -- field-work capable (getCanStartFieldWork). Async; attaches when
+            -- loaded. On any failure the implement is cleaned up and the NPC
+            -- falls back to the visual row-driving path (never strands a tool).
+            self:spawnNPCImplement(npc, vehicle)
         else
             print(string.format("[NPC Favor] Tractor spawn FAILED for %s — %s",
                 npc.name or "?", tractorFile))
@@ -1678,6 +1714,131 @@ function NPCSystem:spawnNPCTractor(npc, callback)
 
         if callback then callback(vehicle) end
     end, self, {npc = npc})
+end
+
+--- Spawn a field-work implement for an NPC and attach it to their tractor.
+-- Async: loads the implement, then attaches via joint-compatibility matching.
+-- Robust: if the tractor vanished, the pool is empty, or the attach fails, the
+-- implement is deleted (never stranded) and the NPC uses the visual fallback.
+-- @param npc       NPC data table (must already have npc.realTractor == tractor)
+-- @param tractor   The spawned tractor vehicle to attach to
+-- @param callback  Optional function(success) called after the attach attempt
+function NPCSystem:spawnNPCImplement(npc, tractor, callback)
+    if not VehicleLoadingData or not tractor or tractor.rootNode == nil then
+        if callback then callback(false) end
+        return
+    end
+    if not self.IMPLEMENT_POOL or #self.IMPLEMENT_POOL == 0 then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] No implements in pool for %s — visual work only", npc.name or "?"))
+        end
+        if callback then callback(false) end
+        return
+    end
+
+    local implementFile = self:getImplementFilename(npc)
+    if not implementFile then
+        if callback then callback(false) end
+        return
+    end
+
+    -- Spawn a few metres behind the tractor. attachImplement snaps the tool to
+    -- the attacher joint, so exact placement only needs to be in the vicinity.
+    local sx, sz, yaw = 0, 0, 0
+    local okPos = pcall(function()
+        local tx, _, tz = getWorldTranslation(tractor.rootNode)
+        local bx, _, bz = localDirectionToWorld(tractor.rootNode, 0, 0, -1)  -- tractor rear
+        sx, sz = tx + bx * 5, tz + bz * 5
+        local fx, _, fz = localDirectionToWorld(tractor.rootNode, 0, 0, 1)   -- match facing
+        yaw = MathUtil.getYRotationFromDirection(fx, fz)
+    end)
+    if not okPos then
+        if callback then callback(false) end
+        return
+    end
+
+    local loadingData = VehicleLoadingData.new()
+    loadingData:setFilename(implementFile)
+    loadingData:setPosition(sx, nil, sz)  -- nil y = auto terrain height
+    loadingData:setRotation(0, yaw, 0)
+    loadingData:setOwnerFarmId(FarmManager.SPECTATOR_FARM_ID or 0)
+    loadingData:setPropertyState(VehiclePropertyState.OWNED)
+    loadingData:setIsRegistered(true)
+    loadingData:setAddToPhysics(true)
+    loadingData:setIsSaved(false)  -- respawned on load, never persisted
+
+    loadingData:load(function(_, loadedVehicles, loadingState, args)
+        local implement = loadedVehicles and loadedVehicles[1] or nil
+        if implement and VehicleLoadingState ~= nil and loadingState ~= VehicleLoadingState.OK then
+            implement = nil
+        end
+        if not implement then
+            print(string.format("[NPC Favor] Implement spawn FAILED for %s — %s", npc.name or "?", implementFile))
+            if callback then callback(false) end
+            return
+        end
+
+        -- The tractor may have been removed while we loaded async. Don't strand.
+        if npc.realTractor ~= tractor then
+            pcall(function() if implement.delete then implement:delete() end end)
+            if callback then callback(false) end
+            return
+        end
+
+        implement.isNPCVehicle = true
+        self:lockNPCVehicle(implement)
+
+        if self:attachImplementToTractor(tractor, implement) then
+            npc.realImplement = implement
+            print(string.format("[NPC Favor] Implement attached for %s — %s", npc.name or "?", implementFile))
+            if callback then callback(true) end
+        else
+            -- Could not find a compatible joint. Delete the tool rather than
+            -- leave it sitting in the field; NPC falls back to visual work.
+            pcall(function() if implement.delete then implement:delete() end end)
+            if self.settings.debugMode then
+                print(string.format("[NPC Favor] Implement attach failed for %s — removed, using visual work", npc.name or "?"))
+            end
+            if callback then callback(false) end
+        end
+    end, self, {npc = npc})
+end
+
+--- Attach an implement to a tractor by matching a free attacher joint on the
+-- tractor with a compatible input attacher joint on the implement.
+-- Mirrors the engine's own compatibility test (jointType + getAttacherJointCompatibility).
+-- @param tractor    Attacher vehicle (has attacherJoints)
+-- @param implement  Attachable (has inputAttacherJoints)
+-- @return boolean   true if attached
+function NPCSystem:attachImplementToTractor(tractor, implement)
+    local ok, result = pcall(function()
+        if not tractor.getAttacherJoints or not implement.getInputAttacherJoints then
+            return false
+        end
+        local attacherJoints = tractor:getAttacherJoints()
+        local inputJoints = implement:getInputAttacherJoints()
+        if not attacherJoints or not inputJoints then return false end
+
+        for aIdx, aJoint in ipairs(attacherJoints) do
+            -- jointIndex 0 == this attacher joint is free (nothing attached)
+            if (aJoint.jointIndex or 0) == 0 then
+                for iIdx, iJoint in ipairs(inputJoints) do
+                    if aJoint.jointType == iJoint.jointType then
+                        local compatible = true
+                        if AttacherJoints ~= nil and AttacherJoints.getAttacherJointCompatibility ~= nil then
+                            compatible = AttacherJoints.getAttacherJointCompatibility(tractor, aJoint, implement, iJoint)
+                        end
+                        if compatible then
+                            tractor:attachImplement(implement, iIdx, aIdx)
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+        return false
+    end)
+    return ok and result == true
 end
 
 --- Seat an NPC's HumanModel character in a vehicle's cab via VehicleCharacter.
@@ -1693,15 +1854,27 @@ function NPCSystem:seatNPCInVehicle(npc, vehicle)
         local entity = self.entityManager and self.entityManager.npcEntities[npc.id]
 
         if entity and entity.playerStyle then
-            vc:loadCharacter(entity.playerStyle, function()
-                -- NPC is now visually seated — hide the standalone walking model
-                if entity.node then
-                    pcall(function() setVisibility(entity.node, false) end)
-                end
-                npc.isSeatedInVehicle = true
-            end, self)
+            -- Correct signature is loadCharacter(playerStyle, asyncCallbackObject,
+            -- asyncCallbackFunction, asyncCallbackArguments); the engine then calls
+            -- asyncCallbackFunction(asyncCallbackObject, loadingState, args).
+            -- The old call passed a closure as the OBJECT and self as the FUNCTION,
+            -- so the engine tried to call a table (VehicleCharacter.lua:190).
+            vc:loadCharacter(entity.playerStyle, self, self.onNPCCharacterLoaded, {npc = npc, entity = entity})
         end
     end)
+end
+
+--- Async callback fired when an NPC character finishes loading into a vehicle
+-- seat. Invoked by the engine as self:onNPCCharacterLoaded(loadingState, args).
+-- @param loadingState  Engine loading state (unused)
+-- @param args          { npc = <npc>, entity = <entity> }
+function NPCSystem:onNPCCharacterLoaded(loadingState, args)
+    if not args then return end
+    local npc, entity = args.npc, args.entity
+    if entity and entity.node then
+        pcall(function() setVisibility(entity.node, false) end)  -- hide standalone walking model
+    end
+    if npc then npc.isSeatedInVehicle = true end
 end
 
 --- Unseat an NPC from their vehicle and restore the walking model.
@@ -1715,19 +1888,80 @@ function NPCSystem:unseatNPCFromVehicle(npc)
             end
         end
 
-        local entity = self.entityManager and self.entityManager.npcEntities[npc.id]
-        if entity and entity.node then
-            pcall(function() setVisibility(entity.node, true) end)
-        end
+        self:setNPCEntityHidden(npc, false)
         npc.isSeatedInVehicle = false
     end)
 end
 
+--- Hide or show an NPC's standalone walking/human model.
+-- Used while the game's AI helper drives the NPC's tractor: the helper occupies
+-- the cab (via createAgent), so our separate model must be hidden to avoid a
+-- visible duplicate person.
+-- @param npc     NPC data table
+-- @param hidden  true to hide the model, false to show it
+function NPCSystem:setNPCEntityHidden(npc, hidden)
+    local entity = self.entityManager and self.entityManager.npcEntities[npc.id]
+    if not entity then return end
+    if entity.node then
+        pcall(function() setVisibility(entity.node, not hidden) end)
+    end
+    if entity.humanModel and entity.humanModel.rootNode then
+        pcall(function() setVisibility(entity.humanModel.rootNode, not hidden) end)
+    end
+end
+
+--- Count NPCs currently running a real game AI field-work job.
+-- @return number  active NPC AI job count
+function NPCSystem:countActiveNPCAIJobs()
+    local n = 0
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.activeAIJob then n = n + 1 end
+    end
+    return n
+end
+
 --- Start an AI field work job for an NPC using their real tractor.
--- Uses AIJobFieldWork with named parameters. Falls back gracefully if unavailable.
+-- Follows the game's own start recipe (see AISystem:consoleCommandAIStart):
+--   createJob(FIELDWORK) -> set vehicle + position -> setValues() -> validate() -> startJob().
+-- The critical step is job:setValues(): it wires the vehicle and drive target
+-- into the drive/fieldwork tasks. Skipping it leaves AITaskDriveTo running
+-- against a nil vehicle every frame, which is what spammed the console.
+-- We also gate on vehicle:getCanStartFieldWork() — the engine's own check for
+-- "is this vehicle actually field-work capable". A bare tractor (no lowered
+-- implement with work areas) returns false, so we never hand the AI machine a
+-- job it cannot run. Returns true only when the job actually started.
 -- @param npc  NPC data table (requires npc.realTractor and npc.assignedField)
 function NPCSystem:startNPCFieldWork(npc)
-    if not npc.realTractor or not AIJobFieldWork then
+    local vehicle = npc.realTractor
+    if not vehicle or not g_currentMission or not g_currentMission.aiJobTypeManager then
+        return false
+    end
+    if AIJobType == nil or AIJobType.FIELDWORK == nil then
+        return false
+    end
+
+    -- Engine gate: only start field work on a field-work-capable vehicle.
+    -- Bare tractor -> false -> fall back to the visual path (no spam, no crash).
+    local canFieldWork = false
+    pcall(function()
+        canFieldWork = vehicle.getCanStartFieldWork ~= nil and vehicle:getCanStartFieldWork()
+    end)
+    if not canFieldWork then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] %s cannot start AI field work (no field-work implement) — using visual work",
+                npc.name or "?"))
+        end
+        return false
+    end
+
+    -- Guardrail: the game AI limit (maxNumHirables) is shared with the player's
+    -- hired helpers. Respect it, and cap concurrent NPC jobs so we never starve
+    -- the player's ability to hire. Fall back to visual work when at capacity.
+    local aiSystem = g_currentMission.aiSystem
+    if aiSystem and aiSystem.getAILimitedReached and aiSystem:getAILimitedReached() then
+        return false
+    end
+    if self:countActiveNPCAIJobs() >= (self.MAX_NPC_AI_JOBS or 2) then
         return false
     end
 
@@ -1738,13 +1972,14 @@ function NPCSystem:startNPCFieldWork(npc)
     local cx = (field.center and field.center.x) or 0
     local cz = (field.center and field.center.z) or 0
 
-    local job = AIJobFieldWork.new(g_currentMission:getIsServer())
+    local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.FIELDWORK)
+    if not job then return false end
 
     -- Set vehicle via named parameter
     pcall(function()
         local vehicleParam = job:getNamedParameter("vehicle")
         if vehicleParam and vehicleParam.setVehicle then
-            vehicleParam:setVehicle(npc.realTractor)
+            vehicleParam:setVehicle(vehicle)
         end
     end)
 
@@ -1757,6 +1992,16 @@ function NPCSystem:startNPCFieldWork(npc)
         end
     end)
 
+    -- CRITICAL: transfer the parameters into the tasks (task vehicle + drive
+    -- target). Without this the AI tasks run unconfigured and spam every frame.
+    local valuesOk = pcall(function() job:setValues() end)
+    if not valuesOk then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] AI job setValues failed for %s — aborting", npc.name or "?"))
+        end
+        return false
+    end
+
     -- Validate before starting
     local farmId = npc.ownerFarmId or FarmManager.SPECTATOR_FARM_ID or 0
     local valid, errorMsg = false, "unknown"
@@ -1765,14 +2010,24 @@ function NPCSystem:startNPCFieldWork(npc)
     end)
 
     if valid then
-        pcall(function()
+        local started = pcall(function()
             g_currentMission.aiSystem:startJob(job, farmId)
         end)
+        if not started then
+            if self.settings.debugMode then
+                print(string.format("[NPC Favor] AI startJob failed for %s", npc.name or "?"))
+            end
+            return false
+        end
         npc.activeAIJob = job
         npc.currentAction = "field work (AI)"
 
-        -- Seat NPC in tractor when AI starts
-        self:seatNPCInVehicle(npc, npc.realTractor)
+        -- The game's AI helper drives the tractor: createAgent seats a helper in
+        -- the cab. Do NOT also load our own character into the same seat — that
+        -- double-loads the vehicleCharacter and throws in loadSharedI3DFileAsyncFinished.
+        -- Just hide our standalone walking model while the AI works.
+        npc.isSeatedInVehicle = true
+        self:setNPCEntityHidden(npc, true)
 
         if self.settings.debugMode then
             print(string.format("[NPC Favor] AI field work started for %s on field at (%.0f, %.0f)",
@@ -1791,11 +2046,26 @@ end
 --- Stop an active AI field work job for an NPC.
 -- @param npc  NPC data table
 function NPCSystem:stopNPCFieldWork(npc)
+    -- If the base-game AI GoTo chain is driving, stop that (handles unseat too).
+    if npc.goToActive then
+        self:stopNPCGoTo(npc)
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] AI GoTo driving stopped for %s", npc.name or "?"))
+        end
+        return
+    end
+
     if npc.activeAIJob then
         pcall(function()
             g_currentMission.aiSystem:stopJob(npc.activeAIJob)
         end)
         npc.activeAIJob = nil
+    end
+
+    -- Restore any temporary field ownership from a tillage job.
+    if npc.usingFieldWorkOwned then
+        self:_restoreNPCFieldOwnership(npc)
+        npc.usingFieldWorkOwned = false
     end
 
     -- Unseat NPC from tractor
@@ -1806,6 +2076,54 @@ function NPCSystem:stopNPCFieldWork(npc)
     end
 end
 
+--- React to the game stopping an AI job (field finished, blocked, vehicle gone).
+-- If it was one of our NPCs' field-work jobs, drop the reference, unseat the NPC
+-- and return them to idle so they re-decide. Fires for ALL AI jobs including the
+-- player's hired helpers, so we only touch a job we own.
+-- @param job        The AIJob that stopped
+-- @param aiMessage  The stop reason (unused)
+function NPCSystem:onAIJobStopped(job, aiMessage)
+    if job == nil then return end
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.activeAIJob == job then
+            npc.activeAIJob = nil
+            if npc.goToActive then
+                -- A GoTo waypoint finished: drive to the next one (keep working).
+                self:advanceNPCGoTo(npc, aiMessage)
+            else
+                -- Real tillage job ended: restore the field's original owner.
+                if npc.usingFieldWorkOwned then
+                    self:_restoreNPCFieldOwnership(npc)
+                    npc.usingFieldWorkOwned = false
+                end
+                pcall(function() self:unseatNPCFromVehicle(npc) end)
+                npc.aiState = "idle"
+                npc.currentAction = "idle"
+                npc.workTimer = 0
+                if self.settings.debugMode then
+                    local reason = "?"
+                    pcall(function()
+                        if aiMessage ~= nil then
+                            if aiMessage.getMessage ~= nil then
+                                local m = aiMessage:getMessage(job)
+                                if m ~= nil and m ~= "" then reason = tostring(m) end
+                            end
+                            if reason == "?" and aiMessage.getType ~= nil then
+                                reason = "type=" .. tostring(aiMessage:getType())
+                            end
+                            if reason == "?" and ClassUtil and ClassUtil.getClassNameByObject then
+                                reason = tostring(ClassUtil.getClassNameByObject(aiMessage))
+                            end
+                        end
+                    end)
+                    print(string.format("[NPC Favor] AI job ended for %s (released) reason=%s", npc.name or "?", reason))
+                end
+            end
+            break
+        end
+    end
+end
+
 
 --- Remove an NPC's real tractor and implement from the world.
 -- @param npc  NPC data table
@@ -1813,7 +2131,9 @@ function NPCSystem:removeNPCTractor(npc)
     -- Stop active AI job first
     self:stopNPCFieldWork(npc)
 
-    -- Remove implement
+    -- Remove implement. Vehicle:delete() is the real FS25 deletion API;
+    -- g_currentMission:removeVehicle does not exist and silently no-ops inside
+    -- the pcall, which is why NPC tractors used to strand on the map.
     if npc.realImplement then
         pcall(function()
             if npc.realTractor and npc.realTractor.detachImplement then
@@ -1821,7 +2141,7 @@ function NPCSystem:removeNPCTractor(npc)
             end
         end)
         pcall(function()
-            g_currentMission:removeVehicle(npc.realImplement)
+            if npc.realImplement.delete then npc.realImplement:delete() end
         end)
         npc.realImplement = nil
     end
@@ -1829,7 +2149,7 @@ function NPCSystem:removeNPCTractor(npc)
     -- Remove tractor
     if npc.realTractor then
         pcall(function()
-            g_currentMission:removeVehicle(npc.realTractor)
+            if npc.realTractor.delete then npc.realTractor:delete() end
         end)
         npc.realTractor = nil
     end
@@ -1906,7 +2226,7 @@ function NPCSystem:spawnNPCCar(npc, callback)
                     print(string.format("[NPC Favor] spawnNPCCar: discarding orphan vehicle for %s (state=%s sleeping=%s)",
                         npc.name or "?", tostring(npc.aiState), tostring(npc.isSleeping)))
                 end
-                pcall(function() g_currentMission:removeVehicle(vehicle) end)
+                pcall(function() if vehicle.delete then vehicle:delete() end end)
                 if callback then callback(nil) end
                 return
             end
@@ -1915,7 +2235,7 @@ function NPCSystem:spawnNPCCar(npc, callback)
                 if self.settings.debugMode then
                     print(string.format("[NPC Favor] spawnNPCCar: race condition discard for %s", npc.name or "?"))
                 end
-                pcall(function() g_currentMission:removeVehicle(vehicle) end)
+                pcall(function() if vehicle.delete then vehicle:delete() end end)
                 if callback then callback(npc.realCar) end
                 return
             end
@@ -1993,9 +2313,9 @@ function NPCSystem:removeNPCCar(npc)
     end
     npc.isSeatedInVehicle = false
 
-    -- Remove vehicle from world
+    -- Remove vehicle from world (Vehicle:delete is the real FS25 API)
     pcall(function()
-        g_currentMission:removeVehicle(npc.realCar)
+        if npc.realCar and npc.realCar.delete then npc.realCar:delete() end
     end)
     npc.realCar = nil
 end
@@ -2004,21 +2324,300 @@ end
 -- Seats the NPC in the tractor and starts AI field work.
 -- Called when NPC enters WORKING state.
 -- @param npc  NPC data table
+-- =========================================================
+-- Real AI tillage via AIJobFieldWork + temporary field ownership
+-- =========================================================
+-- AIJobFieldWork refuses to work a field the job's farm does not own, and NPC
+-- farms aren't real land-owning farms (the engine has no farm-creation API). So
+-- we TEMPORARILY transfer the field's farmland to a real farm (the local
+-- player's) for the duration of the job, then restore the original owner when it
+-- ends. A save-hook safeguard (restoreAllOwnershipFlips, called at the top of
+-- saveToXMLFile) restores every flip before any save writes, so a temporary flip
+-- can never persist to disk.
+
+--- Flip a farmland's owner to toFarmId, remembering the original for restore.
+function NPCSystem:_flipFarmlandOwnership(farmlandId, toFarmId)
+    if not g_farmlandManager or not farmlandId then return false end
+    self._ownershipFlips = self._ownershipFlips or {}
+    if self._ownershipFlips[farmlandId] == nil then
+        self._ownershipFlips[farmlandId] = g_farmlandManager:getFarmlandOwner(farmlandId) or 0
+    end
+    local ok = false
+    pcall(function() ok = g_farmlandManager:setLandOwnership(farmlandId, toFarmId) end)
+    return ok
+end
+
+--- Restore a single flipped farmland to its original owner (idempotent).
+function NPCSystem:_restoreFarmlandOwnership(farmlandId)
+    if not g_farmlandManager or not farmlandId or not self._ownershipFlips then return end
+    local original = self._ownershipFlips[farmlandId]
+    if original == nil then return end
+    pcall(function() g_farmlandManager:setLandOwnership(farmlandId, original) end)
+    self._ownershipFlips[farmlandId] = nil
+end
+
+--- Restore the ownership flip for a specific NPC's field, if any.
+function NPCSystem:_restoreNPCFieldOwnership(npc)
+    if npc._ownedFarmland then
+        self:_restoreFarmlandOwnership(npc._ownedFarmland)
+        npc._ownedFarmland = nil
+    end
+end
+
+--- Restore ALL flipped farmlands (before every save, and on shutdown), so no
+-- temporary ownership ever persists.
+function NPCSystem:restoreAllOwnershipFlips()
+    if not self._ownershipFlips or not g_farmlandManager then return end
+    for farmlandId, original in pairs(self._ownershipFlips) do
+        pcall(function() g_farmlandManager:setLandOwnership(farmlandId, original) end)
+    end
+    self._ownershipFlips = {}
+    for _, npc in ipairs(self.activeNPCs) do
+        npc._ownedFarmland = nil
+    end
+end
+
+--- Start real AI tillage for an NPC: temporarily own the field, run AIJobFieldWork.
+-- @return boolean  true if the tillage job started
+function NPCSystem:startNPCFieldWorkOwned(npc)
+    local vehicle = npc.realTractor
+    if not vehicle or not g_currentMission or not g_currentMission.aiJobTypeManager then return false end
+    if AIJobType == nil or AIJobType.FIELDWORK == nil or not g_farmlandManager then return false end
+
+    -- Needs a field-work-capable combo (tractor + lowerable implement with work areas).
+    local canFieldWork = false
+    pcall(function() canFieldWork = vehicle.getCanStartFieldWork ~= nil and vehicle:getCanStartFieldWork() end)
+    if not canFieldWork then return false end
+
+    -- Guardrail: shared AI hire limit + our own cap.
+    local aiSystem = g_currentMission.aiSystem
+    if aiSystem and aiSystem.getAILimitedReached and aiSystem:getAILimitedReached() then return false end
+    if self:countActiveNPCAIJobs() >= (self.MAX_NPC_AI_JOBS or 2) then return false end
+
+    local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
+    if not field or not field.center then return false end
+    local cx, cz = field.center.x, field.center.z
+
+    local farmlandId
+    pcall(function() farmlandId = g_farmlandManager:getFarmlandIdAtWorldPosition(cx, cz) end)
+    if not farmlandId then return false end
+
+    -- Temporarily own the field with the local player's farm (a guaranteed real farm).
+    local jobFarmId = (g_currentMission.getFarmId and g_currentMission:getFarmId())
+        or (FarmManager and FarmManager.SINGLEPLAYER_FARM_ID) or 1
+    if not self:_flipFarmlandOwnership(farmlandId, jobFarmId) then return false end
+    npc._ownedFarmland = farmlandId
+
+    local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.FIELDWORK)
+    if not job then self:_restoreNPCFieldOwnership(npc); return false end
+
+    pcall(function()
+        local vp = job:getNamedParameter("vehicle")
+        if vp and vp.setVehicle then vp:setVehicle(vehicle) end
+    end)
+    pcall(function()
+        local pp = job:getNamedParameter("positionAngle")
+        if pp and pp.setPosition then
+            pp:setPosition(cx, cz)
+            pp:setAngle(0)
+        end
+    end)
+    if not pcall(function() job:setValues() end) then
+        self:_restoreNPCFieldOwnership(npc)
+        return false
+    end
+
+    -- Don't charge the borrowed farm for the NPC's own work.
+    job.getPricePerMs = function() return 0 end
+
+    local valid = false
+    pcall(function() valid = job:validate(jobFarmId) end)
+    if not valid then
+        self:_restoreNPCFieldOwnership(npc)
+        return false
+    end
+
+    if not pcall(function() g_currentMission.aiSystem:startJob(job, jobFarmId) end) then
+        self:_restoreNPCFieldOwnership(npc)
+        return false
+    end
+
+    npc.activeAIJob = job
+    npc.usingFieldWorkOwned = true
+    npc.currentAction = "field work (AI)"
+    -- The game's helper (createAgent) drives; hide our walking model.
+    self:setNPCEntityHidden(npc, true)
+    return true
+end
+
+-- =========================================================
+-- Base-game AI driving via chained AIJobGoTo
+-- =========================================================
+-- AIJobFieldWork can't be used on NPC fields (the farm must own the field, and
+-- NPC farms don't own land -> "field not owned"). AIJobGoTo has NO ownership
+-- check, so we use the REAL base-game AI to DRIVE the combo (pathfinding,
+-- collision avoidance, road following) across the field's row waypoints, one
+-- GoTo target at a time, chaining on job completion. This is genuine game-AI
+-- driving without the ownership wall. FOLLOW-UP: real tillage via AIJobFieldWork
+-- would need NPC-owned farmland (setLandOwnership + a real NPC farm); deferred.
+
+--- Start (or restart) a GoTo job to the NPC's current field waypoint.
+-- @return boolean  true if the job started
+function NPCSystem:startGoToWaypoint(npc)
+    local vehicle = npc.realTractor
+    if not vehicle or not g_currentMission or not g_currentMission.aiJobTypeManager then return false end
+    if AIJobType == nil or AIJobType.GOTO == nil then return false end
+
+    local wps = npc.goToWaypoints
+    local idx = npc.goToIndex or 1
+    local wp = wps and wps[idx]
+    if not wp then return false end
+
+    local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.GOTO)
+    if not job then return false end
+
+    pcall(function()
+        local vp = job:getNamedParameter("vehicle")
+        if vp and vp.setVehicle then vp:setVehicle(vehicle) end
+    end)
+
+    -- Head toward the next waypoint for a natural final heading.
+    local angle = 0
+    local nextWp = wps[idx + 1]
+    if nextWp and MathUtil and MathUtil.getYRotationFromDirection then
+        pcall(function() angle = MathUtil.getYRotationFromDirection(nextWp.x - wp.x, nextWp.z - wp.z) end)
+    end
+    pcall(function()
+        local pp = job:getNamedParameter("positionAngle")
+        if pp and pp.setPosition then
+            pp:setPosition(wp.x, wp.z)
+            pp:setAngle(angle)
+        end
+    end)
+
+    if not pcall(function() job:setValues() end) then return false end
+
+    local farmId = npc.ownerFarmId or (FarmManager and FarmManager.SPECTATOR_FARM_ID) or 0
+    local valid = false
+    pcall(function() valid = job:validate(farmId) end)
+    if not valid then return false end
+
+    if not pcall(function() g_currentMission.aiSystem:startJob(job, farmId) end) then return false end
+
+    npc.activeAIJob = job
+    npc.goToStartTime = (g_currentMission and g_currentMission.time) or 0
+    return true
+end
+
+--- Begin driving an NPC's combo across its field via chained GoTo jobs.
+-- @return boolean  true if the first GoTo started (real AI driving is active)
+function NPCSystem:startNPCComboGoTo(npc)
+    if not npc.realTractor then return false end
+
+    -- Respect the shared AI hire limit and our own cap so the player isn't starved.
+    local aiSystem = g_currentMission and g_currentMission.aiSystem
+    if aiSystem and aiSystem.getAILimitedReached and aiSystem:getAILimitedReached() then return false end
+    if self:countActiveNPCAIJobs() >= (self.MAX_NPC_AI_JOBS or 2) then return false end
+
+    local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
+    if not field then return false end
+
+    local waypoints
+    if self.fieldWork and self.fieldWork.getWorkPattern then
+        pcall(function() waypoints = self.fieldWork:getWorkPattern(npc, field) end)
+    end
+    if not waypoints or #waypoints == 0 then return false end
+
+    npc.goToWaypoints = waypoints
+    npc.goToIndex = 1
+    npc.goToActive = true
+    npc.goToFailCount = 0
+    npc.usingComboFieldWork = false
+    npc.currentAction = "field work (AI)"
+
+    -- The game's helper (createAgent) occupies the cab; hide our walking model.
+    self:setNPCEntityHidden(npc, true)
+
+    if self:startGoToWaypoint(npc) then
+        return true
+    end
+
+    -- Could not start the first GoTo; roll back.
+    npc.goToActive = false
+    npc.goToWaypoints = nil
+    npc.goToIndex = nil
+    self:setNPCEntityHidden(npc, false)
+    return false
+end
+
+--- Advance the GoTo chain when a waypoint job finishes. Detects likely failures
+-- (a job that stopped almost immediately) and gives up after a few in a row.
+-- @param npc        the NPC whose GoTo just stopped
+-- @param aiMessage  the stop message (unused; timing is the reliable signal)
+function NPCSystem:advanceNPCGoTo(npc, aiMessage)
+    if not npc.goToActive then return end
+
+    -- A GoTo that stops within ~1s almost certainly failed to path rather than
+    -- actually drove somewhere. Class-name detection of the AIMessage is unreliable.
+    local now = (g_currentMission and g_currentMission.time) or 0
+    local elapsed = now - (npc.goToStartTime or now)
+    if elapsed >= 0 and elapsed < 1000 then
+        npc.goToFailCount = (npc.goToFailCount or 0) + 1
+    else
+        npc.goToFailCount = 0
+    end
+
+    if (npc.goToFailCount or 0) >= 3 then
+        -- The AI can't drive this field; stop and let the NPC idle out.
+        self:stopNPCGoTo(npc)
+        return
+    end
+
+    npc.goToIndex = (npc.goToIndex or 1) + 1
+    if npc.goToIndex > #(npc.goToWaypoints or {}) then
+        npc.goToIndex = 1  -- loop the field pass until the NPC leaves WORKING
+    end
+
+    if not self:startGoToWaypoint(npc) then
+        self:stopNPCGoTo(npc)
+    end
+end
+
+--- Stop an NPC's GoTo chain cleanly (order avoids re-entrancy via onAIJobStopped).
+function NPCSystem:stopNPCGoTo(npc)
+    npc.goToActive = false
+    npc.goToWaypoints = nil
+    npc.goToIndex = nil
+    local job = npc.activeAIJob
+    npc.activeAIJob = nil  -- clear BEFORE stopJob so onAIJobStopped won't re-match
+    if job then
+        pcall(function() g_currentMission.aiSystem:stopJob(job) end)
+    end
+    self:unseatNPCFromVehicle(npc)
+end
+
 function NPCSystem:activateNPCTractor(npc)
     if not npc.realTractor then return false end
 
-    -- Seat NPC in the tractor
-    self:seatNPCInVehicle(npc, npc.realTractor)
-
-    -- Try to start AI field work
-    local started = self:startNPCFieldWork(npc)
-    if started then
-        print(string.format("[NPC Favor] %s activated tractor for AI field work", npc.name or "?"))
-    else
-        -- AI job didn't start — NPC is still visually in the tractor at least
-        npc.currentAction = "field work (manual)"
-        print(string.format("[NPC Favor] %s in tractor (AI job not available — parked at field)", npc.name or "?"))
+    -- 1. Real AI TILLAGE via AIJobFieldWork with temporary field ownership
+    --    (the AI actually works the ground).
+    if self:startNPCFieldWorkOwned(npc) then
+        print(string.format("[NPC Favor] %s tilling field via base-game AI (temp ownership)", npc.name or "?"))
+        return true
     end
+
+    -- 2. Real AI DRIVING via chained AIJobGoTo (no ownership needed; drives but
+    --    does not till). Used when there's no implement or the ownership flip fails.
+    if self:startNPCComboGoTo(npc) then
+        print(string.format("[NPC Favor] %s driving combo via base-game AI (GoTo)", npc.name or "?"))
+        return true
+    end
+
+    -- 3. Kinematic visual fallback (AI hire limit reached, etc.).
+    self:seatNPCInVehicle(npc, npc.realTractor)
+    npc.usingComboFieldWork = true
+    npc.currentAction = "field work"
+    print(string.format("[NPC Favor] %s working field with combo (visual fallback)", npc.name or "?"))
     return true
 end
 
@@ -2029,11 +2628,16 @@ end
 function NPCSystem:deactivateNPCTractor(npc)
     if not npc.realTractor then return end
 
-    -- Stop AI field work
-    self:stopNPCFieldWork(npc)
+    npc.usingComboFieldWork = false
 
-    -- Unseat NPC from tractor — restore walking model
-    self:unseatNPCFromVehicle(npc)
+    if npc.goToActive then
+        -- Stop the base-game AI GoTo chain (also unseats).
+        self:stopNPCGoTo(npc)
+    else
+        -- Stop any AI job (no-op in visual mode) and unseat, restoring the walking model
+        self:stopNPCFieldWork(npc)
+        self:unseatNPCFromVehicle(npc)
+    end
 
     print(string.format("[NPC Favor] %s left tractor (parked at field)", npc.name or "?"))
 end
@@ -3077,8 +3681,128 @@ function NPCSystem:consoleCommandReset()
     
     -- Try to reinitialize
     self:onMissionLoaded()
-    
+
     return "NPC system reset and reinitializing..."
+end
+
+--- Clear any NPC references to a vehicle about to be deleted, so the AI never
+-- touches a deleted object. Stops an active AI job for that NPC as well.
+-- @param vehicle  The vehicle being removed
+function NPCSystem:clearNPCVehicleReferences(vehicle)
+    if not vehicle then return end
+    for _, npc in ipairs(self.activeNPCs) do
+        local matches = (npc.realTractor == vehicle)
+            or (npc.realImplement == vehicle)
+            or (npc.realCar == vehicle)
+            or (npc.currentVehicle == vehicle)
+        if matches then
+            if npc.activeAIJob then
+                pcall(function() g_currentMission.aiSystem:stopJob(npc.activeAIJob) end)
+                npc.activeAIJob = nil
+            end
+            if npc.realTractor == vehicle then npc.realTractor = nil end
+            if npc.realImplement == vehicle then npc.realImplement = nil end
+            if npc.realCar == vehicle then npc.realCar = nil end
+            if npc.currentVehicle == vehicle then npc.currentVehicle = nil end
+            npc.isSeatedInVehicle = false
+        end
+    end
+end
+
+--- Console: delete the nearest vehicle (and its whole attached combo) to the
+-- player. Cleanup tool for stranded NPC tractors/implements. Server/SP only.
+-- Never deletes the vehicle the player is currently inside.
+-- @param radiusArg  optional search radius in metres (default 30, clamped 1-200)
+function NPCSystem:consoleCommandDeleteNearestVehicle(radiusArg)
+    if g_currentMission == nil then
+        return "Not in a game"
+    end
+    if g_currentMission.getIsServer and not g_currentMission:getIsServer() then
+        return "npcDeleteVehicle only works on the host / single player"
+    end
+
+    local vehicleSystem = g_currentMission.vehicleSystem
+    if vehicleSystem == nil or vehicleSystem.vehicles == nil then
+        return "Vehicle system unavailable"
+    end
+
+    -- Refresh and read the player's current position
+    pcall(function() self:updatePlayerPosition() end)
+    if not self.playerPositionValid then
+        return "Could not determine player position"
+    end
+    local px, pz = self.playerPosition.x, self.playerPosition.z
+
+    local radius = tonumber(radiusArg) or 30
+    radius = math.max(1, math.min(200, radius))
+
+    -- The vehicle the player is currently controlling — never delete it
+    local controlled = nil
+    if g_localPlayer and g_localPlayer.getCurrentVehicle then
+        pcall(function() controlled = g_localPlayer:getCurrentVehicle() end)
+    end
+    if controlled == nil then
+        controlled = g_currentMission.controlledVehicle
+    end
+    local controlledRoot = controlled and (controlled.rootVehicle or controlled) or nil
+
+    -- Find the nearest vehicle within radius (by root node distance)
+    local nearest, nearestDist = nil, radius + 1
+    for _, vehicle in ipairs(vehicleSystem.vehicles) do
+        if vehicle ~= nil and vehicle.rootNode ~= nil and vehicle.rootNode ~= 0 then
+            local root = vehicle.rootVehicle or vehicle
+            if root ~= controlledRoot then
+                local ok, vx, _, vz = pcall(getWorldTranslation, vehicle.rootNode)
+                if ok and vx then
+                    local dist = math.sqrt((px - vx) ^ 2 + (pz - vz) ^ 2)
+                    if dist <= radius and dist < nearestDist then
+                        nearestDist = dist
+                        nearest = vehicle
+                    end
+                end
+            end
+        end
+    end
+
+    if nearest == nil then
+        return string.format("No vehicle found within %.0fm of you", radius)
+    end
+
+    -- Collect the whole combo the nearest vehicle belongs to
+    local root = nearest.rootVehicle or nearest
+    local combo = {}
+    if type(root.childVehicles) == "table" and #root.childVehicles > 0 then
+        for _, v in ipairs(root.childVehicles) do
+            table.insert(combo, v)
+        end
+    else
+        table.insert(combo, root)
+    end
+
+    -- Friendly name for feedback (grab before deletion)
+    local name = "vehicle"
+    pcall(function()
+        if root.getName then name = root:getName() or name end
+    end)
+
+    -- Drop any NPC references so the AI won't touch the deleted objects
+    for _, v in ipairs(combo) do
+        self:clearNPCVehicleReferences(v)
+    end
+
+    -- Delete children first, then the root (Vehicle:delete stops the AI job too)
+    local removed = 0
+    for _, v in ipairs(combo) do
+        if v ~= root then
+            local ok = pcall(function() if v.delete then v:delete() end end)
+            if ok then removed = removed + 1 end
+        end
+    end
+    local okRoot = pcall(function() if root.delete then root:delete() end end)
+    if okRoot then removed = removed + 1 end
+
+    return string.format("Deleted '%s' (%d part%s) %.0fm away",
+        tostring(name), removed, removed == 1 and "" or "s", nearestDist)
 end
 
 function NPCSystem:clearAllNPCs()
@@ -3401,6 +4125,10 @@ end
 -- Called from FSCareerMissionInfo.saveToXMLFile hook in main.lua.
 -- @param missionInfo  FS25 missionInfo table (has savegameDirectory)
 function NPCSystem:saveToXMLFile(missionInfo)
+    -- Safeguard: restore any temporary field-ownership flips BEFORE saving so a
+    -- borrowed farmland can never persist to disk (see startNPCFieldWorkOwned).
+    pcall(function() self:restoreAllOwnershipFlips() end)
+
     local ok, err = pcall(function()
         self:_doSaveToXMLFile(missionInfo)
     end)
@@ -4295,6 +5023,15 @@ end
 
 function NPCSystem:delete()
     print("[NPC Favor] Shutting down")
+
+    -- Drop AI job message subscription
+    if self._aiJobMsgSubscribed and g_messageCenter then
+        pcall(function() g_messageCenter:unsubscribeAll(self) end)
+        self._aiJobMsgSubscribed = false
+    end
+
+    -- Restore any temporary field-ownership flips on shutdown.
+    pcall(function() self:restoreAllOwnershipFlips() end)
 
     -- Clean up NPCs
     self:clearAllNPCs()
