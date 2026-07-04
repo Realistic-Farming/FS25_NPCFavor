@@ -1542,14 +1542,23 @@ NPCSystem.SEEDER_POOL = {
 -- is the work vehicle (npc.realTractor); the header attaches to it. Paired by
 -- brand so the header actually fits the combine.
 NPCSystem.HARVEST_COMBOS = {
-    { combine = "data/vehicles/claas/lexion6900/lexion6900.xml",   header = "data/vehicles/claas/convioFlex1080/convioFlex1080.xml" },
-    { combine = "data/vehicles/newHolland/cr980_830/cr980_830.xml", header = "data/vehicles/newHolland/varifeed28/varifeed28.xml" },
+    { combine = "data/vehicles/claas/lexion6900/lexion6900.xml",  header = "data/vehicles/claas/convioFlex1080/convioFlex1080.xml" },
+    -- chSeries (type=combineDrivable) is the REAL combine; cr980_830 was wrong here
+    -- (it is itself a cutter/header, type=cutter), so we were spawning a header and
+    -- trying to attach a second header to it -> attach always failed. varifeed28's
+    -- own store metadata pairs it with chSeries; both couple via jointType "cutter".
+    { combine = "data/vehicles/newHolland/chSeries/chSeries.xml", header = "data/vehicles/newHolland/varifeed28/varifeed28.xml" },
 }
 
 --- Max NPCs allowed to run a real game AI field-work job at once. The game AI
 -- limit (maxNumHirables) is SHARED with the player's own hired helpers, so we
 -- cap our usage low to always leave the player room to hire.
 NPCSystem.MAX_NPC_AI_JOBS = 2
+
+--- Max NPCs allowed to hold an on-demand field-work vehicle at once. Caps the
+-- number of real tractors/combines spawned in the world for performance; extra
+-- NPCs work their field on foot until a slot frees up.
+NPCSystem.MAX_FIELD_VEHICLES = 4
 
 --- Validate vehicle pools against the store manager at runtime.
 -- Removes entries that aren't registered storeitems and discovers alternatives.
@@ -1742,6 +1751,38 @@ function NPCSystem:fillSeederWithSeed(implement)
     end
 end
 
+--- Suppress the base-game fuel/running-cost charge on a spawned NPC vehicle.
+-- Motorized auto-refuels any consumer that drops below 10% of capacity and bills
+-- self:getOwnerFarmId() (Motorized.updateConsumers -> addMoney, MoneyType.PURCHASE_FUEL).
+-- Our NPC vehicles are owned by the spectator farm, which rejects money changes
+-- ("Can't change money of spectator farm" -> log spam every frame the engine runs).
+-- Topping every consumer fill unit to capacity keeps the <10% refuel from ever firing
+-- during the vehicle's short on-demand lifetime, so the charge never happens. This is
+-- the NPCFavor-side guard; WorkerCosts also drops spectator-farm charges independently.
+-- @param vehicle  the spawned motorized vehicle
+function NPCSystem:suppressVehicleFuelCost(vehicle)
+    if not vehicle then return end
+    pcall(function()
+        local spec = vehicle.spec_motorized
+        if not spec or not spec.consumersByFillTypeName then return end
+        if not vehicle.getFillUnitCapacity or not vehicle.addFillUnitFillLevel then return end
+        local farmId = (vehicle.getOwnerFarmId and vehicle:getOwnerFarmId()) or 0
+        local toolTypeUndef = (ToolType and ToolType.UNDEFINED) or 0
+        for _, consumer in pairs(spec.consumersByFillTypeName) do
+            local idx = consumer.fillUnitIndex
+            if idx then
+                local cap = vehicle:getFillUnitCapacity(idx)
+                local cur = vehicle:getFillUnitFillLevel(idx)
+                -- addFillUnitFillLevel only sets the level; it does NOT charge money,
+                -- so filling a spectator-farm vehicle here is safe.
+                if cap and cur and cur < cap then
+                    vehicle:addFillUnitFillLevel(farmId, idx, cap - cur, consumer.fillType, toolTypeUndef)
+                end
+            end
+        end
+    end)
+end
+
 --- Spawn a real FS25 vehicle for an NPC farmer using VehicleLoadingData.
 -- Gracefully falls back to nil if VehicleLoadingData API is unavailable.
 -- @param npc       NPC data table (requires npc.assignedField)
@@ -1804,6 +1845,10 @@ function NPCSystem:spawnNPCTractor(npc, callback)
             self:lockNPCVehicle(vehicle)
             print(string.format("[NPC Favor] Tractor locked for %s (not enterable)", npc.name or "?"))
 
+            -- Keep fuel topped so the base game never auto-refuels (and bills the
+            -- spectator farm) mid-session — the NPCFavor-side spectator-cost guard.
+            self:suppressVehicleFuelCost(vehicle)
+
             -- The NPC is seated only on reaching the field and entering WORKING
             -- state (activateNPCTractor), so the tractor stays parked until then.
 
@@ -1814,13 +1859,32 @@ function NPCSystem:spawnNPCTractor(npc, callback)
             -- field-work capable (getCanStartFieldWork). Async; attaches when
             -- loaded. On any failure the implement is cleaned up and the NPC
             -- falls back to the visual row-driving path (never strands a tool).
-            self:spawnNPCImplement(npc, vehicle)
+            -- The caller's callback fires only AFTER the implement attach attempt
+            -- resolves, so on-demand activation sees a field-work-ready combo
+            -- rather than a bare tractor that would always fall through to driving.
+            --
+            -- Churn guard (on-demand field spawns only): if the NPC already left
+            -- WORKING while the tractor loaded async, don't load an implement at all.
+            -- Despawn now instead of spawning + attaching a full header just to delete
+            -- it moments later. Gated on npc._pendingFieldSpawn so any other caller of
+            -- spawnNPCTractor is unaffected.
+            if npc._pendingFieldSpawn and npc.aiState ~= "working" then
+                if self.settings.debugMode then
+                    print(string.format("[NPC Favor] %s left work during tractor load — skipping implement, despawning", npc.name or "?"))
+                end
+                pcall(function() self:removeNPCTractor(npc) end)
+                if callback then callback(nil) end
+                return
+            end
+
+            self:spawnNPCImplement(npc, vehicle, function(_attached)
+                if callback then callback(vehicle) end
+            end)
         else
             print(string.format("[NPC Favor] Tractor spawn FAILED for %s — %s",
                 npc.name or "?", tractorFile))
+            if callback then callback(nil) end
         end
-
-        if callback then callback(vehicle) end
     end, self, {npc = npc})
 end
 
@@ -2802,6 +2866,91 @@ function NPCSystem:stopNPCGoTo(npc)
     self:unseatNPCFromVehicle(npc)
 end
 
+--- Count NPCs that currently hold (or are loading) an on-demand field-work
+-- vehicle. Used to cap concurrent spawns for performance.
+-- @return number  count of active/pending field vehicles
+function NPCSystem:countActiveFieldVehicles()
+    local n = 0
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.realTractor or npc._pendingFieldSpawn then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+--- On-demand field-work vehicle spawn. Called when an NPC reaches their field and
+-- enters WORKING (NPCAI:startWorking). Reads the field's CURRENT need, spawns
+-- matching equipment at the field edge (async), then seats the NPC + starts the AI
+-- job inside the spawn callback. The vehicle is despawned again when the NPC leaves
+-- WORKING (NPCAI:setState). Because the role + equipment are decided here, at work
+-- time, from the live field, they can never go stale the way pre-spawned ones did.
+-- @param npc  NPC data table (should be at its assigned field, in WORKING state)
+-- @return boolean  true if a spawn was started (caller should NOT show the prop)
+function NPCSystem:spawnFieldWorkVehicle(npc)
+    -- Mode / capability guards.
+    if not self.settings.npcDriveVehicles then return false end
+    local mode = self.settings.npcVehicleMode
+    if mode ~= "realistic" and mode ~= "hybrid" then return false end
+    if not g_currentMission or not g_currentMission:getIsServer() then return false end
+    if not VehicleLoadingData then return false end
+
+    -- Already have (or are loading) a vehicle for this NPC: don't double-spawn.
+    if npc.realTractor or npc._pendingFieldSpawn then return false end
+
+    -- Need an assigned field to work.
+    local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
+    if not field or not field.center then return false end
+
+    -- Concurrency cap for performance; extra NPCs work the field on foot.
+    if self:countActiveFieldVehicles() >= (self.MAX_FIELD_VEHICLES or 4) then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] Field-vehicle cap reached — %s works on foot", npc.name or "?"))
+        end
+        return false
+    end
+
+    -- Re-evaluate the role from the field's CURRENT state. Clearing these cached
+    -- values is the crux of the on-demand fix: getNPCJobRole / getWorkVehicleFilename
+    -- rebuild the role and combo from the live field instead of an init snapshot.
+    npc.jobRole = nil
+    npc._harvestComboIndex = nil
+
+    -- Growing crop -> nothing to work. Don't spawn equipment; the NPC just visits
+    -- on foot. This structurally eliminates plow/combine-on-standing-crop.
+    local need = self:getFieldJobType(field)
+    if need == "protect" then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] %s: field has a growing crop — no equipment, visiting on foot", npc.name or "?"))
+        end
+        return false
+    end
+
+    npc._pendingFieldSpawn = true
+
+    self:spawnNPCTractor(npc, function(vehicle)
+        -- Clear the pending flag FIRST so the concurrency cap never leaks a slot,
+        -- whatever path we take below.
+        npc._pendingFieldSpawn = false
+
+        -- The NPC may have left WORKING (storm, go-home, break) while we loaded
+        -- async. Never strand a vehicle: remove it and bail. If the spawn itself
+        -- failed (vehicle == nil), there is nothing to remove and the NPC simply
+        -- works the field on foot.
+        if not vehicle or npc.aiState ~= "working" or not npc.realTractor then
+            if npc.realTractor then
+                pcall(function() self:removeNPCTractor(npc) end)
+            end
+            return
+        end
+
+        -- Seat the NPC and start the AI job (tillage -> GoTo -> kinematic fallback).
+        pcall(function() self:activateNPCTractor(npc) end)
+    end)
+
+    return true
+end
+
 function NPCSystem:activateNPCTractor(npc)
     if not npc.realTractor then return false end
 
@@ -2858,40 +3007,21 @@ function NPCSystem:initializeNPCVehicles()
     if mode ~= "realistic" and mode ~= "hybrid" then return end
     if not g_currentMission:getIsServer() then return end  -- server authority only
 
-    -- Validate vehicle pools against the store before spawning
+    -- Validate vehicle pools against the store once, so on-demand spawns have a
+    -- ready pool to draw from.
     self:validateVehiclePools()
 
-    -- If no valid tractors found, can't spawn anything
     if #self.TRACTOR_POOL == 0 then
-        print("[NPC Favor] No valid tractors available — skipping vehicle initialization")
+        print("[NPC Favor] No valid tractors available — on-demand field vehicles disabled")
         return
     end
 
-    local spawnCount = 0
-    local maxConcurrent = 4  -- limit concurrent real tractors for performance
-
-    for _, npc in ipairs(self.activeNPCs) do
-        if spawnCount >= maxConcurrent then break end
-        if npc.isActive and (npc.role == "farmer" or npc.role == "farmhand") then
-            if npc.assignedField or (npc.assignedFields and #npc.assignedFields > 0) then
-                self:spawnNPCTractor(npc, function(vehicle)
-                    if vehicle and mode == "hybrid" then
-                        -- Hybrid mode: tractor spawns parked at the field.
-                        -- NPC walks on foot normally. When NPC enters WORKING state,
-                        -- NPCAI calls activateNPCTractor() to seat NPC + start AI.
-                        -- When NPC leaves WORKING state, deactivateNPCTractor() restores walking.
-                        print(string.format("[NPC Favor] Hybrid tractor parked at field for %s", npc.name or "?"))
-                    end
-                end)
-                spawnCount = spawnCount + 1
-            end
-        end
-    end
-
-    if self.settings.debugMode then
-        print(string.format("[NPC Favor] Initialized %d real NPC vehicles (mode: %s)",
-            spawnCount, self.settings.npcVehicleMode))
-    end
+    -- On-demand model: vehicles are NOT pre-spawned/parked at fields anymore. Each
+    -- NPC's equipment is spawned at the field edge when they actually enter WORKING
+    -- (NPCSystem:spawnFieldWorkVehicle), matched to the field's CURRENT need, and
+    -- despawned when they leave. This structurally removes the stale-equipment
+    -- mismatch that came from deciding a role once at init from a field snapshot.
+    print("[NPC Favor] Field vehicles are on-demand (spawn at work start, despawn on leave)")
 end
 
 --- Switch vehicle mode at runtime (called from console command).

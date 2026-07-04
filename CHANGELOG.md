@@ -14,10 +14,15 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - **Crop safety**: NPCs read the field's real crop and growth state and never plow or cut a growing crop. A harvester is only assigned to a field that is actually ripe.
 - **Fallbacks**: when the game AI cannot run (no implement, hire limit reached), the NPC drives its combo with base-game GoTo pathfinding, or a kinematic visual pass, so it always looks busy without errors.
 
+### On-demand equipment (architecture)
+- Equipment is now spawned **on demand**: an NPC's tractor/combine + implement is created at the field edge the moment they start working, matched to the field's **current** need, and despawned again when they stop. Previously equipment was decided once at spawn from a snapshot of the field, so it could go stale (a plow left on a field that had since grown a crop). Deciding at work time removes that mismatch entirely; a growing field simply gets no equipment and the NPC visits on foot.
+- If an NPC leaves work while their vehicle is still loading, the load is cancelled before the implement is spawned, so no equipment is created just to be deleted.
+
 ### Fixes
 - Fixed a VehicleCharacter crash from a wrong loadCharacter argument order (was calling a table), and 5 no-op vehicle deletions (g_currentMission:removeVehicle does not exist; use Vehicle:delete).
 - Eliminated a map-marker overlay render flood ("Unknown entity id ...") by sharing one never-freed overlay across all NPC markers.
-- Zeroed the AI cost on NPC jobs so they never trigger "Can't change money of spectator farm".
+- Fixed harvester headers never attaching: the New Holland combo pointed at a header file as its "combine", so two headers were being paired. It now uses the real combine (chSeries), and the header attaches and harvests.
+- Silenced the "Can't change money of spectator farm" log spam from every angle: NPC AI job cost is zeroed, NPC vehicles keep their fuel topped so the base game never auto-bills the spectator farm for a refuel, and (when installed) Worker Costs also drops any charge aimed at the spectator farm.
 
 ### New console command
 - **npcDeleteVehicle [radius]** -- delete the nearest vehicle/implement to you (cleanup for stranded units); never deletes the vehicle you are in.

@@ -21,3 +21,5 @@ node_modules/
 
 # Workspace
 *.code-workspace
+# local session handoff note (do not publish)
+SESSION_HANDOFF.md

@@ -1635,7 +1635,8 @@ function NPCAI:updateWorkingState(npc, dt)
 
         local nextAction = math.random()
         if nextAction < 0.15 then
-            -- Take a break (idle near field) — tractor stays parked where it is
+            -- Take a break (idle near field). Leaving WORKING despawns the on-demand
+            -- field vehicle via setState; a fresh one spawns when work resumes.
             -- Release worker slot so another NPC can take the field
             local fieldWork = self.npcSystem and self.npcSystem.fieldWork
             if fieldWork and npc._fieldWorkFieldId then
@@ -1944,16 +1945,17 @@ function NPCAI:setState(npc, state)
         npc._eveningCommuteSpeed = nil  -- clear cached commute speed
     end
 
-    -- When leaving WORKING state: NPC steps out of tractor but tractor stays parked
+    -- When leaving WORKING state: despawn the on-demand field-work vehicle entirely
+    -- (it is re-spawned fresh next time so its equipment always matches the field).
     if oldState == "working" and state ~= "working" then
         npc.fieldWorkPath = nil
         npc.fieldWorkIndex = nil
 
-        -- Deactivate real tractor (hybrid/realistic mode) — stops AI, unseats NPC
-        if npc.realTractor and self.npcSystem and self.npcSystem.deactivateNPCTractor then
-            pcall(function() self.npcSystem:deactivateNPCTractor(npc) end)
+        -- Despawn the real tractor + implement (stops AI, unseats NPC, deletes both).
+        if npc.realTractor and self.npcSystem and self.npcSystem.removeNPCTractor then
+            pcall(function() self.npcSystem:removeNPCTractor(npc) end)
         elseif npc.activeAIJob and self.npcSystem and self.npcSystem.stopNPCFieldWork then
-            -- Legacy fallback: stop AI job if deactivate not available
+            -- No vehicle but an AI job somehow active: stop it.
             pcall(function() self.npcSystem:stopNPCFieldWork(npc) end)
         end
 
@@ -2037,14 +2039,19 @@ function NPCAI:startWorking(npc)
         -- Drive a real combo across the field if we have one (hybrid/realistic),
         -- otherwise fall back to the tractor prop. Either way we traverse the
         -- field rows via initFieldWork below.
+        -- On-demand: spawn field-work equipment matched to the field's CURRENT need
+        -- (async). The spawn callback seats the NPC + starts the AI job, so we can't
+        -- know the result synchronously. If a spawn is started we skip the tractor
+        -- prop (the real one is on its way); if not (growing crop, caps reached, mode
+        -- off) the NPC works on foot with the prop below, as before.
         local usingCombo = false
         local mode = self.npcSystem and self.npcSystem.settings and self.npcSystem.settings.npcVehicleMode
-        if npc.realTractor and (mode == "realistic" or mode == "hybrid") then
+        if (mode == "realistic" or mode == "hybrid") and self.npcSystem.spawnFieldWorkVehicle then
             pcall(function()
-                usingCombo = self.npcSystem:activateNPCTractor(npc)
+                usingCombo = self.npcSystem:spawnFieldWorkVehicle(npc)
             end)
         end
-        -- activateNPCTractor owns npc.goToActive / npc.usingComboFieldWork.
+        -- The spawn callback (activateNPCTractor) owns npc.goToActive / npc.usingComboFieldWork.
 
         if not usingCombo then
             -- No real combo: show the tractor prop instead
