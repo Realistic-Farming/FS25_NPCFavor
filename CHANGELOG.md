@@ -19,6 +19,7 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - If an NPC leaves work while their vehicle is still loading, the load is cancelled before the implement is spawned, so no equipment is created just to be deleted.
 
 ### Fixes
+- Fixed favors never completing (#62): every favor step within 30m of its target called a non-existent `queueNotification` method, so each proximity check threw a Lua error and no favor could progress or finish ("not a single favor has worked"). Step completion now flashes on the favor HUD like every other notification, with a new localized `npc_hud_step_done` string across all 10 languages.
 - Fixed a VehicleCharacter crash from a wrong loadCharacter argument order (was calling a table), and 5 no-op vehicle deletions (g_currentMission:removeVehicle does not exist; use Vehicle:delete).
 - Eliminated a map-marker overlay render flood ("Unknown entity id ...") by sharing one never-freed overlay across all NPC markers.
 - Fixed harvester headers never attaching: the New Holland combo pointed at a header file as its "combine", so two headers were being paired. It now uses the real combine (chSeries), and the header attaches and harvests.

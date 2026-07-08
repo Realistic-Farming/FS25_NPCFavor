@@ -171,6 +171,7 @@
 		<text name="npc_hud_compass_nw" text="СЗ" />
 		<text name="npc_hud_new_favor" text="Новое: %s просит помощи!" />
 		<text name="npc_hud_completed" text="Выполнено: %s" />
+		<text name="npc_hud_step_done" text="Шаг %d выполнен: %s" />
 		<text name="npc_hud_failed" text="Провалено: %s" />
 		<text name="npc_hud_cancelled" text="Отменено: %s" />
 		<text name="npc_hud_perfect" text="Идеально! %s бонус!" />

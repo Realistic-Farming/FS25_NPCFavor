@@ -171,6 +171,7 @@
 		<text name="npc_hud_compass_nw" text="SZ" />
 		<text name="npc_hud_new_favor" text="Nové: %s potřebuje pomoc!" />
 		<text name="npc_hud_completed" text="Hotovo: %s" />
+		<text name="npc_hud_step_done" text="Krok %d hotový: %s" />
 		<text name="npc_hud_failed" text="Selhalo: %s" />
 		<text name="npc_hud_cancelled" text="Zrušeno: %s" />
 		<text name="npc_hud_perfect" text="Perfektní! %s bonus!" />

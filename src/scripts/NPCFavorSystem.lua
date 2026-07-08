@@ -887,12 +887,13 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
 
                     step.completed = true
 
-                    self:queueNotification(
-                        "Favor Progress",
-                        string.format("Step %d completed: %s", step.id, step.description),
-                        "favor_progress",
-                        3000
-                    )
+                    -- Flash notification on HUD (queueNotification never existed;
+                    -- all favor notifications route through favorHUD:flashFavor)
+                    if self.npcSystem.favorHUD then
+                        local fmt = g_i18n:getText("npc_hud_step_done") or "Step %d done: %s"
+                        local msg = string.format(fmt, step.id, step.description or "")
+                        self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1, 0.3, 1})
+                    end
                 end
             end
 
