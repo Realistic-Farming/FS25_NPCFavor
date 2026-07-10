@@ -3910,18 +3910,18 @@
   "2026-07-10": [
     {
       "referrer": "github.com",
-      "count": 181,
+      "count": 149,
       "uniques": 60
     },
     {
       "referrer": "kingmods.net",
-      "count": 105,
-      "uniques": 59
+      "count": 107,
+      "uniques": 60
     },
     {
       "referrer": "Google",
-      "count": 28,
-      "uniques": 21
+      "count": 32,
+      "uniques": 23
     },
     {
       "referrer": "Bing",
@@ -3934,12 +3934,12 @@
       "uniques": 1
     },
     {
-      "referrer": "DuckDuckGo",
-      "count": 1,
-      "uniques": 1
+      "referrer": "ya.ru",
+      "count": 3,
+      "uniques": 2
     },
     {
-      "referrer": "alice.yandex.ru",
+      "referrer": "DuckDuckGo",
       "count": 1,
       "uniques": 1
     },
@@ -3950,11 +3950,6 @@
     },
     {
       "referrer": "search.brave.com",
-      "count": 1,
-      "uniques": 1
-    },
-    {
-      "referrer": "ya.ru",
       "count": 1,
       "uniques": 1
     }
