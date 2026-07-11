@@ -3953,5 +3953,52 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-07-11": [
+    {
+      "referrer": "github.com",
+      "count": 160,
+      "uniques": 61
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 90,
+      "uniques": 50
+    },
+    {
+      "referrer": "Google",
+      "count": 36,
+      "uniques": 23
+    },
+    {
+      "referrer": "Bing",
+      "count": 9,
+      "uniques": 7
+    },
+    {
+      "referrer": "chatgpt.com",
+      "count": 5,
+      "uniques": 1
+    },
+    {
+      "referrer": "ya.ru",
+      "count": 3,
+      "uniques": 2
+    },
+    {
+      "referrer": "DuckDuckGo",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "modhoster.de",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "search.brave.com",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
