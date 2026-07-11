@@ -345,7 +345,11 @@ function NPCSystem:onMissionLoaded()
                 elseif g_currentMission and g_currentMission.savegameDirectory then
                     missionInfo = { savegameDirectory = g_currentMission.savegameDirectory }
                 end
-                if missionInfo then
+                -- Prefer StateLedger when installed and it delivered a state block;
+                -- otherwise import our own npc_favor.xml (the standalone fallback).
+                if NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.hasLedgerState() then
+                    NPCStateLedgerBridge.applyState()
+                elseif missionInfo then
                     self:loadFromXMLFile(missionInfo)
                 end
 
@@ -3379,7 +3383,11 @@ function NPCSystem:update(dt)
         if self.syncTimer >= self.SYNC_INTERVAL or self.syncDirty then
             self.syncTimer = 0
             self.syncDirty = false
-            if NPCStateSyncEvent then
+            -- delegate-when-present: fold the NPC state broadcast into NetworkSync's 1Hz
+            -- batch when it is installed; otherwise fire our own NPCStateSyncEvent.
+            if NPCNetworkSyncBridge ~= nil and NPCNetworkSyncBridge.markDirty() then
+                -- handled by NetworkSync
+            elseif NPCStateSyncEvent then
                 NPCStateSyncEvent.broadcastState()
             end
         end
@@ -4281,47 +4289,76 @@ function NPCSystem:serverAcceptFavor(npc, farmId)
         return false
     end
 
-    -- Delegate to favor system
-    if self.favorSystem and self.favorSystem.acceptFavor then
-        local success = self.favorSystem:acceptFavor(npc.id, farmId)
-        if success then
+    -- Delegate to the favor system. acceptFavorForNPC(npcId, farmId) stamps
+    -- favor.ownerFarmId = farmId (the acting farm, validated by NPCInteractionEvent:run)
+    -- and returns the favor table. The old call to a non-existent acceptFavor(npc.id,
+    -- farmId) was dead; this is the real signature.
+    if self.favorSystem and self.favorSystem.acceptFavorForNPC then
+        local favor = self.favorSystem:acceptFavorForNPC(npc.id, farmId)
+        if favor then
             self.syncDirty = true
+            return true
         end
-        return success
     end
     return false
 end
 
 function NPCSystem:serverCompleteFavor(npc, farmId)
-    if self.favorSystem and self.favorSystem.completeFavor then
-        local success = self.favorSystem:completeFavor(npc.id, farmId)
-        if success then
-            -- Update relationship on favor completion
-            self.relationshipManager:updateRelationship(npc.id, 15, "FAVOR_COMPLETED")
-            self.syncDirty = true
+    -- Resolve the NPC's active favor, then complete it by its real favorId.
+    -- completeFavor(favorId) is server-authoritative and pays favor.ownerFarmId once
+    -- (idempotency flags + reward.relationship), so this is the single completion +
+    -- money path. The old completeFavor(npc.id, farmId) passed npc.id as a favorId and
+    -- was dead. No extra relationship boost here; applyFavorRewards owns that.
+    if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.completeFavor then
+        local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
+        if favor then
+            local success = self.favorSystem:completeFavor(favor.id)
+            if success then
+                self.syncDirty = true
+            end
+            return success
         end
-        return success
     end
     return false
 end
 
 function NPCSystem:serverAbandonFavor(npc, farmId)
-    if self.favorSystem and self.favorSystem.abandonFavor then
-        local success = self.favorSystem:abandonFavor(npc.id, farmId)
-        if success then
-            -- Negative relationship impact
-            self.relationshipManager:updateRelationship(npc.id, -5, "FAVOR_ABANDONED")
-            self.syncDirty = true
+    -- Resolve the favor, then abandon it by its real favorId. abandonFavor(favorId)
+    -- applies its own (half) relationship penalty, so no extra penalty here. The old
+    -- abandonFavor(npc.id, farmId) passed npc.id as a favorId and was dead.
+    if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.abandonFavor then
+        local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
+        if favor then
+            local success = self.favorSystem:abandonFavor(favor.id)
+            if success then
+                self.syncDirty = true
+            end
+            return success
         end
-        return success
     end
     return false
 end
 
 function NPCSystem:serverGiveGift(npc, farmId, giftValue, giftType)
     if self.relationshipManager and self.relationshipManager.giveGiftToNPC then
+        -- Server-authoritative money: a money gift moves giftValue out of the acting
+        -- farm. Re-check the farm balance on the server (never trust the client's local
+        -- check) and deduct only after the gift applies, so a rejected gift never
+        -- charges the player and an unaffordable gift is refused cleanly.
+        local amount = giftValue or 0
+        local isMoneyGift = (giftType == nil or giftType == "money") and amount > 0
+        if isMoneyGift then
+            local farm = g_farmManager and g_farmManager:getFarmById(farmId)
+            local balance = farm and farm.money or 0
+            if balance < amount then
+                return false
+            end
+        end
         local success = self.relationshipManager:giveGiftToNPC(npc.id, giftType or "money", giftValue)
         if success then
+            if isMoneyGift then
+                g_currentMission:addMoney(-amount, farmId, MoneyType.OTHER, true)
+            end
             self.syncDirty = true
         end
         return success
@@ -4584,6 +4621,14 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
                 xmlFile:setFloat(favorKey .. "#timeRemaining", favor.timeRemaining or 0)
                 xmlFile:setInt(favorKey .. "#progress", favor.progress or 0)
                 xmlFile:setBool(favorKey .. "#awaitingConfirmation", favor.awaitingConfirmation or false)
+                -- Farm-attribution: persist the owning farm and the money idempotency
+                -- flags so a reload never re-pays or pays the wrong farm. ownerFarmId is
+                -- only written when set, so a legacy favor loads as nil and gets migrated.
+                if favor.ownerFarmId then
+                    xmlFile:setInt(favorKey .. "#ownerFarmId", favor.ownerFarmId)
+                end
+                xmlFile:setBool(favorKey .. "#rewardPaid", favor.rewardPaid or false)
+                xmlFile:setBool(favorKey .. "#repaymentCollected", favor.repaymentCollected or false)
                 if favor.taskData then
                     xmlFile:setBool(favorKey .. "#loanAmountDeducted", favor.taskData.loanAmountDeducted or false)
                     if favor.taskData.loanAmount then
@@ -4787,6 +4832,11 @@ function NPCSystem:loadFromXMLFile(missionInfo)
                 timeRemaining = xmlFile:getFloat(favorKey .. "#timeRemaining", 0),
                 progress = xmlFile:getInt(favorKey .. "#progress", 0),
                 awaitingConfirmation = xmlFile:getBool(favorKey .. "#awaitingConfirmation", false),
+                -- ownerFarmId stays nil for legacy saves (guarded by hasProperty) so
+                -- restoreFavor migrates it; 0 would be the spectator farm and truthy.
+                ownerFarmId = (xmlFile:hasProperty(favorKey .. "#ownerFarmId") and xmlFile:getInt(favorKey .. "#ownerFarmId", 0)) or nil,
+                rewardPaid = xmlFile:getBool(favorKey .. "#rewardPaid", false),
+                repaymentCollected = xmlFile:getBool(favorKey .. "#repaymentCollected", false),
                 loanAmountDeducted = xmlFile:getBool(favorKey .. "#loanAmountDeducted", false),
                 loanAmount = xmlFile:getFloat(favorKey .. "#loanAmount", nil),
                 reward = {
@@ -4819,6 +4869,191 @@ function NPCSystem:loadFromXMLFile(missionInfo)
 
     if self.settings.debugMode then
         print(string.format("[NPC Favor] Restored %d/%d NPCs from save", restoredCount, savedNpcCount))
+    end
+end
+
+-- =========================================================
+-- StateLedger table serialization (delegate-when-present)
+-- =========================================================
+-- serializeState / deserializeState round-trip the SAME data the XML save/load handles,
+-- but as a plain Lua table, so FS25_StateLedger can own the save when it is installed
+-- while npc_favor.xml stays the standalone fallback. The two halves are written together
+-- and mirror each other; the XML path above is independent and untouched. NPCStateLedgerBridge
+-- calls these when the ledger is present.
+
+function NPCSystem:serializeState()
+    local state = { schemaVersion = SAVE_SCHEMA_VERSION, npcs = {}, favors = {}, relationships = {} }
+
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.isActive then
+            local pm = npc.aiPersonalityModifiers or {}
+            local nd = npc.needs or {}
+            local d = {
+                uniqueId = npc.uniqueId or "",
+                name = npc.name or "",
+                personality = npc.personality or "",
+                age = npc.age or 30,
+                px = npc.position.x or 0, py = npc.position.y or 0, pz = npc.position.z or 0,
+                ry = npc.rotation.y or 0,
+                relationship = npc.relationship or 50,
+                favorsCompleted = npc.totalFavorsCompleted or 0,
+                favorsFailed = npc.totalFavorsFailed or 0,
+                favorCooldown = npc.favorCooldown or 0,
+                aiState = npc.aiState or "idle",
+                currentAction = npc.currentAction or "idle",
+                workEthic = pm.workEthic or 1.0, sociability = pm.sociability or 1.0,
+                generosity = pm.generosity or 1.0, punctuality = pm.punctuality or 1.0,
+                appearanceSeed = npc.appearanceSeed or 1,
+                isFemale = npc.isFemale or false,
+                movementSpeed = npc.movementSpeed or 1.0,
+                energy = nd.energy or 20, social = nd.social or 30,
+                hunger = nd.hunger or 10, workSatisfaction = nd.workSatisfaction or 50,
+                mood = npc.mood or "neutral",
+                homeBuildingName = npc.homeBuildingName or "",
+                encounters = {},
+            }
+            if npc.homePosition then
+                d.hasHome = true
+                d.hx = npc.homePosition.x or 0
+                d.hy = npc.homePosition.y or 0
+                d.hz = npc.homePosition.z or 0
+            end
+            if npc.encounters then
+                for ei, e in ipairs(npc.encounters) do
+                    if ei > 10 then break end
+                    d.encounters[#d.encounters + 1] = {
+                        type = e.type or "", time = e.time or 0, details = e.details or "",
+                        partner = e.partner or "", sentiment = e.sentiment or "neutral",
+                    }
+                end
+            end
+            state.npcs[#state.npcs + 1] = d
+        end
+    end
+
+    if self.favorSystem and self.favorSystem.getActiveFavors then
+        local favors = self.favorSystem:getActiveFavors() or {}
+        for _, favor in ipairs(favors) do
+            local reward = favor.reward
+            state.favors[#state.favors + 1] = {
+                npcId = favor.npcId or 0,
+                npcName = favor.npcName or "",
+                type = favor.type or "",
+                description = favor.description or "",
+                timeRemaining = favor.timeRemaining or 0,
+                progress = favor.progress or 0,
+                awaitingConfirmation = favor.awaitingConfirmation or false,
+                ownerFarmId = favor.ownerFarmId,
+                rewardPaid = favor.rewardPaid or false,
+                repaymentCollected = favor.repaymentCollected or false,
+                loanAmountDeducted = (favor.taskData and favor.taskData.loanAmountDeducted) or false,
+                loanAmount = favor.taskData and favor.taskData.loanAmount or nil,
+                rewardRelationship = (type(reward) == "table" and (reward.relationship or 0)) or 0,
+                rewardMoney = (type(reward) == "table" and (reward.money or 0)) or (tonumber(reward) or 0),
+                rewardXp = (type(reward) == "table" and (reward.xp or 0)) or 0,
+            }
+        end
+    end
+
+    if self.relationshipManager and self.relationshipManager.npcRelationships then
+        for key, rel in pairs(self.relationshipManager.npcRelationships) do
+            state.relationships[#state.relationships + 1] = {
+                key = key,
+                value = rel.value or 50,
+                lastInteraction = rel.lastInteraction or 0,
+                interactionCount = rel.interactionCount or 0,
+            }
+        end
+    end
+
+    return state
+end
+
+function NPCSystem:deserializeState(data)
+    if type(data) ~= "table" then return end
+
+    -- Match saved NPCs to spawned ones by uniqueId, then name (same as loadFromXMLFile).
+    local byId, byName = {}, {}
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.uniqueId then byId[npc.uniqueId] = npc end
+        if npc.name then byName[npc.name] = npc end
+    end
+
+    for _, d in ipairs(data.npcs or {}) do
+        local npc = byId[d.uniqueId] or byName[d.name]
+        if npc then
+            npc.position.x = d.px or npc.position.x
+            npc.position.y = d.py or npc.position.y
+            npc.position.z = d.pz or npc.position.z
+            npc.rotation.y = d.ry or npc.rotation.y
+            if d.hasHome then
+                npc.homePosition = npc.homePosition or {}
+                npc.homePosition.x = d.hx or 0
+                npc.homePosition.y = d.hy or 0
+                npc.homePosition.z = d.hz or 0
+            end
+            npc.homeBuildingName = d.homeBuildingName or npc.homeBuildingName or ""
+            npc.relationship = d.relationship or npc.relationship
+            npc.totalFavorsCompleted = d.favorsCompleted or 0
+            npc.totalFavorsFailed = d.favorsFailed or 0
+            npc.favorCooldown = d.favorCooldown or 0
+            npc.aiState = d.aiState or "idle"
+            npc.currentAction = d.currentAction or "idle"
+            if npc.aiPersonalityModifiers then
+                npc.aiPersonalityModifiers.workEthic = d.workEthic or npc.aiPersonalityModifiers.workEthic
+                npc.aiPersonalityModifiers.sociability = d.sociability or npc.aiPersonalityModifiers.sociability
+                npc.aiPersonalityModifiers.generosity = d.generosity or npc.aiPersonalityModifiers.generosity
+                npc.aiPersonalityModifiers.punctuality = d.punctuality or npc.aiPersonalityModifiers.punctuality
+            end
+            npc.appearanceSeed = d.appearanceSeed or npc.appearanceSeed
+            npc.isFemale = d.isFemale
+            npc.movementSpeed = d.movementSpeed or npc.movementSpeed
+            if npc.needs then
+                npc.needs.energy = d.energy or npc.needs.energy
+                npc.needs.social = d.social or npc.needs.social
+                npc.needs.hunger = d.hunger or npc.needs.hunger
+                npc.needs.workSatisfaction = d.workSatisfaction or npc.needs.workSatisfaction
+            end
+            npc.mood = d.mood or npc.mood or "neutral"
+            npc.encounters = {}
+            for _, e in ipairs(d.encounters or {}) do
+                if #npc.encounters >= 10 then break end
+                local enc = {
+                    type = e.type or "", time = e.time or 0, details = e.details or "",
+                    partner = e.partner or "", sentiment = e.sentiment or "neutral",
+                }
+                if enc.partner == "" then enc.partner = nil end
+                table.insert(npc.encounters, enc)
+            end
+            if self.entityManager then
+                self.entityManager:updateNPCEntity(npc, 0)
+            end
+        end
+    end
+
+    if self.favorSystem and self.favorSystem.restoreFavor then
+        for _, f in ipairs(data.favors or {}) do
+            self.favorSystem:restoreFavor({
+                npcId = f.npcId, npcName = f.npcName, type = f.type, description = f.description,
+                timeRemaining = f.timeRemaining, progress = f.progress,
+                awaitingConfirmation = f.awaitingConfirmation,
+                ownerFarmId = f.ownerFarmId, rewardPaid = f.rewardPaid, repaymentCollected = f.repaymentCollected,
+                loanAmountDeducted = f.loanAmountDeducted, loanAmount = f.loanAmount,
+                reward = { relationship = f.rewardRelationship or 0, money = f.rewardMoney or 0, xp = f.rewardXp or 0 },
+            })
+        end
+    end
+
+    if self.relationshipManager and self.relationshipManager.npcRelationships then
+        for _, r in ipairs(data.relationships or {}) do
+            if r.key and r.key ~= "" then
+                self.relationshipManager.npcRelationships[r.key] = {
+                    value = r.value or 50,
+                    lastInteraction = r.lastInteraction or 0,
+                    interactionCount = r.interactionCount or 0,
+                }
+            end
+        end
     end
 end
 

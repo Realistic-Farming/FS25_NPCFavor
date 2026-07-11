@@ -99,6 +99,12 @@ if modDirectory then
     -- Cross-mod integrations (load after the coordinator)
     source(modDirectory .. "src/scripts/NPCFieldSentry.lua")
 
+    -- Bedrock bridges (optional, delegate-when-present: each no-ops if its core API is absent)
+    source(modDirectory .. "src/integrations/NPCStateLedgerBridge.lua")
+    source(modDirectory .. "src/integrations/NPCNetworkSyncBridge.lua")
+    source(modDirectory .. "src/integrations/NPCMasterHUDBridge.lua")
+    source(modDirectory .. "src/integrations/NPCSettingsHubBridge.lua")
+
     print("[NPC Favor] All files loaded successfully")
 else
     print("[NPC Favor] ERROR - Could not find mod directory!")
@@ -114,6 +120,16 @@ end
 
 local function isEnabled()
     return npcSystem ~= nil and npcSystem.settings and npcSystem.settings.enabled
+end
+
+-- Register the four optional bedrock bridges. Each no-ops if its core API is absent
+-- (delegate-when-present). Runs at loadMission00Finished, after the bedrock mods publish
+-- their g_currentMission handles in Mission00.load, and after g_NPCSystem exists.
+local function registerBedrockBridges()
+    if NPCStateLedgerBridge  ~= nil then NPCStateLedgerBridge.register()  end
+    if NPCNetworkSyncBridge  ~= nil then NPCNetworkSyncBridge.register()  end
+    if NPCMasterHUDBridge    ~= nil then NPCMasterHUDBridge.register()    end
+    if NPCSettingsHubBridge  ~= nil then NPCSettingsHubBridge.register()  end
 end
 
 local function loadedMission(mission, node)
@@ -195,6 +211,11 @@ local function loadedMission(mission, node)
         else
             print("[NPC Favor] ERROR - Failed to create NPCSystem")
         end
+    end
+
+    -- Register the optional bedrock bridges once the system + mission handles exist.
+    if npcSystem then
+        registerBedrockBridges()
     end
 end
 
@@ -299,7 +320,11 @@ if FSBaseMission and FSBaseMission.draw then
     print("[NPC Favor] Hooking FSBaseMission.draw")
     FSBaseMission.draw = Utils.appendedFunction(FSBaseMission.draw, function(mission)
         if npcSystem then
-            npcSystem:draw()
+            -- Stand down when MasterHUD owns the draw loop (it calls NPCSystem:draw via
+            -- the subscribe registration); otherwise draw ourselves, exactly as before.
+            if not (NPCMasterHUDBridge ~= nil and NPCMasterHUDBridge.active) then
+                npcSystem:draw()
+            end
         end
     end)
 end
@@ -678,7 +703,11 @@ if Mission00 and Mission00.onStartMission then
     Mission00.onStartMission = Utils.appendedFunction(
         Mission00.onStartMission,
         function(mission)
-            if npcSystem and npcSystem.isInitialized then
+            -- Skip the XML fallback load when StateLedger delivered a state block; the
+            -- ledger applyState (in the first-frame init) owns the load and re-loading the
+            -- XML here would double-restore favors.
+            if npcSystem and npcSystem.isInitialized
+                and not (NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.hasLedgerState()) then
                 local missionInfo = discoverMissionInfo()
                 if missionInfo then
                     npcSystem:loadFromXMLFile(missionInfo)

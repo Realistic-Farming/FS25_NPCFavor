@@ -358,34 +358,21 @@ for i = 1, NPCFavorManagementDialog.MAX_FAVORS do
         
         local npc = self.npcSystem:getNPCById(favor.npcId)
         local npcName = npc and npc.name or "Unknown"
-        
-        -- Complete the favor
-        self.npcSystem.favorSystem:completeFavor(favor.id)
-        
-        -- Award money
-        local reward = 0
-        if favor.reward then
-            if type(favor.reward) == "table" then
-                reward = favor.reward.amount or favor.reward.money or 0
-            else
-                reward = favor.reward
-            end
+
+        -- Server-authoritative completion: send intent through NPCInteractionEvent so the
+        -- server completes the NPC's active favor and pays favor.ownerFarmId exactly once.
+        -- The old inline addMoney here double-paid the reward (completeFavor already pays
+        -- it via applyFavorRewards) and the extra +15 relationship over-rewarded; both
+        -- are removed. On host/single-player the send executes directly.
+        if npc then
+            local farmId = (g_currentMission and g_currentMission.player and g_currentMission.player.farmId) or 0
+            NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_COMPLETE, npc.id, farmId, 0, "")
         end
-        
-        if g_currentMission and g_currentMission.player and reward > 0 then
-            g_currentMission:addMoney(reward, g_currentMission.player.farmId, 
-                MoneyType.OTHER, true)
-        end
-        
-        -- Improve relationship - FIXED METHOD NAME
-        if npc and self.npcSystem.relationshipManager then
-            self.npcSystem.relationshipManager:updateRelationship(npc.id, 15, "favor_completed")
-        end
-        
+
         -- Refresh display
         self:updateDisplay()
-        
-        print(string.format("[NPC Favor] Completed favor from %s (+$%d, +15 rel)", npcName, reward))
+
+        print(string.format("[NPC Favor] Requested server-authoritative completion of favor from %s", npcName))
     end
 end
 
