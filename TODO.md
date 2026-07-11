@@ -86,6 +86,13 @@ This TODO reflects the **honest current state** of the mod as of v1.2.2.4. Items
 - [ ] Multiplayer sync infrastructure is complete but multiplayer is untested
 - [ ] State sync, interaction routing, and settings sync events all implemented
 
+### Ecosystem bedrock migration + money authority (flagged 2026-07-10, DEFERRED / PIPELINE)
+NPCFavor has NO bedrock bridges yet, and its client-initiated money is not server-authoritative. This is PIPELINE, not a mechanical bridge: it waits on a design decision (the farm-attribution model) before any code. Full record on the ecosystem ledger; captured here so it is not lost.
+- [!] Bedrock migration (StateLedger / NetworkSync / MasterHUD / SettingsHub) folded with the money-authority fix as ONE coherent MP pass - StateLedger + NetworkSync are the vehicles the money fix rides.
+- [!] Money authority: favor rewards / loans / bonuses apply client-side `addMoney` to the local-player farmId with no server round-trip (NPCFavorSystem ~883/1091/1131, NPCDialog ~538/574/672, NPCFavorManagementDialog ~376). Fix = route each through a client->server request event; the server reads the authoritative amount from its own favor/loan state, applies + syncs. NOT a bare getIsServer gate (that breaks non-host clients).
+- [!] Blockers before build (source-verified at dev HEAD v1.2.7.0): (1) favors carry no owning farmId - the farm-attribution model must be decided; (2) only `loanAmountDeducted` idempotency flag exists - `rewardPaid` / `repaymentCollected` must be added and persisted; (3) completion path is tangled (server update loop AND client dialog callbacks both reach completeFavor); (4) the `serverCompleteFavor` / `serverAcceptFavor` dispatch is effectively dead (completeFavor signature mismatch + a missing `acceptFavor` method).
+- [ ] BUG (found in passing, NOT fixed): NPCFavorManagementDialog:376 double-pays a reward - `completeFavor(favor.id)` pays `favor.reward.money` AND an inline `addMoney(reward)` runs outside completeFavor's status guard (also review :538 / :574). Fold the fix into the money-authority pass.
+
 ---
 
 ## Planned / Not Started
