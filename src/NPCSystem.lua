@@ -4276,6 +4276,41 @@ function NPCSystem:getNPCById(id)
 end
 
 -- =========================================================
+-- COMPANION READ API
+-- Read-only relationship / favor reads for companion mods (e.g. DairyCore,
+-- ProStaff) reached via g_currentMission.npcFavorSystem. Server-authoritative
+-- state; nil/neutral-safe. No writes.
+-- =========================================================
+
+--- Relationship value (0-100) for an NPC by id, or 0 when the NPC is unknown.
+function NPCSystem:getRelationshipValue(npcId)
+    local npc = self:getNPCById(npcId)
+    return (npc and npc.relationship) or 0
+end
+
+--- True when an NPC's relationship is at least `threshold`.
+function NPCSystem:isRelationshipAtLeast(npcId, threshold)
+    return self:getRelationshipValue(npcId) >= (threshold or 0)
+end
+
+--- True when any ACCEPTED favor (status active / in_progress, matching
+--- getActiveFavorForNPC) is of the given type. An optional farmId scopes the
+--- check to that farm's favors; omit it to check across all farms.
+function NPCSystem:hasActiveFavorOfType(favorType, farmId)
+    if favorType == nil or self.favorSystem == nil then return false end
+    local favors = self.favorSystem:getActiveFavors()
+    if type(favors) ~= "table" then return false end
+    for _, favor in ipairs(favors) do
+        if favor.type == favorType
+            and (favor.status == "active" or favor.status == "in_progress")
+            and (farmId == nil or favor.farmId == farmId) then
+            return true
+        end
+    end
+    return false
+end
+
+-- =========================================================
 -- Multiplayer: Server-Side Interaction Handlers
 -- Called from NPCInteractionEvent.execute() after validation
 -- =========================================================
