@@ -19731,31 +19731,31 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-07-18T12:40:42Z",
+    "timestamp": "2026-07-18T18:40:08Z",
     "date": "2026-07-18",
     "views": {
       "count": 405,
-      "uniques": 161
+      "uniques": 160
     },
     "clones": {
-      "count": 757,
-      "uniques": 195
+      "count": 732,
+      "uniques": 183
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 167,
-        "uniques": 57
+        "count": 165,
+        "uniques": 59
       },
       {
         "referrer": "kingmods.net",
-        "count": 76,
-        "uniques": 39
+        "count": 77,
+        "uniques": 37
       },
       {
         "referrer": "Google",
-        "count": 56,
-        "uniques": 35
+        "count": 57,
+        "uniques": 36
       },
       {
         "referrer": "Bing",
@@ -19798,28 +19798,28 @@
         "uniques": 17
       },
       {
-        "path": "/Realistic-Farming/FS25_NPCFavor/releases",
-        "title": "/releases",
-        "count": 12,
-        "uniques": 8
-      },
-      {
         "path": "/Realistic-Farming/FS25_NPCFavor/issues",
         "title": "/issues",
-        "count": 11,
+        "count": 12,
         "uniques": 8
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/tree/development",
         "title": "/tree/development",
-        "count": 9,
+        "count": 11,
         "uniques": 5
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/releases",
+        "title": "/releases",
+        "count": 10,
+        "uniques": 7
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/issues/46",
         "title": "/issues/46",
-        "count": 5,
-        "uniques": 4
+        "count": 6,
+        "uniques": 5
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/blob/main/FS25_NPCFavor.zip",
@@ -19828,10 +19828,10 @@
         "uniques": 3
       },
       {
-        "path": "/Realistic-Farming/FS25_NPCFavor/wiki/⚙️-Configuration",
-        "title": "/wiki/⚙️-Configuration",
+        "path": "/Realistic-Farming/FS25_NPCFavor/issues/62",
+        "title": "/issues/62",
         "count": 4,
-        "uniques": 4
+        "uniques": 2
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/blob/main/docs/ai-system.md",
@@ -19844,7 +19844,16 @@
       {
         "assets": [
           {
-            "downloads": 65,
+            "downloads": 2,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.7.1"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 66,
             "name": "FS25_NPCFavor.zip"
           }
         ],
