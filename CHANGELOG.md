@@ -4,7 +4,10 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 
 ---
 
-## v1.2.8.0 -- Money authority, core-service bridges, and a companion read API
+## v1.2.7.1 -- Favor completion fix, money authority, core-service bridges, and a companion read API
+
+### Favors
+- Fixed favors never progressing (#62): every favor step within 30m of its target called a non-existent `queueNotification` method, so each proximity check threw a Lua error and no favor could progress or finish (the borrow-tractor favor would hand over the keys, then do nothing at the field marker). Step completion now flashes on the favor HUD like every other notification.
 
 ### Money handling (server-authoritative)
 - Favors now pay the farm that accepted them. The owning farm is stamped when the favor is accepted and used at every money site, so the correct farm is paid even on a dedicated server, and clients never apply money locally.
@@ -18,14 +21,6 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 
 ### Companion read API
 - Added a read-only API other mods can use to read relationship and favor state (relationship value, a threshold check, and whether a farm has an active favor of a given type). Read-only and server-authoritative, added for Dairy Core and Pro Staff.
-
----
-
-## v1.2.7.1 -- Hotfix: favors never completing (#62)
-
-A hotfix on top of v1.2.7.0 that ships the favor step-completion fix.
-
-- Fixed favors never progressing (#62): every favor step within 30m of its target called a non-existent `queueNotification` method, so each proximity check threw a Lua error and no favor could progress or finish (the borrow-tractor favor would hand over the keys, then do nothing at the field marker). Step completion now flashes on the favor HUD like every other notification.
 
 ---
 
