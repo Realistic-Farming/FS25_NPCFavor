@@ -4515,6 +4515,28 @@ local NPC_SAVE_FILE = "npc_favor.xml"
 local NPC_SAVE_ROOT = "npcFavor"
 local SAVE_SCHEMA_VERSION = "1.2.4"
 
+-- xmlFile:setString does NOT escape XML-special characters (& < > "). The base
+-- game wraps every free-form / user-derived string in HTMLUtil.encodeToHTML
+-- before writing (Vehicle.lua, Dog.lua, Enterable.lua) and reads it back with a
+-- plain getString because the XML parser auto-decodes the entities. We mirror
+-- that: a building name, favor description or encounter detail containing '&'
+-- would otherwise write malformed XML and corrupt npc_favor.xml, so nothing
+-- could be loaded next session. Encoding a clean string is a no-op, so this is
+-- safe to apply to every string value; the read side needs no change.
+local function encodeXMLValue(s)
+    s = tostring(s or "")
+    if HTMLUtil ~= nil and HTMLUtil.encodeToHTML ~= nil then
+        return HTMLUtil.encodeToHTML(s)
+    end
+    -- Fallback (HTMLUtil unavailable): escape the XML predefined entities. '&'
+    -- must be first so the entities we insert are not themselves re-escaped.
+    s = s:gsub("&", "&amp;")
+    s = s:gsub("<", "&lt;")
+    s = s:gsub(">", "&gt;")
+    s = s:gsub("\"", "&quot;")
+    return s
+end
+
 local function schemaVersionLessThan(a, b)
     local function parts(v)
         local t = {}
@@ -4574,9 +4596,9 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
             local npcKey = string.format(NPC_SAVE_ROOT .. ".npcs.npc(%d)", npcIndex)
 
             -- Identity
-            xmlFile:setString(npcKey .. "#uniqueId", npc.uniqueId or "")
-            xmlFile:setString(npcKey .. "#name", npc.name or "")
-            xmlFile:setString(npcKey .. "#personality", npc.personality or "")
+            xmlFile:setString(npcKey .. "#uniqueId", encodeXMLValue(npc.uniqueId or ""))
+            xmlFile:setString(npcKey .. "#name", encodeXMLValue(npc.name or ""))
+            xmlFile:setString(npcKey .. "#personality", encodeXMLValue(npc.personality or ""))
             xmlFile:setInt(npcKey .. "#age", npc.age or 30)
 
             -- Position
@@ -4591,7 +4613,7 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
                 xmlFile:setFloat(npcKey .. ".home#y", npc.homePosition.y or 0)
                 xmlFile:setFloat(npcKey .. ".home#z", npc.homePosition.z or 0)
             end
-            xmlFile:setString(npcKey .. ".home#buildingName", npc.homeBuildingName or "")
+            xmlFile:setString(npcKey .. ".home#buildingName", encodeXMLValue(npc.homeBuildingName or ""))
 
             -- Relationship & stats
             xmlFile:setInt(npcKey .. ".stats#relationship", npc.relationship or 50)
@@ -4600,8 +4622,8 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
             xmlFile:setFloat(npcKey .. ".stats#favorCooldown", npc.favorCooldown or 0)
 
             -- AI state
-            xmlFile:setString(npcKey .. ".ai#state", npc.aiState or "idle")
-            xmlFile:setString(npcKey .. ".ai#action", npc.currentAction or "idle")
+            xmlFile:setString(npcKey .. ".ai#state", encodeXMLValue(npc.aiState or "idle"))
+            xmlFile:setString(npcKey .. ".ai#action", encodeXMLValue(npc.currentAction or "idle"))
 
             -- Personality modifiers
             if npc.aiPersonalityModifiers then
@@ -4623,18 +4645,18 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
                 xmlFile:setFloat(npcKey .. ".needs#hunger", npc.needs.hunger or 10)
                 xmlFile:setFloat(npcKey .. ".needs#workSatisfaction", npc.needs.workSatisfaction or 50)
             end
-            xmlFile:setString(npcKey .. ".needs#mood", npc.mood or "neutral")
+            xmlFile:setString(npcKey .. ".needs#mood", encodeXMLValue(npc.mood or "neutral"))
 
             -- Encounters (up to 10 recent, with sentiment + partner)
             if npc.encounters and #npc.encounters > 0 then
                 for ei, encounter in ipairs(npc.encounters) do
                     if ei > 10 then break end
                     local eKey = string.format("%s.encounters.encounter(%d)", npcKey, ei - 1)
-                    xmlFile:setString(eKey .. "#type", encounter.type or "")
+                    xmlFile:setString(eKey .. "#type", encodeXMLValue(encounter.type or ""))
                     xmlFile:setFloat(eKey .. "#time", encounter.time or 0)
-                    xmlFile:setString(eKey .. "#details", encounter.details or "")
-                    xmlFile:setString(eKey .. "#partner", encounter.partner or "")
-                    xmlFile:setString(eKey .. "#sentiment", encounter.sentiment or "neutral")
+                    xmlFile:setString(eKey .. "#details", encodeXMLValue(encounter.details or ""))
+                    xmlFile:setString(eKey .. "#partner", encodeXMLValue(encounter.partner or ""))
+                    xmlFile:setString(eKey .. "#sentiment", encodeXMLValue(encounter.sentiment or "neutral"))
                 end
             end
 
@@ -4650,9 +4672,9 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
             for _, favor in ipairs(activeFavors) do
                 local favorKey = string.format(NPC_SAVE_ROOT .. ".favors.favor(%d)", favorIndex)
                 xmlFile:setInt(favorKey .. "#npcId", favor.npcId or 0)
-                xmlFile:setString(favorKey .. "#npcName", favor.npcName or "")
-                xmlFile:setString(favorKey .. "#type", favor.type or "")
-                xmlFile:setString(favorKey .. "#description", favor.description or "")
+                xmlFile:setString(favorKey .. "#npcName", encodeXMLValue(favor.npcName or ""))
+                xmlFile:setString(favorKey .. "#type", encodeXMLValue(favor.type or ""))
+                xmlFile:setString(favorKey .. "#description", encodeXMLValue(favor.description or ""))
                 xmlFile:setFloat(favorKey .. "#timeRemaining", favor.timeRemaining or 0)
                 xmlFile:setInt(favorKey .. "#progress", favor.progress or 0)
                 xmlFile:setBool(favorKey .. "#awaitingConfirmation", favor.awaitingConfirmation or false)
@@ -4687,7 +4709,7 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
         local relIndex = 0
         for key, rel in pairs(self.relationshipManager.npcRelationships) do
             local relKey = string.format(NPC_SAVE_ROOT .. ".npcRelationships.rel(%d)", relIndex)
-            xmlFile:setString(relKey .. "#key", key)
+            xmlFile:setString(relKey .. "#key", encodeXMLValue(key))
             xmlFile:setFloat(relKey .. "#value", rel.value or 50)
             xmlFile:setFloat(relKey .. "#lastInteraction", rel.lastInteraction or 0)
             xmlFile:setInt(relKey .. "#interactionCount", rel.interactionCount or 0)
@@ -4733,8 +4755,23 @@ end
 --- Load saved NPC state from XML file, restoring relationships and positions.
 -- Called after initializeNPCs() in the delayed init updater.
 -- Matches saved NPCs to spawned NPCs by uniqueId or name.
+--
+-- Thin wrapper: the actual parse runs under pcall so a malformed or legacy
+-- npc_favor.xml (e.g. one written before string values were XML-encoded) can
+-- never throw out of the init updater. A throw there would leave the mod half
+-- initialised (isInitialized stays false), which silently disables every future
+-- save. Mirrors the saveToXMLFile/_doSaveToXMLFile split above.
 -- @param missionInfo  FS25 missionInfo table (has savegameDirectory)
 function NPCSystem:loadFromXMLFile(missionInfo)
+    local ok, err = pcall(function()
+        self:_doLoadFromXMLFile(missionInfo)
+    end)
+    if not ok then
+        print(string.format("[NPC Favor] Load error (non-fatal): %s", tostring(err)))
+    end
+end
+
+function NPCSystem:_doLoadFromXMLFile(missionInfo)
     local savegameDirectory = missionInfo and missionInfo.savegameDirectory
     if not savegameDirectory then
         return
