@@ -4195,5 +4195,42 @@
       "count": 2,
       "uniques": 1
     }
+  ],
+  "2026-07-18": [
+    {
+      "referrer": "github.com",
+      "count": 167,
+      "uniques": 57
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 76,
+      "uniques": 39
+    },
+    {
+      "referrer": "Google",
+      "count": 56,
+      "uniques": 35
+    },
+    {
+      "referrer": "Bing",
+      "count": 8,
+      "uniques": 7
+    },
+    {
+      "referrer": "chatgpt.com",
+      "count": 5,
+      "uniques": 1
+    },
+    {
+      "referrer": "modhoster.de",
+      "count": 2,
+      "uniques": 2
+    },
+    {
+      "referrer": "ya.ru",
+      "count": 2,
+      "uniques": 1
+    }
   ]
 }
