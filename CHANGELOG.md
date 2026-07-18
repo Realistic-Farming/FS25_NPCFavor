@@ -4,6 +4,23 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 
 ---
 
+## v1.2.8.0 -- Money authority, core-service bridges, and a companion read API
+
+### Money handling (server-authoritative)
+- Favors now pay the farm that accepted them. The owning farm is stamped when the favor is accepted and used at every money site, so the correct farm is paid even on a dedicated server, and clients never apply money locally.
+- Favor completion, loan repayment, and gifts all route through the mod's own server-authoritative event, with a single completion path.
+- Added idempotency flags (reward paid, repayment collected, loan deducted), persisted across save and reload, so a reload can no longer double-pay a favor.
+- Fixed a live double-payout in the favor management dialog.
+- Legacy in-flight favors from older saves are migrated to a default farm so they still pay out.
+
+### Core-service bridges (Realistic-Farming ecosystem)
+- NPCFavor now bridges onto the four core services when they are installed, and keeps its own paths as the standalone fallback: StateLedger (state save and restore, with npc_favor.xml kept as a safety copy), NetworkSync (NPC state batched through the shared sync), MasterHUD (the favor draw loop), and SettingsHub (settings mirror). Each one no-ops when its service is not present, so the mod runs exactly as before on its own.
+
+### Companion read API
+- Added a read-only API other mods can use to read relationship and favor state (relationship value, a threshold check, and whether a farm has an active favor of a given type). Read-only and server-authoritative, added for Dairy Core and Pro Staff.
+
+---
+
 ## v1.2.7.1 -- Hotfix: favors never completing (#62)
 
 A hotfix on top of v1.2.7.0 that ships the favor step-completion fix.
