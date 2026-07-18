@@ -332,9 +332,10 @@ end
 -- =========================================================
 -- Block player from entering NPC vehicles
 -- =========================================================
--- Real vehicle spawning is currently disabled — FS25 provides no reliable
--- API to prevent player entry into spawned vehicles. The lockNPCVehicle()
--- code and hooks are preserved for future use when a solution is found.
+-- Real NPC vehicles ARE spawned (see NPCSystem "Real Vehicle Spawning" phase).
+-- Player entry into them is blocked by NPCSystem:lockNPCVehicle(), applied at
+-- every spawn site (tractor, implement, car, field-work), so no separate global
+-- entry-block hook is needed here.
 
 -- =========================================================
 -- E Key Input Binding (RVB Pattern from UsedPlus)
