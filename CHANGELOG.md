@@ -4,6 +4,14 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 
 ---
 
+## v1.2.7.1 -- Hotfix: favors never completing (#62)
+
+A hotfix on top of v1.2.7.0 that ships the favor step-completion fix.
+
+- Fixed favors never progressing (#62): every favor step within 30m of its target called a non-existent `queueNotification` method, so each proximity check threw a Lua error and no favor could progress or finish (the borrow-tractor favor would hand over the keys, then do nothing at the field marker). Step completion now flashes on the favor HUD like every other notification.
+
+---
+
 ## v1.2.7.0 -- Real base-game AI field work (till / sow / harvest)
 
 Farmer NPCs now do real, game-AI-driven field work with their own equipment, matched to what each field actually needs.
