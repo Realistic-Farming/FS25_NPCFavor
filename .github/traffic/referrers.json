@@ -4395,5 +4395,37 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-07-24": [
+    {
+      "referrer": "github.com",
+      "count": 159,
+      "uniques": 58
+    },
+    {
+      "referrer": "Google",
+      "count": 91,
+      "uniques": 40
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 65,
+      "uniques": 37
+    },
+    {
+      "referrer": "Bing",
+      "count": 9,
+      "uniques": 7
+    },
+    {
+      "referrer": "Yahoo",
+      "count": 6,
+      "uniques": 2
+    },
+    {
+      "referrer": "modhoster.de",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
