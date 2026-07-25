@@ -1,7 +1,7 @@
 # NPC Favor Roadmap
 
-**Current version:** 1.2.7.0
-**Last updated:** July 2026
+**Current version:** 1.2.7.1
+**Last updated:** 2026-07-25
 
 > *"These NPCs notice me. They remember what I do. I'm part of this world, not just passing through it."*
 
@@ -68,6 +68,9 @@ Confirmed working as of v1.2.7.0 (verified against the source checklists):
 **Integration**
 - ContractorModBridge Phases 1 to 3 (worker detection, relationship layer, job-complete triggers)
 - Companion-mod detection adds context-aware conversation topics
+- Ecosystem bedrock migration BUILT (2026-07-11, folded into v1.2.7.1): all four core-API bridges delegate-when-present (StateLedger `NPCFavor_State`, NetworkSync `NPCFavor_Sync`, MasterHUD `NPCFavor_HUD`, SettingsHub `FS25_NPCFavor` selfPersisted). Each no-ops when its core API is absent.
+- Farm-attributed money authority BUILT: favor money is server-authoritative through the mod's own NPCInteractionEvent, stamped with `favor.ownerFarmId` at accept, with idempotency flags on reward/repayment/loan. Correct on host/SP; the double-pay exploit is closed. See TODO.md for the test-owed items.
+- Companion read API BUILT (9bdfdde): a relationship + favor read surface for DairyCore / ProStaff consumers.
 
 ---
 
