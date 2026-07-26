@@ -229,12 +229,12 @@ end
 
 --- Get time remaining text for a favor
 function NPCFavorManagementDialog:getTimeRemainingText(favor, sys)
-    if not favor.expiryTime then
+    if not favor.expirationGameTime then
         return "No time limit"
     end
     
     local currentTime = sys:getCurrentGameTime()
-    local remaining = favor.expiryTime - currentTime
+    local remaining = favor.expirationGameTime - currentTime
     
     if remaining < 0 then
         return "EXPIRED"
@@ -249,13 +249,13 @@ end
 
 --- Get time urgency (0-1, where 1 is most urgent)
 function NPCFavorManagementDialog:getTimeUrgency(favor, sys)
-    if not favor.expiryTime or not favor.startTime then
+    if not favor.expirationGameTime or not favor.startTime then
         return 0
     end
     
     local currentTime = sys:getCurrentGameTime()
     local elapsed = currentTime - favor.startTime
-    local total = favor.expiryTime - favor.startTime
+    local total = favor.expirationGameTime - favor.startTime
     
     if total <= 0 then return 1 end
     
