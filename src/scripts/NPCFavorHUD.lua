@@ -72,12 +72,9 @@ function NPCFavorHUD.new(npcSystem)
     self.flashQueue = {}
     self.activeFlash = nil
 
-    -- HUD button definitions (positions computed dynamically in draw())
-    self.hudButtons = {
-        { id = "list",   label = "List",   action = "NPCListDialog" },
-        { id = "favors", label = "Favors", action = "NPCFavorManagementDialog" },
-        { id = "admin",  label = "Admin",  action = "NPCAdminListDialog" },
-    }
+    -- Quick-action buttons removed from the HUD — List (F7), Favors (F6), and
+    -- Admin (via NPC Settings panel) are already reachable without them.
+    self.hudButtons = {}
     self.hudButtonRects = {}
 
     -- Color palette
@@ -327,8 +324,7 @@ function NPCFavorHUD:getHUDRect()
     local favorBlockH = self.BASE_FAVOR_HEIGHT * s
     local headerH = self.BASE_HEADER_HEIGHT * s
     local contentShift = 0.005 * s
-    local btnRowH = 0.020 * s
-    local h = headerH + contentShift + favorCount * favorBlockH + btnRowH + pad * 2
+    local h = headerH + contentShift + favorCount * favorBlockH + pad * 2
 
     if self.npcSystem and self.npcSystem.favorSystem then
         local favors = self.npcSystem.favorSystem:getActiveFavors()
@@ -910,31 +906,6 @@ function NPCFavorHUD:draw()
         setTextColor(self.COLORS.TEXT_DIM[1], self.COLORS.TEXT_DIM[2], self.COLORS.TEXT_DIM[3], self.COLORS.TEXT_DIM[4])
         renderText(self.posX, yPos, textSmall * 0.9,
             string.format(g_i18n:getText("npc_hud_and_more") or "...and %d more", #favors - self.MAX_FAVORS))
-    end
-
-    -- HUD buttons (bottom-left area of box)
-    local btnH = 0.014 * s
-    local btnW = 0.035 * s
-    local btnY = bgY + 0.003 * s
-    local btnGap = 0.004 * s
-    local btnStartX = self.posX
-
-    for i, btn in ipairs(self.hudButtons) do
-        local btnX = btnStartX + (i - 1) * (btnW + btnGap)
-
-        -- Store rect for hit-testing
-        self.hudButtonRects[btn.id] = { x = btnX, y = btnY, w = btnW, h = btnH }
-
-        -- Background (brighter in edit mode)
-        local bgAlpha = self.editMode and 0.7 or 0.3
-        setOverlayColor(self.bgOverlay, 0.20, 0.30, 0.50, bgAlpha)
-        renderOverlay(self.bgOverlay, btnX, btnY, btnW, btnH)
-
-        -- Label
-        local textAlpha = self.editMode and 0.9 or 0.5
-        setTextAlignment(RenderText.ALIGN_CENTER)
-        setTextColor(0.7, 0.85, 1.0, textAlpha)
-        renderText(btnX + btnW / 2, btnY + btnH * 0.2, textSmall * 0.7, btn.label)
     end
 
     -- Version watermark (bottom-right corner, very small and dim)

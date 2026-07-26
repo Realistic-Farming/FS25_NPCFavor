@@ -4,6 +4,61 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 
 ---
 
+## v1.2.7.1 -- Favor completion fix, money authority, core-service bridges, and a companion read API
+
+### Favors
+- Fixed favors never progressing (#62): every favor step within 30m of its target called a non-existent `queueNotification` method, so each proximity check threw a Lua error and no favor could progress or finish (the borrow-tractor favor would hand over the keys, then do nothing at the field marker). Step completion now flashes on the favor HUD like every other notification.
+
+### Money handling (server-authoritative)
+- Favors now pay the farm that accepted them. The owning farm is stamped when the favor is accepted and used at every money site, so the correct farm is paid even on a dedicated server, and clients never apply money locally.
+- Favor completion, loan repayment, and gifts all route through the mod's own server-authoritative event, with a single completion path.
+- Added idempotency flags (reward paid, repayment collected, loan deducted), persisted across save and reload, so a reload can no longer double-pay a favor.
+- Fixed a live double-payout in the favor management dialog.
+- Legacy in-flight favors from older saves are migrated to a default farm so they still pay out.
+
+### Core-service bridges (Realistic-Farming ecosystem)
+- NPCFavor now bridges onto the four core services when they are installed, and keeps its own paths as the standalone fallback: StateLedger (state save and restore, with npc_favor.xml kept as a safety copy), NetworkSync (NPC state batched through the shared sync), MasterHUD (the favor draw loop), and SettingsHub (settings mirror). Each one no-ops when its service is not present, so the mod runs exactly as before on its own.
+
+### Companion read API
+- Added a read-only API other mods can use to read relationship and favor state (relationship value, a threshold check, and whether a farm has an active favor of a given type). Read-only and server-authoritative, added for Dairy Core and Pro Staff.
+
+---
+
+## v1.2.7.0 -- Real base-game AI field work (till / sow / harvest)
+
+Farmer NPCs now do real, game-AI-driven field work with their own equipment, matched to what each field actually needs.
+
+### NPC field work (NEW)
+- **Real base-game AI tillage**: an NPC's tractor + implement runs a genuine AIJobFieldWork and tills the ground. Because the AI helper needs the job's farm to own the field (and NPC farms do not own land), the field's farmland is temporarily borrowed by the local player's farm for the duration of the job, then restored. A save-hook safeguard restores every borrow before any save, so a temporary ownership can never persist.
+- **Full job-to-field matching**: each farmer NPC gets a job role and the matching equipment: till (tractor + plow/cultivator), sow (tractor + seeder, seeded), or harvest (self-propelled combine + header). An NPC only runs the AI job when the field's current state matches its role.
+- **Crop safety**: NPCs read the field's real crop and growth state and never plow or cut a growing crop. A harvester is only assigned to a field that is actually ripe.
+- **Fallbacks**: when the game AI cannot run (no implement, hire limit reached), the NPC drives its combo with base-game GoTo pathfinding, or a kinematic visual pass, so it always looks busy without errors.
+
+### On-demand equipment (architecture)
+- Equipment is now spawned **on demand**: an NPC's tractor/combine + implement is created at the field edge the moment they start working, matched to the field's **current** need, and despawned again when they stop. Previously equipment was decided once at spawn from a snapshot of the field, so it could go stale (a plow left on a field that had since grown a crop). Deciding at work time removes that mismatch entirely; a growing field simply gets no equipment and the NPC visits on foot.
+- If an NPC leaves work while their vehicle is still loading, the load is cancelled before the implement is spawned, so no equipment is created just to be deleted.
+
+### Fixes
+- Fixed favors never completing (#62): every favor step within 30m of its target called a non-existent `queueNotification` method, so each proximity check threw a Lua error and no favor could progress or finish ("not a single favor has worked"). Step completion now flashes on the favor HUD like every other notification, with a new localized `npc_hud_step_done` string across all 10 languages.
+- Fixed a VehicleCharacter crash from a wrong loadCharacter argument order (was calling a table), and 5 no-op vehicle deletions (g_currentMission:removeVehicle does not exist; use Vehicle:delete).
+- Eliminated a map-marker overlay render flood ("Unknown entity id ...") by sharing one never-freed overlay across all NPC markers.
+- Fixed harvester headers never attaching: the New Holland combo pointed at a header file as its "combine", so two headers were being paired. It now uses the real combine (chSeries), and the header attaches and harvests.
+- Silenced the "Can't change money of spectator farm" log spam from every angle: NPC AI job cost is zeroed, NPC vehicles keep their fuel topped so the base game never auto-bills the spectator farm for a refuel, and (when installed) Worker Costs also drops any charge aimed at the spectator farm.
+
+### AI behaviour, multiplayer, and edge cases
+- Added the "loner" personality to the daily schedule so those NPCs keep to their own routine.
+- Schedule-aware commute speed boost (previously only in the evening), so NPCs running late move quicker at any time of day.
+- Group gatherings now show a speech bubble even when no direct social partner is found nearby.
+- Reduced NPC-to-NPC social pairing distance to 50m so neighbours pair up more naturally.
+- Split the movement-speed bookkeeping so an NPC's mood-based speed is preserved correctly across walk and run modes.
+- Clear stale gathering data when an NPC goes to sleep, and delegate scheduled-activity lookups to a single source (removes a duplicate code path).
+- Client-side orphan-vehicle detection in multiplayer, so a stranded NPC vehicle is cleaned up on clients too.
+
+### New console command
+- **npcDeleteVehicle [radius]** -- delete the nearest vehicle/implement to you (cleanup for stranded units); never deletes the vehicle you are in.
+
+---
+
 ## v1.2.2.6 -- Favor HUD Rework & Compass Navigation
 
 **Branch:** `feature/favor-ui-improvements` (PR #30)

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<texture>
+	<meta>
+		<filename>../icon.dds</filename>
+		<size width="512" height="512"/>
+	</meta>
+	<slices>
+		<slice id="npc" uvs="0px 0px 512px 512px"/>
+	</slices>
+</texture>

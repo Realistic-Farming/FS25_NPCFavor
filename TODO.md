@@ -1,9 +1,9 @@
 # NPC Favor -- TODO / Roadmap
 
-**Current version:** 1.2.2.4
-**Last updated:** 2026-02-10
+**Current version:** 1.2.7.1
+**Last updated:** 2026-07-25
 
-This TODO reflects the **honest current state** of the mod as of v1.2.2.4. Items are grouped by status: what works, what's partially working, what's broken, and what's planned.
+This TODO reflects the **honest current state** of the mod. The "Done" block below is the original v1.2.2.4 baseline and still holds; the fuller current-state picture (field work, player-offered favors, the bedrock migration) lives in ROADMAP.md and the section below. Items are grouped by status: what works, what's partially working, what's broken, and what's planned.
 
 ---
 
@@ -85,6 +85,20 @@ This TODO reflects the **honest current state** of the mod as of v1.2.2.4. Items
 ### Multiplayer
 - [ ] Multiplayer sync infrastructure is complete but multiplayer is untested
 - [ ] State sync, interaction routing, and settings sync events all implemented
+
+### Ecosystem bedrock migration + money authority (BUILT 2026-07-11, pending in-game + two-machine MP test)
+Built as one coherent pass per the farm-attribution cert (NPCFAVOR-FARM-ATTRIBUTION-CERT.md) + the bedrock playbook. All four bridges are delegate-when-present (no bedrock dependency; each no-ops when its core API is absent). Money is server-authoritative through the mod's OWN NPCInteractionEvent, so money correctness does not depend on bedrock being installed.
+- [x] Bedrock migration built: StateLedger (`NPCFavor_State`, serializeState/deserializeState, npc_favor.xml kept as safety copy), NetworkSync (`NPCFavor_Sync`, full-snapshot state sync via collectSyncData/applyNetworkState, own NPCStateSyncEvent kept as fallback), MasterHUD (`NPCFavor_HUD` subscribe of NPCSystem:draw, own draw hook stands down when active), SettingsHub (`FS25_NPCFavor`, selfPersisted mirror of the panel's settings + admin/player split). Bridge files in src/integrations/, registered at loadMission00Finished.
+- [x] Money authority: all six sites now pay `favor.ownerFarmId` server-side (NPCFavorSystem 883 loan disburse, 1112 loan repayment, 1119 reward, 1154 bonus; NPCDialog gift deduct via serverGiveGift; loan-repay dialog paths now send intent). Client dialogs send intent through NPCInteractionEvent; no client-side addMoney remains.
+- [x] Farm attribution: `favor.ownerFarmId` stamped at accept (acceptFavorForNPC(npcId, farmId), validated by NPCInteractionEvent:run), persisted, with a host-farm migration default (resolveOwnerFarmId, logged) for legacy in-flight favors.
+- [x] Idempotency: `rewardPaid` (reward + perfect bonus) and `repaymentCollected` (loan principal) added alongside the existing `loanAmountDeducted`, all persisted in both the XML and StateLedger round-trips.
+- [x] Dead dispatch rewired: serverAcceptFavor -> acceptFavorForNPC(npc.id, farmId); serverCompleteFavor / serverAbandonFavor resolve the favor by npc then call the real favorId signatures. completeFavor is now server-gated (`g_server == nil` early return) so it is the single authoritative completion path.
+- [x] BUG fixed: NPCFavorManagementDialog:376 inline addMoney double-pay removed (completeFavor is the single pay path); that button now sends a server-authoritative completion intent.
+- [x] Companion read API (9bdfdde): a relationship + favor read surface for companions (the DairyCore / ProStaff ask), so consumers read the relationship state without touching internals.
+- [x] Save hardening (#63, 1db1a8b): XML strings escaped on save and the load path hardened against corruption.
+- [x] Released folded into v1.2.7.1 (money authority + core-service bridges + companion read API rolled into the hotfix line rather than a separate 1.2.8.0).
+- [ ] TEST OWED: in-game host/SP smoke test (accept, complete, loan lifecycle, gift, perfect bonus, reload). The live two-machine MP test is hardware-blocked (ledger reframe 2026-07-15); the operative gate for the wave is the network self-test harness + a single-host smoke. Money is server-authoritative and correct on host/SP regardless. Verify a client's favor money lands on the correct farm.
+- [ ] ARCHITECTURE NOTE (flagged, not changed): favor GENERATION + state are effectively per-client in the current MP design (favor sim runs server-only, but dialogs create/manage favors on whichever machine opens them; collectSyncData carries NPC state, not favors). The money fix closes the client-authoritative-money exploit and is fully correct on host/SP. A full server-authoritative favor lifecycle (server owns generation + favor-state sync to clients) is a larger follow-up in K's deep-audit territory, not part of this money pass.
 
 ---
 

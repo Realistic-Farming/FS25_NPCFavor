@@ -508,7 +508,7 @@ function NPCScheduler:handleSocialOpportunity(data)
                 npc2.position.x, npc2.position.y, npc2.position.z
             )
             
-            if distance < 100 then  -- Within 100 meters
+            if distance < 50 then  -- Within 50 meters (consistent with actual social range)
                 -- Schedule social interaction
                 local interactionTime = g_currentMission.time + math.random(1, 5) * 60 * 1000
                 self:scheduleNPCInteraction(npc1, npc2, interactionTime, "socialize")

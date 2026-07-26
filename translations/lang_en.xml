@@ -179,6 +179,7 @@
 		<text name="npc_hud_compass_nw" text="NW" />
 		<text name="npc_hud_new_favor" text="New: %s needs help!" />
 		<text name="npc_hud_completed" text="Done: %s" />
+		<text name="npc_hud_step_done" text="Step %d done: %s" />
 		<text name="npc_hud_failed" text="Failed: %s" />
 		<text name="npc_hud_cancelled" text="Cancelled: %s" />
 		<text name="npc_hud_perfect" text="Perfect! %s bonus!" />

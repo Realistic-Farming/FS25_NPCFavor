@@ -171,6 +171,7 @@
 		<text name="npc_hud_compass_nw" text="ПнЗх" />
 		<text name="npc_hud_new_favor" text="Нове: %s потребує допомоги!" />
 		<text name="npc_hud_completed" text="Виконано: %s" />
+		<text name="npc_hud_step_done" text="Крок %d виконано: %s" />
 		<text name="npc_hud_failed" text="Провалено: %s" />
 		<text name="npc_hud_cancelled" text="Скасовано: %s" />
 		<text name="npc_hud_perfect" text="Ідеально! %s бонус!" />

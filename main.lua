@@ -96,6 +96,15 @@ if modDirectory then
     -- Main coordinator
     source(modDirectory .. "src/NPCSystem.lua")
 
+    -- Cross-mod integrations (load after the coordinator)
+    source(modDirectory .. "src/scripts/NPCFieldSentry.lua")
+
+    -- Bedrock bridges (optional, delegate-when-present: each no-ops if its core API is absent)
+    source(modDirectory .. "src/integrations/NPCStateLedgerBridge.lua")
+    source(modDirectory .. "src/integrations/NPCNetworkSyncBridge.lua")
+    source(modDirectory .. "src/integrations/NPCMasterHUDBridge.lua")
+    source(modDirectory .. "src/integrations/NPCSettingsHubBridge.lua")
+
     print("[NPC Favor] All files loaded successfully")
 else
     print("[NPC Favor] ERROR - Could not find mod directory!")
@@ -111,6 +120,16 @@ end
 
 local function isEnabled()
     return npcSystem ~= nil and npcSystem.settings and npcSystem.settings.enabled
+end
+
+-- Register the four optional bedrock bridges. Each no-ops if its core API is absent
+-- (delegate-when-present). Runs at loadMission00Finished, after the bedrock mods publish
+-- their g_currentMission handles in Mission00.load, and after g_NPCSystem exists.
+local function registerBedrockBridges()
+    if NPCStateLedgerBridge  ~= nil then NPCStateLedgerBridge.register()  end
+    if NPCNetworkSyncBridge  ~= nil then NPCNetworkSyncBridge.register()  end
+    if NPCMasterHUDBridge    ~= nil then NPCMasterHUDBridge.register()    end
+    if NPCSettingsHubBridge  ~= nil then NPCSettingsHubBridge.register()  end
 end
 
 local function loadedMission(mission, node)
@@ -192,6 +211,11 @@ local function loadedMission(mission, node)
         else
             print("[NPC Favor] ERROR - Failed to create NPCSystem")
         end
+    end
+
+    -- Register the optional bedrock bridges once the system + mission handles exist.
+    if npcSystem then
+        registerBedrockBridges()
     end
 end
 
@@ -296,7 +320,11 @@ if FSBaseMission and FSBaseMission.draw then
     print("[NPC Favor] Hooking FSBaseMission.draw")
     FSBaseMission.draw = Utils.appendedFunction(FSBaseMission.draw, function(mission)
         if npcSystem then
-            npcSystem:draw()
+            -- Stand down when MasterHUD owns the draw loop (it calls NPCSystem:draw via
+            -- the subscribe registration); otherwise draw ourselves, exactly as before.
+            if not (NPCMasterHUDBridge ~= nil and NPCMasterHUDBridge.active) then
+                npcSystem:draw()
+            end
         end
     end)
 end
@@ -304,9 +332,10 @@ end
 -- =========================================================
 -- Block player from entering NPC vehicles
 -- =========================================================
--- Real vehicle spawning is currently disabled — FS25 provides no reliable
--- API to prevent player entry into spawned vehicles. The lockNPCVehicle()
--- code and hooks are preserved for future use when a solution is found.
+-- Real NPC vehicles ARE spawned (see NPCSystem "Real Vehicle Spawning" phase).
+-- Player entry into them is blocked by NPCSystem:lockNPCVehicle(), applied at
+-- every spawn site (tractor, implement, car, field-work), so no separate global
+-- entry-block hook is needed here.
 
 -- =========================================================
 -- E Key Input Binding (RVB Pattern from UsedPlus)
@@ -419,7 +448,8 @@ local function npcListActionCallback(self, actionName, inputValue, callbackState
 end
 
 -- Toggle HUD Edit Mode via key binding (works on foot and in vehicle)
-local function hudEditModeActionCallback(actionName, inputValue, callbackState, isAnalog)
+local function hudEditModeActionCallback(self, actionName, inputValue, callbackState, isAnalog)
+    if inputValue <= 0 then return end
     print("[NPC Favor] HUD edit callback fired — action=" .. tostring(actionName) .. " inputValue=" .. tostring(inputValue))
     if not npcSystem or not npcSystem.favorHUD then
         print("[NPC Favor] HUD edit blocked: npcSystem or favorHUD is nil")
@@ -448,12 +478,14 @@ local function hookNPCInteractInput()
         return
     end
 
-    npcInteractOriginalFunc = PlayerInputComponent.registerActionEvents
+    npcInteractOriginalFunc = true -- sentinel: already hooked
 
-    PlayerInputComponent.registerActionEvents = function(inputComponent, ...)
-        npcInteractOriginalFunc(inputComponent, ...)
+    PlayerInputComponent.registerActionEvents = Utils.overwrittenFunction(
+        PlayerInputComponent.registerActionEvents,
+        function(inputComponent, superFunc, ...)
+            superFunc(inputComponent, ...)
 
-        if inputComponent.player ~= nil and inputComponent.player.isOwner then
+            if inputComponent.player ~= nil and inputComponent.player.isOwner then
             g_inputBinding:beginActionEventsModification(PlayerInputComponent.INPUT_CONTEXT_NAME)
 
             -- Register E: NPC Interact
@@ -533,10 +565,11 @@ local function hookNPCInteractInput()
                     hudEditActionId,
                     NPCSystem,
                     hudEditModeActionCallback,
-                    false, true, false, false, nil, false
+                    false, true, false, false, nil, true
                 )
                 if success and eventId ~= nil then
                     hudEditModeActionEventId = eventId
+                    g_inputBinding:setActionEventActive(eventId, true)
                     g_inputBinding:setActionEventTextPriority(eventId, GS_PRIO_NORMAL)
                     g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_HUD_EDIT_MODE") or "Toggle HUD Edit")
                 end
@@ -544,7 +577,7 @@ local function hookNPCInteractInput()
 
             g_inputBinding:endActionEventsModification()
         end
-    end
+    end)
 
 end
 
@@ -673,7 +706,11 @@ if Mission00 and Mission00.onStartMission then
     Mission00.onStartMission = Utils.appendedFunction(
         Mission00.onStartMission,
         function(mission)
-            if npcSystem and npcSystem.isInitialized then
+            -- Skip the XML fallback load when StateLedger delivered a state block; the
+            -- ledger applyState (in the first-frame init) owns the load and re-loading the
+            -- XML here would double-restore favors.
+            if npcSystem and npcSystem.isInitialized
+                and not (NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.hasLedgerState()) then
                 local missionInfo = discoverMissionInfo()
                 if missionInfo then
                     npcSystem:loadFromXMLFile(missionInfo)
@@ -723,6 +760,7 @@ addModEventListener({
         end
     end,
     mouseEvent = function(self, posX, posY, isDown, isUp, button, eventUsed)
+        if not npcSystem then return false end
         if eventUsed then return eventUsed end
 
         -- Guard helper: any GUI overlay or dialog is open

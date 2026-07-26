@@ -495,7 +495,15 @@ function NPCDialog:onClickFavor()
     -- 1) Pending favor waiting for the player to accept
     local pending = sys:getPendingFavorForNPC(self.npc.id)
     if pending then
-        local accepted = sys:acceptFavorForNPC(self.npc.id)
+        -- Stamp the owning farm at accept with the acting player's farm. On host/SP this
+        -- local accept IS the server-side accept. On a client we also send the accept to
+        -- the server via NPCInteractionEvent, which validates the farm against the
+        -- connection and stamps its authoritative favor copy's ownerFarmId to match.
+        local farmId = (g_currentMission.player and g_currentMission.player.farmId) or 0
+        local accepted = sys:acceptFavorForNPC(self.npc.id, farmId)
+        if g_server == nil then
+            NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_ACCEPT, self.npc.id, farmId, 0, "")
+        end
         if accepted then
             self:setResponse(string.format(
                 "%s: \"Thank you! I really need your help. First: %s\"",
@@ -521,7 +529,7 @@ function NPCDialog:onClickFavor()
             self:setResponse(self.npc.name .. ": \"Come find me — I need to see you in person to close this out!\"")
         else
             active.awaitingConfirmation = false
-            sys:completeFavor(active.id)
+            self:requestCompleteFavor()
             self:setResponse(self.npc.name .. ": \"Thank you so much for watching my property! Here's your reward.\"")
         end
         self:updateButtonStates()
@@ -533,12 +541,10 @@ function NPCDialog:onClickFavor()
         for _, step in ipairs(active.steps) do
             if not step.completed and step.isLoanRepayStep then
                 local loanAmount = (active.taskData and active.taskData.loanAmount) or 5000
-                local farmId = g_currentMission.player and g_currentMission.player.farmId
-                if farmId then
-                    g_currentMission:addMoney(loanAmount, farmId, MoneyType.OTHER, true)
-                end
+                -- The loan principal is returned server-side in applyFavorRewards
+                -- (repaymentCollected guard); the client only sends the completion intent.
                 step.completed = true
-                sys:completeFavor(active.id)
+                self:requestCompleteFavor()
                 self:setResponse(string.format(
                     "%s: \"Here's your $%d back — and a little extra for your trouble!\"",
                     self.npc.name, loanAmount))
@@ -569,18 +575,16 @@ function NPCDialog:onClickFavor()
         if readyStep then
             if readyStep.isLoanRepayStep then
                 local loanAmount = (active.taskData and active.taskData.loanAmount) or 5000
-                local farmId = g_currentMission.player and g_currentMission.player.farmId
-                if farmId then
-                    g_currentMission:addMoney(loanAmount, farmId, MoneyType.OTHER, true)
-                end
+                -- Loan principal returned server-side (repaymentCollected guard); the
+                -- client only sends the completion intent.
                 readyStep.completed = true
-                sys:completeFavor(active.id)
+                self:requestCompleteFavor()
                 self:setResponse(string.format(
                     "%s: \"Here's your $%d back — and a little extra for your trouble!\"",
                     self.npc.name, loanAmount))
             else
                 readyStep.completed = true
-                sys:completeFavor(active.id)
+                self:requestCompleteFavor()
                 self:setResponse(self.npc.name .. ": \"" .. (g_i18n:getText("npc_dialog_favor_completed_confirm") or "Thanks so much for your help! Here's your reward.") .. "\"")
             end
             self:updateButtonStates()
@@ -640,6 +644,17 @@ function NPCDialog:onClickFavor()
 end
 
 
+--- Send a server-authoritative "complete this NPC's active favor" intent through the
+-- mod's own NPCInteractionEvent. The server resolves the favor, completes it, and pays
+-- favor.ownerFarmId exactly once (idempotency flags). The client never calls addMoney
+-- and never flips favor.status; it only shows optimistic dialog text and is re-synced.
+-- On host/single-player sendToServer executes directly, so behaviour is unchanged there.
+function NPCDialog:requestCompleteFavor()
+    if not self.npc then return end
+    local farmId = (g_currentMission.player and g_currentMission.player.farmId) or 0
+    NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_COMPLETE, self.npc.id, farmId, 0, "")
+end
+
 --- "Give gift" button: open the gift tier selection panel.
 -- Requires relationship >= 30. Actual execution is in onClickGiftSmall/Standard/Generous.
 function NPCDialog:onClickGift()
@@ -659,37 +674,32 @@ end
 function NPCDialog:executeGift(amount)
     if not self.npc or not self.npcSystem then return end
 
-    -- Check and deduct money
-    local farmId = g_currentMission.player and g_currentMission.player.farmId
-    if farmId then
-        local farm = g_farmManager and g_farmManager:getFarmById(farmId)
-        local balance = farm and farm.money or 0
-        if balance < amount then
-            self:setResponse(g_i18n:getText("npc_gift_insufficient_funds") or "You don't have enough money for this gift.")
-            self:hideGiftPanel()
-            return
-        end
-        g_currentMission:addMoney(-amount, farmId, MoneyType.OTHER, true)
+    -- Advisory client-side balance check (UI only). The server re-checks the balance
+    -- authoritatively before it deducts, so this just avoids a pointless round-trip.
+    local farmId = (g_currentMission.player and g_currentMission.player.farmId) or 0
+    local farm = g_farmManager and g_farmManager:getFarmById(farmId)
+    local balance = farm and farm.money or 0
+    if balance < amount then
+        self:setResponse(g_i18n:getText("npc_gift_insufficient_funds") or "You don't have enough money for this gift.")
+        self:hideGiftPanel()
+        return
     end
 
-    if self.npcSystem.relationshipManager then
-        local result = self.npcSystem.relationshipManager:giveGiftToNPC(self.npc.id, "money", amount)
-        if result then
-            local info = self.npcSystem.relationshipManager:getRelationshipInfo(self.npc.id)
-            if info then self.npc.relationship = info.value end
-            local thanks = {
-                hardworking = "Much appreciated! I can put this to good use.",
-                lazy        = "Oh nice, thanks! That's really kind of you.",
-                social      = "You're the best! I'll tell everyone how generous you are!",
-                grumpy      = "Hmph. Well... thanks, I guess.",
-                generous    = "Thank you! I'll find a way to return the favor.",
-            }
-            local thankMsg = thanks[self.npc.personality] or (g_i18n:getText("npc_dialog_gift_thanks") or "Thank you for the gift!")
-            self:setResponse(self.npc.name .. ": \"" .. thankMsg .. "\"")
-        else
-            self:setResponse(g_i18n:getText("npc_dialog_gift_failed") or "Could not give a gift right now.")
-        end
-    end
+    -- Server-authoritative: serverGiveGift deducts the gift from the acting farm (after
+    -- its own balance re-check) and applies the relationship gain, then syncs it back.
+    -- The client sends intent only; it does not deduct money or mutate relationship here.
+    NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_GIFT, self.npc.id, farmId, amount, "money")
+
+    -- Optimistic thank-you text; the relationship value re-syncs from the server.
+    local thanks = {
+        hardworking = "Much appreciated! I can put this to good use.",
+        lazy        = "Oh nice, thanks! That's really kind of you.",
+        social      = "You're the best! I'll tell everyone how generous you are!",
+        grumpy      = "Hmph. Well... thanks, I guess.",
+        generous    = "Thank you! I'll find a way to return the favor.",
+    }
+    local thankMsg = thanks[self.npc.personality] or (g_i18n:getText("npc_dialog_gift_thanks") or "Thank you for the gift!")
+    self:setResponse(self.npc.name .. ": \"" .. thankMsg .. "\"")
 
     self:hideGiftPanel()
     self:updateDisplay()

@@ -345,7 +345,11 @@ function NPCSystem:onMissionLoaded()
                 elseif g_currentMission and g_currentMission.savegameDirectory then
                     missionInfo = { savegameDirectory = g_currentMission.savegameDirectory }
                 end
-                if missionInfo then
+                -- Prefer StateLedger when installed and it delivered a state block;
+                -- otherwise import our own npc_favor.xml (the standalone fallback).
+                if NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.hasLedgerState() then
+                    NPCStateLedgerBridge.applyState()
+                elseif missionInfo then
                     self:loadFromXMLFile(missionInfo)
                 end
 
@@ -365,6 +369,15 @@ function NPCSystem:onMissionLoaded()
 
                 self.isInitialized = true
                 self.initializing = false
+
+                -- Watch for the game ending an NPC's AI field-work job (field
+                -- finished, blocked, vehicle deleted) so we release the NPC and
+                -- free its job slot instead of leaking it. Subscribe once.
+                if not self._aiJobMsgSubscribed and g_messageCenter and MessageType and MessageType.AI_JOB_STOPPED then
+                    g_messageCenter:subscribe(MessageType.AI_JOB_STOPPED, self.onAIJobStopped, self)
+                    self._aiJobMsgSubscribed = true
+                end
+
                 print("[NPC Favor] Initialized with " .. tostring(self.npcCount) .. " NPCs")
                 
                 return true -- Remove updater
@@ -661,9 +674,11 @@ function NPCSystem:initializeNPCs()
     -- Assign farmlands and fields to farmer NPCs (after all NPCs are created)
     self:assignFarmlands()
 
-    -- Phase B: Real vehicle spawning disabled — FS25 provides no reliable API
-    -- to prevent player entry into spawned vehicles. Keeping code for future use.
-    -- self:initializeNPCVehicles()
+    -- Phase B: Spawn real NPC vehicles. Player entry is blocked by lockNPCVehicle
+    -- (removes the vehicle from the interactive list, neutralizes getDistanceToNode
+    -- and interact, and re-locks after async finalization). Gated by the
+    -- npcDriveVehicles setting and npcVehicleMode inside initializeNPCVehicles.
+    self:initializeNPCVehicles()
 end
 
 --- Set up an NPC's home position, field assignment, vehicles, AI state, and entity.
@@ -1091,7 +1106,7 @@ function NPCSystem:findNearestField(x, z, npcId)
             if dist < nearestDist then
                 nearestDist = dist
                 nearest = {
-                    id = field.fieldId or 0,
+                    id = field.farmlandId or 0,
                     center = { x = cx, y = 0, z = cz },
                     size = (field.fieldArea and field.fieldArea.fieldArea) or 1
                 }
@@ -1103,7 +1118,7 @@ function NPCSystem:findNearestField(x, z, npcId)
     if nearest then
         nearest.cropInfo = nil
         for _, field in pairs(g_fieldManager.fields) do
-            local fid = field.fieldId or 0
+            local fid = field.farmlandId or 0
             if fid == nearest.id then
                 local cropInfo = {}
                 -- Try to read fruit type
@@ -1502,19 +1517,52 @@ end
 
 --- Pool of base-game tractor XML paths for variety.
 -- These are validated at runtime via g_storeManager; invalid entries are removed.
+-- Medium-class Fendts (500/700 Vario) so they look right AND have the power to
+-- pull the field-work implements in IMPLEMENT_POOL (the Vario 200 was far too
+-- small under a 6-furrow plow).
 NPCSystem.TRACTOR_POOL = {
-    "data/vehicles/fendt/vario200/vario200.xml",
+    "data/vehicles/fendt/vario700/vario700.xml",
+    "data/vehicles/fendt/vario500/vario500.xml",
 }
 
 --- Pool of commute vehicles (cars/pickups). Falls back to TRACTOR_POOL if empty.
 -- Populated at runtime via discoverVehiclesFromStore or store-item validation.
 NPCSystem.COMMUTE_VEHICLE_POOL = {}
 
---- Pool of base-game implement XML paths (plows/cultivators for field work).
+--- Pool of base-game implement XML paths (plows/cultivators for TILL jobs).
 NPCSystem.IMPLEMENT_POOL = {
     "data/vehicles/poettinger/servoT6000Plus/servoT6000Plus.xml",
     "data/vehicles/kuhn/kuhnCultimer400/kuhnCultimer400.xml",
 }
+
+--- Seeders/planters for SOW jobs (tractor-drawn). Filled with seed after attach.
+NPCSystem.SEEDER_POOL = {
+    "data/vehicles/amazone/citan15001C/citan15001C.xml",
+    "data/vehicles/horsch/avatar1225/avatar1225.xml",
+    "data/vehicles/vaderstad/nzExtreme1425/nzExtreme1425.xml",
+}
+
+--- Self-propelled combine + matching header pairs for HARVEST jobs. The combine
+-- is the work vehicle (npc.realTractor); the header attaches to it. Paired by
+-- brand so the header actually fits the combine.
+NPCSystem.HARVEST_COMBOS = {
+    { combine = "data/vehicles/claas/lexion6900/lexion6900.xml",  header = "data/vehicles/claas/convioFlex1080/convioFlex1080.xml" },
+    -- chSeries (type=combineDrivable) is the REAL combine; cr980_830 was wrong here
+    -- (it is itself a cutter/header, type=cutter), so we were spawning a header and
+    -- trying to attach a second header to it -> attach always failed. varifeed28's
+    -- own store metadata pairs it with chSeries; both couple via jointType "cutter".
+    { combine = "data/vehicles/newHolland/chSeries/chSeries.xml", header = "data/vehicles/newHolland/varifeed28/varifeed28.xml" },
+}
+
+--- Max NPCs allowed to run a real game AI field-work job at once. The game AI
+-- limit (maxNumHirables) is SHARED with the player's own hired helpers, so we
+-- cap our usage low to always leave the player room to hire.
+NPCSystem.MAX_NPC_AI_JOBS = 2
+
+--- Max NPCs allowed to hold an on-demand field-work vehicle at once. Caps the
+-- number of real tractors/combines spawned in the world for performance; extra
+-- NPCs work their field on foot until a slot frees up.
+NPCSystem.MAX_FIELD_VEHICLES = 4
 
 --- Validate vehicle pools against the store manager at runtime.
 -- Removes entries that aren't registered storeitems and discovers alternatives.
@@ -1556,6 +1604,23 @@ function NPCSystem:validateVehiclePools()
     self.TRACTOR_POOL = validTractors
     self.IMPLEMENT_POOL = validImplements
 
+    -- Validate seeder pool (SOW role)
+    local validSeeders = {}
+    for _, path in ipairs(self.SEEDER_POOL or {}) do
+        local ok, item = pcall(function() return g_storeManager:getItemByXMLFilename(path) end)
+        if ok and item then table.insert(validSeeders, path) end
+    end
+    self.SEEDER_POOL = validSeeders
+
+    -- Validate harvest combos (HARVEST role): keep only combos whose combine AND header both exist
+    local validCombos = {}
+    for _, combo in ipairs(self.HARVEST_COMBOS or {}) do
+        local okC, itemC = pcall(function() return g_storeManager:getItemByXMLFilename(combo.combine) end)
+        local okH, itemH = pcall(function() return g_storeManager:getItemByXMLFilename(combo.header) end)
+        if okC and itemC and okH and itemH then table.insert(validCombos, combo) end
+    end
+    self.HARVEST_COMBOS = validCombos
+
     -- Build commute vehicle pool: try car/pickup discovery first, fall back to tractors
     local commuteKeywords = {"car", "pickup", "sedan", "hatchback", "suv"}
     local foundCars = {}
@@ -1570,8 +1635,8 @@ function NPCSystem:validateVehiclePools()
     -- spawned a real tractor that didn't get cleaned up reliably.
     self.COMMUTE_VEHICLE_POOL = foundCars
 
-    print(string.format("[NPC Favor] Vehicle pools validated: %d tractors, %d implements, %d commute",
-        #self.TRACTOR_POOL, #self.IMPLEMENT_POOL, #self.COMMUTE_VEHICLE_POOL))
+    print(string.format("[NPC Favor] Vehicle pools validated: %d tractors, %d implements, %d seeders, %d harvest combos, %d commute",
+        #self.TRACTOR_POOL, #self.IMPLEMENT_POOL, #self.SEEDER_POOL, #self.HARVEST_COMBOS, #self.COMMUTE_VEHICLE_POOL))
 end
 
 --- Discover valid vehicles from the store by category keyword.
@@ -1593,13 +1658,133 @@ function NPCSystem:discoverVehiclesFromStore(keyword)
     return results
 end
 
---- Select a tractor filename based on NPC's appearance seed for consistent variety.
+--- Job role for a farmer NPC: "till" (plow/cultivate), "sow" (seeder) or
+-- "harvest" (combine). Assigned once from the appearance seed, weighted toward
+-- tillage, and downgraded to "till" if the role's pool is empty.
 -- @param npc  NPC data table
--- @return string  Vehicle XML path
-function NPCSystem:getTractorFilename(npc)
-    local seed = npc.appearanceSeed or npc.id or 1
-    local index = (seed % #self.TRACTOR_POOL) + 1
+-- @return string  role
+function NPCSystem:getNPCJobRole(npc)
+    if npc.jobRole then return npc.jobRole end
+
+    -- Field-aware: match the role to the assigned field's CURRENT need so we never
+    -- park a combine on a growing crop (or on bare ground). A harvester is only
+    -- assigned when the field is actually ripe; a field with a growing crop gets a
+    -- tractor+plow (which won't till it - the work gate protects the crop - so the
+    -- NPC just drives/inspects, far less jarring than a combine on standing peas).
+    local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
+    local need = field and self:getFieldJobType(field) or "open"
+
+    local role
+    if need == "harvest" and self.HARVEST_COMBOS and #self.HARVEST_COMBOS > 0 then
+        role = "harvest"
+    elseif need == "open" then
+        local r = (npc.appearanceSeed or npc.id or 1) % 100
+        if r >= 55 and self.SEEDER_POOL and #self.SEEDER_POOL > 0 then
+            role = "sow"
+        else
+            role = "till"
+        end
+    else
+        -- Growing crop: nothing to work. Give a BARE tractor (no implement) so the
+        -- NPC just drives out to inspect; never a plow dragged over a standing crop.
+        role = "inspect"
+    end
+
+    npc.jobRole = role
+    return role
+end
+
+--- The work VEHICLE for an NPC based on their job role: a combine for harvest
+-- (also records the paired header via npc._harvestComboIndex), else a tractor.
+-- @param npc  NPC data table
+-- @return string|nil  Vehicle XML path
+function NPCSystem:getWorkVehicleFilename(npc)
+    local role = self:getNPCJobRole(npc)
+    if role == "harvest" and self.HARVEST_COMBOS and #self.HARVEST_COMBOS > 0 then
+        local idx = ((npc.appearanceSeed or npc.id or 1) % #self.HARVEST_COMBOS) + 1
+        npc._harvestComboIndex = idx
+        return self.HARVEST_COMBOS[idx].combine
+    end
+    if not self.TRACTOR_POOL or #self.TRACTOR_POOL == 0 then return nil end
+    local index = ((npc.appearanceSeed or npc.id or 1) % #self.TRACTOR_POOL) + 1
     return self.TRACTOR_POOL[index]
+end
+
+--- Backwards-compatible alias (till/sow both drive a tractor; harvest a combine).
+function NPCSystem:getTractorFilename(npc)
+    return self:getWorkVehicleFilename(npc)
+end
+
+--- The IMPLEMENT for an NPC based on their job role: the paired header for
+-- harvest, a seeder for sow, else a plow/cultivator for till.
+-- @param npc  NPC data table
+-- @return string|nil  Implement XML path, or nil if unavailable
+function NPCSystem:getImplementFilename(npc)
+    local role = self:getNPCJobRole(npc)
+    if role == "inspect" then return nil end  -- bare tractor, no implement
+    if role == "harvest" then
+        local combo = self.HARVEST_COMBOS and self.HARVEST_COMBOS[npc._harvestComboIndex or 1]
+        return combo and combo.header
+    elseif role == "sow" then
+        if not self.SEEDER_POOL or #self.SEEDER_POOL == 0 then return nil end
+        local index = (((npc.appearanceSeed or npc.id or 1) + 3) % #self.SEEDER_POOL) + 1
+        return self.SEEDER_POOL[index]
+    end
+    if not self.IMPLEMENT_POOL or #self.IMPLEMENT_POOL == 0 then return nil end
+    local index = (((npc.appearanceSeed or npc.id or 1) + 7) % #self.IMPLEMENT_POOL) + 1
+    return self.IMPLEMENT_POOL[index]
+end
+
+--- Fill a seeder's fill units with SEEDS so it can actually sow (best-effort).
+-- @param implement  the attached seeder vehicle
+function NPCSystem:fillSeederWithSeed(implement)
+    if not implement or not implement.getFillUnits or not g_fillTypeManager then return end
+    local seedsIndex = g_fillTypeManager:getFillTypeIndexByName("SEEDS")
+    if not seedsIndex then return end
+    local farmId = (implement.getOwnerFarmId and implement:getOwnerFarmId()) or 1
+    local units = implement:getFillUnits()
+    if not units then return end
+    for i = 1, #units do
+        pcall(function()
+            if implement.getFillUnitSupportsFillType and implement:getFillUnitSupportsFillType(i, seedsIndex) then
+                local cap = (implement.getFillUnitCapacity and implement:getFillUnitCapacity(i)) or 1000
+                local tt = (ToolType and ToolType.UNDEFINED) or 0
+                implement:addFillUnitFillLevel(farmId, i, cap, seedsIndex, tt)
+            end
+        end)
+    end
+end
+
+--- Suppress the base-game fuel/running-cost charge on a spawned NPC vehicle.
+-- Motorized auto-refuels any consumer that drops below 10% of capacity and bills
+-- self:getOwnerFarmId() (Motorized.updateConsumers -> addMoney, MoneyType.PURCHASE_FUEL).
+-- Our NPC vehicles are owned by the spectator farm, which rejects money changes
+-- ("Can't change money of spectator farm" -> log spam every frame the engine runs).
+-- Topping every consumer fill unit to capacity keeps the <10% refuel from ever firing
+-- during the vehicle's short on-demand lifetime, so the charge never happens. This is
+-- the NPCFavor-side guard; WorkerCosts also drops spectator-farm charges independently.
+-- @param vehicle  the spawned motorized vehicle
+function NPCSystem:suppressVehicleFuelCost(vehicle)
+    if not vehicle then return end
+    pcall(function()
+        local spec = vehicle.spec_motorized
+        if not spec or not spec.consumersByFillTypeName then return end
+        if not vehicle.getFillUnitCapacity or not vehicle.addFillUnitFillLevel then return end
+        local farmId = (vehicle.getOwnerFarmId and vehicle:getOwnerFarmId()) or 0
+        local toolTypeUndef = (ToolType and ToolType.UNDEFINED) or 0
+        for _, consumer in pairs(spec.consumersByFillTypeName) do
+            local idx = consumer.fillUnitIndex
+            if idx then
+                local cap = vehicle:getFillUnitCapacity(idx)
+                local cur = vehicle:getFillUnitFillLevel(idx)
+                -- addFillUnitFillLevel only sets the level; it does NOT charge money,
+                -- so filling a spectator-farm vehicle here is safe.
+                if cap and cur and cur < cap then
+                    vehicle:addFillUnitFillLevel(farmId, idx, cap - cur, consumer.fillType, toolTypeUndef)
+                end
+            end
+        end
+    end)
 end
 
 --- Spawn a real FS25 vehicle for an NPC farmer using VehicleLoadingData.
@@ -1645,7 +1830,14 @@ function NPCSystem:spawnNPCTractor(npc, callback)
     loadingData:setAddToPhysics(true)
     loadingData:setIsSaved(false)  -- Don't persist — we respawn on load
 
-    loadingData:load(function(vehicle, loadingState, args)
+    loadingData:load(function(_, loadedVehicles, loadingState, args)
+        -- VehicleLoadingData calls back as (callbackTarget, loadedVehicles, loadingState, callbackArguments).
+        -- loadedVehicles is a list; the root vehicle is entry [1].
+        local vehicle = loadedVehicles and loadedVehicles[1] or nil
+        if vehicle and VehicleLoadingState ~= nil and loadingState ~= VehicleLoadingState.OK then
+            vehicle = nil
+        end
+
         if vehicle then
             npc.realTractor = vehicle
             npc.realTractor.isNPCVehicle = true  -- tag for identification
@@ -1657,18 +1849,210 @@ function NPCSystem:spawnNPCTractor(npc, callback)
             self:lockNPCVehicle(vehicle)
             print(string.format("[NPC Favor] Tractor locked for %s (not enterable)", npc.name or "?"))
 
-            -- Seat NPC character in the cab
-            self:seatNPCInVehicle(npc, vehicle)
+            -- Keep fuel topped so the base game never auto-refuels (and bills the
+            -- spectator farm) mid-session — the NPCFavor-side spectator-cost guard.
+            self:suppressVehicleFuelCost(vehicle)
+
+            -- The NPC is seated only on reaching the field and entering WORKING
+            -- state (activateNPCTractor), so the tractor stays parked until then.
 
             print(string.format("[NPC Favor] Real tractor spawned for %s at (%.0f, %.0f) — %s",
                 npc.name or "?", fieldEdgeX, fieldEdgeZ, tractorFile))
+
+            -- Give the tractor a field-work implement so it is actually
+            -- field-work capable (getCanStartFieldWork). Async; attaches when
+            -- loaded. On any failure the implement is cleaned up and the NPC
+            -- falls back to the visual row-driving path (never strands a tool).
+            -- The caller's callback fires only AFTER the implement attach attempt
+            -- resolves, so on-demand activation sees a field-work-ready combo
+            -- rather than a bare tractor that would always fall through to driving.
+            --
+            -- Churn guard (on-demand field spawns only): if the NPC already left
+            -- WORKING while the tractor loaded async, don't load an implement at all.
+            -- Despawn now instead of spawning + attaching a full header just to delete
+            -- it moments later. Gated on npc._pendingFieldSpawn so any other caller of
+            -- spawnNPCTractor is unaffected.
+            if npc._pendingFieldSpawn and npc.aiState ~= "working" then
+                if self.settings.debugMode then
+                    print(string.format("[NPC Favor] %s left work during tractor load — skipping implement, despawning", npc.name or "?"))
+                end
+                pcall(function() self:removeNPCTractor(npc) end)
+                if callback then callback(nil) end
+                return
+            end
+
+            self:spawnNPCImplement(npc, vehicle, function(_attached)
+                if callback then callback(vehicle) end
+            end)
         else
             print(string.format("[NPC Favor] Tractor spawn FAILED for %s — %s",
                 npc.name or "?", tractorFile))
+            if callback then callback(nil) end
+        end
+    end, self, {npc = npc})
+end
+
+--- Spawn a field-work implement for an NPC and attach it to their tractor.
+-- Async: loads the implement, then attaches via joint-compatibility matching.
+-- Robust: if the tractor vanished, the pool is empty, or the attach fails, the
+-- implement is deleted (never stranded) and the NPC uses the visual fallback.
+-- @param npc       NPC data table (must already have npc.realTractor == tractor)
+-- @param tractor   The spawned tractor vehicle to attach to
+-- @param callback  Optional function(success) called after the attach attempt
+function NPCSystem:spawnNPCImplement(npc, tractor, callback)
+    if not VehicleLoadingData or not tractor or tractor.rootNode == nil then
+        if callback then callback(false) end
+        return
+    end
+
+    -- Harvest: many combines spawn WITH a header from their store config, so the
+    -- cutter joint is already occupied. If the combine can already do field work,
+    -- skip spawning a header (attaching a second one fails and would otherwise
+    -- scrap a perfectly good combine).
+    if self:getNPCJobRole(npc) == "harvest" then
+        local canWork = false
+        pcall(function() canWork = tractor.getCanStartFieldWork ~= nil and tractor:getCanStartFieldWork() end)
+        if canWork then
+            if self.settings.debugMode then
+                print(string.format("[NPC Favor] %s combine already has a header, ready to harvest", npc.name or "?"))
+            end
+            if callback then callback(true) end
+            return
+        end
+    end
+
+    -- Implement depends on the NPC's job role (plow/cultivator, seeder, or header).
+    local implementFile = self:getImplementFilename(npc)
+    if not implementFile then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] No implement for %s (role=%s) — visual work only",
+                npc.name or "?", self:getNPCJobRole(npc)))
+        end
+        if callback then callback(false) end
+        return
+    end
+
+    -- Spawn a few metres behind the tractor. attachImplement snaps the tool to
+    -- the attacher joint, so exact placement only needs to be in the vicinity.
+    local sx, sz, yaw = 0, 0, 0
+    local okPos = pcall(function()
+        local tx, _, tz = getWorldTranslation(tractor.rootNode)
+        local bx, _, bz = localDirectionToWorld(tractor.rootNode, 0, 0, -1)  -- tractor rear
+        sx, sz = tx + bx * 5, tz + bz * 5
+        local fx, _, fz = localDirectionToWorld(tractor.rootNode, 0, 0, 1)   -- match facing
+        yaw = MathUtil.getYRotationFromDirection(fx, fz)
+    end)
+    if not okPos then
+        if callback then callback(false) end
+        return
+    end
+
+    local loadingData = VehicleLoadingData.new()
+    loadingData:setFilename(implementFile)
+    loadingData:setPosition(sx, nil, sz)  -- nil y = auto terrain height
+    loadingData:setRotation(0, yaw, 0)
+    loadingData:setOwnerFarmId(FarmManager.SPECTATOR_FARM_ID or 0)
+    loadingData:setPropertyState(VehiclePropertyState.OWNED)
+    loadingData:setIsRegistered(true)
+    loadingData:setAddToPhysics(true)
+    loadingData:setIsSaved(false)  -- respawned on load, never persisted
+
+    loadingData:load(function(_, loadedVehicles, loadingState, args)
+        local implement = loadedVehicles and loadedVehicles[1] or nil
+        if implement and VehicleLoadingState ~= nil and loadingState ~= VehicleLoadingState.OK then
+            implement = nil
+        end
+        if not implement then
+            print(string.format("[NPC Favor] Implement spawn FAILED for %s — %s", npc.name or "?", implementFile))
+            if callback then callback(false) end
+            return
         end
 
-        if callback then callback(vehicle) end
+        -- The tractor may have been removed while we loaded async. Don't strand.
+        if npc.realTractor ~= tractor then
+            pcall(function() if implement.delete then implement:delete() end end)
+            if callback then callback(false) end
+            return
+        end
+
+        implement.isNPCVehicle = true
+        self:lockNPCVehicle(implement)
+
+        if self:attachImplementToTractor(tractor, implement) then
+            npc.realImplement = implement
+            -- Sowers need seed loaded to actually plant.
+            if self:getNPCJobRole(npc) == "sow" then
+                pcall(function() self:fillSeederWithSeed(implement) end)
+            end
+            print(string.format("[NPC Favor] Implement attached for %s — %s", npc.name or "?", implementFile))
+            if callback then callback(true) end
+        else
+            -- Could not attach. Delete the tool rather than leave it in the field.
+            pcall(function() if implement.delete then implement:delete() end end)
+            -- A combine with no header is useless: remove it too so the NPC falls
+            -- back cleanly (prop/visual) instead of a headerless combine that can
+            -- do nothing.
+            if self:getNPCJobRole(npc) == "harvest" then
+                pcall(function() self:removeNPCTractor(npc) end)
+            end
+            if self.settings.debugMode then
+                print(string.format("[NPC Favor] Implement attach failed for %s — removed, using visual work", npc.name or "?"))
+            end
+            if callback then callback(false) end
+        end
     end, self, {npc = npc})
+end
+
+--- Attach an implement to a tractor by matching a free attacher joint on the
+-- tractor with a compatible input attacher joint on the implement.
+-- Mirrors the engine's own compatibility test (jointType + getAttacherJointCompatibility).
+-- @param tractor    Attacher vehicle (has attacherJoints)
+-- @param implement  Attachable (has inputAttacherJoints)
+-- @return boolean   true if attached
+function NPCSystem:attachImplementToTractor(tractor, implement)
+    local ok, result = pcall(function()
+        if not tractor.getAttacherJoints or not implement.getInputAttacherJoints then
+            return false
+        end
+        local attacherJoints = tractor:getAttacherJoints()
+        local inputJoints = implement:getInputAttacherJoints()
+        if not attacherJoints or not inputJoints then return false end
+
+        -- Pass 1: strict compatibility (jointType + getAttacherJointCompatibility).
+        for aIdx, aJoint in ipairs(attacherJoints) do
+            -- jointIndex 0 == this attacher joint is free (nothing attached)
+            if (aJoint.jointIndex or 0) == 0 then
+                for iIdx, iJoint in ipairs(inputJoints) do
+                    if aJoint.jointType == iJoint.jointType then
+                        local compatible = true
+                        if AttacherJoints ~= nil and AttacherJoints.getAttacherJointCompatibility ~= nil then
+                            compatible = AttacherJoints.getAttacherJointCompatibility(tractor, aJoint, implement, iJoint)
+                        end
+                        if compatible then
+                            tractor:attachImplement(implement, iIdx, aIdx)
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Pass 2: fall back to a jointType match alone. Header/cutter joints often
+        -- fail the strict subType compatibility check even for a valid pairing; a
+        -- slightly-relaxed attach is better than a headerless combine.
+        for aIdx, aJoint in ipairs(attacherJoints) do
+            if (aJoint.jointIndex or 0) == 0 then
+                for iIdx, iJoint in ipairs(inputJoints) do
+                    if aJoint.jointType == iJoint.jointType then
+                        tractor:attachImplement(implement, iIdx, aIdx)
+                        return true
+                    end
+                end
+            end
+        end
+        return false
+    end)
+    return ok and result == true
 end
 
 --- Seat an NPC's HumanModel character in a vehicle's cab via VehicleCharacter.
@@ -1684,15 +2068,27 @@ function NPCSystem:seatNPCInVehicle(npc, vehicle)
         local entity = self.entityManager and self.entityManager.npcEntities[npc.id]
 
         if entity and entity.playerStyle then
-            vc:loadCharacter(entity.playerStyle, function()
-                -- NPC is now visually seated — hide the standalone walking model
-                if entity.node then
-                    pcall(function() setVisibility(entity.node, false) end)
-                end
-                npc.isSeatedInVehicle = true
-            end, self)
+            -- Correct signature is loadCharacter(playerStyle, asyncCallbackObject,
+            -- asyncCallbackFunction, asyncCallbackArguments); the engine then calls
+            -- asyncCallbackFunction(asyncCallbackObject, loadingState, args).
+            -- The old call passed a closure as the OBJECT and self as the FUNCTION,
+            -- so the engine tried to call a table (VehicleCharacter.lua:190).
+            vc:loadCharacter(entity.playerStyle, self, self.onNPCCharacterLoaded, {npc = npc, entity = entity})
         end
     end)
+end
+
+--- Async callback fired when an NPC character finishes loading into a vehicle
+-- seat. Invoked by the engine as self:onNPCCharacterLoaded(loadingState, args).
+-- @param loadingState  Engine loading state (unused)
+-- @param args          { npc = <npc>, entity = <entity> }
+function NPCSystem:onNPCCharacterLoaded(loadingState, args)
+    if not args then return end
+    local npc, entity = args.npc, args.entity
+    if entity and entity.node then
+        pcall(function() setVisibility(entity.node, false) end)  -- hide standalone walking model
+    end
+    if npc then npc.isSeatedInVehicle = true end
 end
 
 --- Unseat an NPC from their vehicle and restore the walking model.
@@ -1706,19 +2102,80 @@ function NPCSystem:unseatNPCFromVehicle(npc)
             end
         end
 
-        local entity = self.entityManager and self.entityManager.npcEntities[npc.id]
-        if entity and entity.node then
-            pcall(function() setVisibility(entity.node, true) end)
-        end
+        self:setNPCEntityHidden(npc, false)
         npc.isSeatedInVehicle = false
     end)
 end
 
+--- Hide or show an NPC's standalone walking/human model.
+-- Used while the game's AI helper drives the NPC's tractor: the helper occupies
+-- the cab (via createAgent), so our separate model must be hidden to avoid a
+-- visible duplicate person.
+-- @param npc     NPC data table
+-- @param hidden  true to hide the model, false to show it
+function NPCSystem:setNPCEntityHidden(npc, hidden)
+    local entity = self.entityManager and self.entityManager.npcEntities[npc.id]
+    if not entity then return end
+    if entity.node then
+        pcall(function() setVisibility(entity.node, not hidden) end)
+    end
+    if entity.humanModel and entity.humanModel.rootNode then
+        pcall(function() setVisibility(entity.humanModel.rootNode, not hidden) end)
+    end
+end
+
+--- Count NPCs currently running a real game AI field-work job.
+-- @return number  active NPC AI job count
+function NPCSystem:countActiveNPCAIJobs()
+    local n = 0
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.activeAIJob then n = n + 1 end
+    end
+    return n
+end
+
 --- Start an AI field work job for an NPC using their real tractor.
--- Uses AIJobFieldWork with named parameters. Falls back gracefully if unavailable.
+-- Follows the game's own start recipe (see AISystem:consoleCommandAIStart):
+--   createJob(FIELDWORK) -> set vehicle + position -> setValues() -> validate() -> startJob().
+-- The critical step is job:setValues(): it wires the vehicle and drive target
+-- into the drive/fieldwork tasks. Skipping it leaves AITaskDriveTo running
+-- against a nil vehicle every frame, which is what spammed the console.
+-- We also gate on vehicle:getCanStartFieldWork() — the engine's own check for
+-- "is this vehicle actually field-work capable". A bare tractor (no lowered
+-- implement with work areas) returns false, so we never hand the AI machine a
+-- job it cannot run. Returns true only when the job actually started.
 -- @param npc  NPC data table (requires npc.realTractor and npc.assignedField)
 function NPCSystem:startNPCFieldWork(npc)
-    if not npc.realTractor or not AIJobFieldWork then
+    local vehicle = npc.realTractor
+    if not vehicle or not g_currentMission or not g_currentMission.aiJobTypeManager then
+        return false
+    end
+    if AIJobType == nil or AIJobType.FIELDWORK == nil then
+        return false
+    end
+
+    -- Engine gate: only start field work on a field-work-capable vehicle.
+    -- Bare tractor -> false -> fall back to the visual path (no spam, no crash).
+    local canFieldWork = false
+    pcall(function()
+        canFieldWork = vehicle.getCanStartFieldWork ~= nil and vehicle:getCanStartFieldWork()
+    end)
+    if not canFieldWork then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] %s cannot start AI field work (no field-work implement) — using visual work",
+                npc.name or "?"))
+        end
+        return false
+    end
+
+    -- Guardrail: the game AI limit (maxNumHirables) is shared with the player's
+    -- hired helpers. Respect it, and cap concurrent NPC jobs so we never starve
+    -- the player's ability to hire. Fall back to visual work when at capacity.
+    local aiSystem = g_currentMission.aiSystem
+    if aiSystem and aiSystem.getAILimitedReached and aiSystem:getAILimitedReached() then
+        return false
+    end
+    if self:countActiveNPCAIJobs() >= (self.MAX_NPC_AI_JOBS or 2) then
         return false
     end
 
@@ -1729,13 +2186,14 @@ function NPCSystem:startNPCFieldWork(npc)
     local cx = (field.center and field.center.x) or 0
     local cz = (field.center and field.center.z) or 0
 
-    local job = AIJobFieldWork.new(g_currentMission:getIsServer())
+    local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.FIELDWORK)
+    if not job then return false end
 
     -- Set vehicle via named parameter
     pcall(function()
         local vehicleParam = job:getNamedParameter("vehicle")
         if vehicleParam and vehicleParam.setVehicle then
-            vehicleParam:setVehicle(npc.realTractor)
+            vehicleParam:setVehicle(vehicle)
         end
     end)
 
@@ -1748,6 +2206,16 @@ function NPCSystem:startNPCFieldWork(npc)
         end
     end)
 
+    -- CRITICAL: transfer the parameters into the tasks (task vehicle + drive
+    -- target). Without this the AI tasks run unconfigured and spam every frame.
+    local valuesOk = pcall(function() job:setValues() end)
+    if not valuesOk then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] AI job setValues failed for %s — aborting", npc.name or "?"))
+        end
+        return false
+    end
+
     -- Validate before starting
     local farmId = npc.ownerFarmId or FarmManager.SPECTATOR_FARM_ID or 0
     local valid, errorMsg = false, "unknown"
@@ -1756,14 +2224,24 @@ function NPCSystem:startNPCFieldWork(npc)
     end)
 
     if valid then
-        pcall(function()
+        local started = pcall(function()
             g_currentMission.aiSystem:startJob(job, farmId)
         end)
+        if not started then
+            if self.settings.debugMode then
+                print(string.format("[NPC Favor] AI startJob failed for %s", npc.name or "?"))
+            end
+            return false
+        end
         npc.activeAIJob = job
         npc.currentAction = "field work (AI)"
 
-        -- Seat NPC in tractor when AI starts
-        self:seatNPCInVehicle(npc, npc.realTractor)
+        -- The game's AI helper drives the tractor: createAgent seats a helper in
+        -- the cab. Do NOT also load our own character into the same seat — that
+        -- double-loads the vehicleCharacter and throws in loadSharedI3DFileAsyncFinished.
+        -- Just hide our standalone walking model while the AI works.
+        npc.isSeatedInVehicle = true
+        self:setNPCEntityHidden(npc, true)
 
         if self.settings.debugMode then
             print(string.format("[NPC Favor] AI field work started for %s on field at (%.0f, %.0f)",
@@ -1782,11 +2260,26 @@ end
 --- Stop an active AI field work job for an NPC.
 -- @param npc  NPC data table
 function NPCSystem:stopNPCFieldWork(npc)
+    -- If the base-game AI GoTo chain is driving, stop that (handles unseat too).
+    if npc.goToActive then
+        self:stopNPCGoTo(npc)
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] AI GoTo driving stopped for %s", npc.name or "?"))
+        end
+        return
+    end
+
     if npc.activeAIJob then
         pcall(function()
             g_currentMission.aiSystem:stopJob(npc.activeAIJob)
         end)
         npc.activeAIJob = nil
+    end
+
+    -- Restore any temporary field ownership from a tillage job.
+    if npc.usingFieldWorkOwned then
+        self:_restoreNPCFieldOwnership(npc)
+        npc.usingFieldWorkOwned = false
     end
 
     -- Unseat NPC from tractor
@@ -1797,6 +2290,54 @@ function NPCSystem:stopNPCFieldWork(npc)
     end
 end
 
+--- React to the game stopping an AI job (field finished, blocked, vehicle gone).
+-- If it was one of our NPCs' field-work jobs, drop the reference, unseat the NPC
+-- and return them to idle so they re-decide. Fires for ALL AI jobs including the
+-- player's hired helpers, so we only touch a job we own.
+-- @param job        The AIJob that stopped
+-- @param aiMessage  The stop reason (unused)
+function NPCSystem:onAIJobStopped(job, aiMessage)
+    if job == nil then return end
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.activeAIJob == job then
+            npc.activeAIJob = nil
+            if npc.goToActive then
+                -- A GoTo waypoint finished: drive to the next one (keep working).
+                self:advanceNPCGoTo(npc, aiMessage)
+            else
+                -- Real tillage job ended: restore the field's original owner.
+                if npc.usingFieldWorkOwned then
+                    self:_restoreNPCFieldOwnership(npc)
+                    npc.usingFieldWorkOwned = false
+                end
+                pcall(function() self:unseatNPCFromVehicle(npc) end)
+                npc.aiState = "idle"
+                npc.currentAction = "idle"
+                npc.workTimer = 0
+                if self.settings.debugMode then
+                    local reason = "?"
+                    pcall(function()
+                        if aiMessage ~= nil then
+                            if aiMessage.getMessage ~= nil then
+                                local m = aiMessage:getMessage(job)
+                                if m ~= nil and m ~= "" then reason = tostring(m) end
+                            end
+                            if reason == "?" and aiMessage.getType ~= nil then
+                                reason = "type=" .. tostring(aiMessage:getType())
+                            end
+                            if reason == "?" and ClassUtil and ClassUtil.getClassNameByObject then
+                                reason = tostring(ClassUtil.getClassNameByObject(aiMessage))
+                            end
+                        end
+                    end)
+                    print(string.format("[NPC Favor] AI job ended for %s (released) reason=%s", npc.name or "?", reason))
+                end
+            end
+            break
+        end
+    end
+end
+
 
 --- Remove an NPC's real tractor and implement from the world.
 -- @param npc  NPC data table
@@ -1804,7 +2345,9 @@ function NPCSystem:removeNPCTractor(npc)
     -- Stop active AI job first
     self:stopNPCFieldWork(npc)
 
-    -- Remove implement
+    -- Remove implement. Vehicle:delete() is the real FS25 deletion API;
+    -- g_currentMission:removeVehicle does not exist and silently no-ops inside
+    -- the pcall, which is why NPC tractors used to strand on the map.
     if npc.realImplement then
         pcall(function()
             if npc.realTractor and npc.realTractor.detachImplement then
@@ -1812,7 +2355,7 @@ function NPCSystem:removeNPCTractor(npc)
             end
         end)
         pcall(function()
-            g_currentMission:removeVehicle(npc.realImplement)
+            if npc.realImplement.delete then npc.realImplement:delete() end
         end)
         npc.realImplement = nil
     end
@@ -1820,7 +2363,7 @@ function NPCSystem:removeNPCTractor(npc)
     -- Remove tractor
     if npc.realTractor then
         pcall(function()
-            g_currentMission:removeVehicle(npc.realTractor)
+            if npc.realTractor.delete then npc.realTractor:delete() end
         end)
         npc.realTractor = nil
     end
@@ -1879,9 +2422,16 @@ function NPCSystem:spawnNPCCar(npc, callback)
     loadingData:setAddToPhysics(true)
     loadingData:setIsSaved(false)
 
-    loadingData:load(function(vehicle, loadingState, args)
+    loadingData:load(function(_, loadedVehicles, loadingState, args)
         -- Clear pending flag regardless of outcome
         npc.pendingVehicleLoad = false
+
+        -- VehicleLoadingData calls back as (callbackTarget, loadedVehicles, loadingState, callbackArguments).
+        -- loadedVehicles is a list; the root vehicle is entry [1].
+        local vehicle = loadedVehicles and loadedVehicles[1] or nil
+        if vehicle and VehicleLoadingState ~= nil and loadingState ~= VehicleLoadingState.OK then
+            vehicle = nil
+        end
 
         if vehicle then
             -- Guard: NPC must still be in DRIVING state and awake
@@ -1890,7 +2440,7 @@ function NPCSystem:spawnNPCCar(npc, callback)
                     print(string.format("[NPC Favor] spawnNPCCar: discarding orphan vehicle for %s (state=%s sleeping=%s)",
                         npc.name or "?", tostring(npc.aiState), tostring(npc.isSleeping)))
                 end
-                pcall(function() g_currentMission:removeVehicle(vehicle) end)
+                pcall(function() if vehicle.delete then vehicle:delete() end end)
                 if callback then callback(nil) end
                 return
             end
@@ -1899,7 +2449,7 @@ function NPCSystem:spawnNPCCar(npc, callback)
                 if self.settings.debugMode then
                     print(string.format("[NPC Favor] spawnNPCCar: race condition discard for %s", npc.name or "?"))
                 end
-                pcall(function() g_currentMission:removeVehicle(vehicle) end)
+                pcall(function() if vehicle.delete then vehicle:delete() end end)
                 if callback then callback(npc.realCar) end
                 return
             end
@@ -1977,9 +2527,9 @@ function NPCSystem:removeNPCCar(npc)
     end
     npc.isSeatedInVehicle = false
 
-    -- Remove vehicle from world
+    -- Remove vehicle from world (Vehicle:delete is the real FS25 API)
     pcall(function()
-        g_currentMission:removeVehicle(npc.realCar)
+        if npc.realCar and npc.realCar.delete then npc.realCar:delete() end
     end)
     npc.realCar = nil
 end
@@ -1988,21 +2538,445 @@ end
 -- Seats the NPC in the tractor and starts AI field work.
 -- Called when NPC enters WORKING state.
 -- @param npc  NPC data table
+-- =========================================================
+-- Real AI tillage via AIJobFieldWork + temporary field ownership
+-- =========================================================
+-- AIJobFieldWork refuses to work a field the job's farm does not own, and NPC
+-- farms aren't real land-owning farms (the engine has no farm-creation API). So
+-- we TEMPORARILY transfer the field's farmland to a real farm (the local
+-- player's) for the duration of the job, then restore the original owner when it
+-- ends. A save-hook safeguard (restoreAllOwnershipFlips, called at the top of
+-- saveToXMLFile) restores every flip before any save writes, so a temporary flip
+-- can never persist to disk.
+
+--- Flip a farmland's owner to toFarmId, remembering the original for restore.
+function NPCSystem:_flipFarmlandOwnership(farmlandId, toFarmId)
+    if not g_farmlandManager or not farmlandId then return false end
+    self._ownershipFlips = self._ownershipFlips or {}
+    if self._ownershipFlips[farmlandId] == nil then
+        self._ownershipFlips[farmlandId] = g_farmlandManager:getFarmlandOwner(farmlandId) or 0
+    end
+    local ok = false
+    pcall(function() ok = g_farmlandManager:setLandOwnership(farmlandId, toFarmId) end)
+    return ok
+end
+
+--- Restore a single flipped farmland to its original owner (idempotent).
+function NPCSystem:_restoreFarmlandOwnership(farmlandId)
+    if not g_farmlandManager or not farmlandId or not self._ownershipFlips then return end
+    local original = self._ownershipFlips[farmlandId]
+    if original == nil then return end
+    pcall(function() g_farmlandManager:setLandOwnership(farmlandId, original) end)
+    self._ownershipFlips[farmlandId] = nil
+end
+
+--- Restore the ownership flip for a specific NPC's field, if any.
+function NPCSystem:_restoreNPCFieldOwnership(npc)
+    if npc._ownedFarmland then
+        self:_restoreFarmlandOwnership(npc._ownedFarmland)
+        npc._ownedFarmland = nil
+    end
+end
+
+--- Restore ALL flipped farmlands (before every save, and on shutdown), so no
+-- temporary ownership ever persists.
+function NPCSystem:restoreAllOwnershipFlips()
+    if not self._ownershipFlips or not g_farmlandManager then return end
+    for farmlandId, original in pairs(self._ownershipFlips) do
+        pcall(function() g_farmlandManager:setLandOwnership(farmlandId, original) end)
+    end
+    self._ownershipFlips = {}
+    for _, npc in ipairs(self.activeNPCs) do
+        npc._ownedFarmland = nil
+    end
+end
+
+--- Classify what job a field needs right now by reading its crop + growth state.
+-- Uses FieldState (verified: FieldState.new():update(x,z) -> fruitTypeIndex /
+-- growthState) + FruitTypeDesc growth predicates.
+-- @param field  assignedField-style table with .center
+-- @return string  "open" (no crop / stubble: tillable + sowable), "harvest"
+--                 (ripe crop), or "protect" (growing crop, never touched).
+function NPCSystem:getFieldJobType(field)
+    if not field or not field.center or FieldState == nil then return "open" end
+
+    local fruitIndex, growth
+    local ok = pcall(function()
+        local fs = FieldState.new()
+        fs:update(field.center.x, field.center.z)
+        fruitIndex = fs.fruitTypeIndex
+        growth = fs.growthState
+    end)
+    if not ok then return "open" end
+
+    -- No crop (or unknown) -> open ground: tillable and sowable.
+    local unknown = (FruitType and FruitType.UNKNOWN) or 0
+    if not fruitIndex or fruitIndex == unknown or fruitIndex == 0 then
+        return "open"
+    end
+
+    local fruitDesc = g_fruitTypeManager and g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
+    if fruitDesc then
+        if fruitDesc.getIsHarvestable and fruitDesc:getIsHarvestable(growth) then
+            return "harvest"   -- ripe: harvesters only
+        end
+        if fruitDesc.getIsCut and fruitDesc:getIsCut(growth) then
+            return "open"      -- stubble after harvest: fine to work under
+        end
+        if fruitDesc.getIsGrowing and fruitDesc:getIsGrowing(growth) then
+            return "protect"   -- growing crop: never plow or cut it
+        end
+    end
+    -- Unclassified but a crop is present: protect it rather than risk destroying it.
+    return "protect"
+end
+
+--- Start real AI tillage for an NPC: temporarily own the field, run AIJobFieldWork.
+-- @return boolean  true if the tillage job started
+function NPCSystem:startNPCFieldWorkOwned(npc)
+    local vehicle = npc.realTractor
+    if not vehicle or not g_currentMission or not g_currentMission.aiJobTypeManager then return false end
+    if AIJobType == nil or AIJobType.FIELDWORK == nil or not g_farmlandManager then return false end
+
+    -- Needs a field-work-capable combo (tractor + lowerable implement with work areas).
+    local canFieldWork = false
+    pcall(function() canFieldWork = vehicle.getCanStartFieldWork ~= nil and vehicle:getCanStartFieldWork() end)
+    if not canFieldWork then return false end
+
+    -- Guardrail: shared AI hire limit + our own cap.
+    local aiSystem = g_currentMission.aiSystem
+    if aiSystem and aiSystem.getAILimitedReached and aiSystem:getAILimitedReached() then return false end
+    if self:countActiveNPCAIJobs() >= (self.MAX_NPC_AI_JOBS or 2) then return false end
+
+    local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
+    if not field or not field.center then return false end
+    local cx, cz = field.center.x, field.center.z
+
+    -- Job-to-field matching: run the AI only when the field's current need matches
+    -- this NPC's job role. "open" (no crop / stubble) is worked by tillers + sowers;
+    -- "harvest" (ripe) by harvesters; a "protect" (growing) field is never touched.
+    -- A mismatch falls through to GoTo driving (drive/inspect).
+    local need = self:getFieldJobType(field)
+    local role = self:getNPCJobRole(npc)
+    local matches = (need == "harvest" and role == "harvest")
+        or (need == "open" and (role == "till" or role == "sow"))
+    if not matches then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] %s (role=%s): field need=%s, skipping (drive/inspect)",
+                npc.name or "?", role, need))
+        end
+        return false
+    end
+
+    local farmlandId
+    pcall(function() farmlandId = g_farmlandManager:getFarmlandIdAtWorldPosition(cx, cz) end)
+    if not farmlandId then return false end
+
+    -- Temporarily own the field with the local player's farm (a guaranteed real farm).
+    local jobFarmId = (g_currentMission.getFarmId and g_currentMission:getFarmId())
+        or (FarmManager and FarmManager.SINGLEPLAYER_FARM_ID) or 1
+    if not self:_flipFarmlandOwnership(farmlandId, jobFarmId) then return false end
+    npc._ownedFarmland = farmlandId
+
+    local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.FIELDWORK)
+    if not job then self:_restoreNPCFieldOwnership(npc); return false end
+
+    pcall(function()
+        local vp = job:getNamedParameter("vehicle")
+        if vp and vp.setVehicle then vp:setVehicle(vehicle) end
+    end)
+    pcall(function()
+        local pp = job:getNamedParameter("positionAngle")
+        if pp and pp.setPosition then
+            pp:setPosition(cx, cz)
+            pp:setAngle(0)
+        end
+    end)
+    if not pcall(function() job:setValues() end) then
+        self:_restoreNPCFieldOwnership(npc)
+        return false
+    end
+
+    -- Don't charge the borrowed farm for the NPC's own work.
+    job.getPricePerMs = function() return 0 end
+
+    local valid = false
+    pcall(function() valid = job:validate(jobFarmId) end)
+    if not valid then
+        self:_restoreNPCFieldOwnership(npc)
+        return false
+    end
+
+    if not pcall(function() g_currentMission.aiSystem:startJob(job, jobFarmId) end) then
+        self:_restoreNPCFieldOwnership(npc)
+        return false
+    end
+
+    npc.activeAIJob = job
+    npc.usingFieldWorkOwned = true
+    npc.currentAction = "field work (AI)"
+    -- The game's helper (createAgent) drives; hide our walking model.
+    self:setNPCEntityHidden(npc, true)
+    return true
+end
+
+-- =========================================================
+-- Base-game AI driving via chained AIJobGoTo
+-- =========================================================
+-- AIJobFieldWork can't be used on NPC fields (the farm must own the field, and
+-- NPC farms don't own land -> "field not owned"). AIJobGoTo has NO ownership
+-- check, so we use the REAL base-game AI to DRIVE the combo (pathfinding,
+-- collision avoidance, road following) across the field's row waypoints, one
+-- GoTo target at a time, chaining on job completion. This is genuine game-AI
+-- driving without the ownership wall. FOLLOW-UP: real tillage via AIJobFieldWork
+-- would need NPC-owned farmland (setLandOwnership + a real NPC farm); deferred.
+
+--- Start (or restart) a GoTo job to the NPC's current field waypoint.
+-- @return boolean  true if the job started
+function NPCSystem:startGoToWaypoint(npc)
+    local vehicle = npc.realTractor
+    if not vehicle or not g_currentMission or not g_currentMission.aiJobTypeManager then return false end
+    if AIJobType == nil or AIJobType.GOTO == nil then return false end
+
+    local wps = npc.goToWaypoints
+    local idx = npc.goToIndex or 1
+    local wp = wps and wps[idx]
+    if not wp then return false end
+
+    local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.GOTO)
+    if not job then return false end
+
+    pcall(function()
+        local vp = job:getNamedParameter("vehicle")
+        if vp and vp.setVehicle then vp:setVehicle(vehicle) end
+    end)
+
+    -- Head toward the next waypoint for a natural final heading.
+    local angle = 0
+    local nextWp = wps[idx + 1]
+    if nextWp and MathUtil and MathUtil.getYRotationFromDirection then
+        pcall(function() angle = MathUtil.getYRotationFromDirection(nextWp.x - wp.x, nextWp.z - wp.z) end)
+    end
+    pcall(function()
+        local pp = job:getNamedParameter("positionAngle")
+        if pp and pp.setPosition then
+            pp:setPosition(wp.x, wp.z)
+            pp:setAngle(angle)
+        end
+    end)
+
+    if not pcall(function() job:setValues() end) then return false end
+
+    -- NPC GoTo jobs run under the spectator farm; zero the AI cost so it never
+    -- tries to charge it ("Can't change money of spectator farm").
+    job.getPricePerMs = function() return 0 end
+
+    local farmId = npc.ownerFarmId or (FarmManager and FarmManager.SPECTATOR_FARM_ID) or 0
+    local valid = false
+    pcall(function() valid = job:validate(farmId) end)
+    if not valid then return false end
+
+    if not pcall(function() g_currentMission.aiSystem:startJob(job, farmId) end) then return false end
+
+    npc.activeAIJob = job
+    npc.goToStartTime = (g_currentMission and g_currentMission.time) or 0
+    return true
+end
+
+--- Begin driving an NPC's combo across its field via chained GoTo jobs.
+-- @return boolean  true if the first GoTo started (real AI driving is active)
+function NPCSystem:startNPCComboGoTo(npc)
+    if not npc.realTractor then return false end
+
+    -- Respect the shared AI hire limit and our own cap so the player isn't starved.
+    local aiSystem = g_currentMission and g_currentMission.aiSystem
+    if aiSystem and aiSystem.getAILimitedReached and aiSystem:getAILimitedReached() then return false end
+    if self:countActiveNPCAIJobs() >= (self.MAX_NPC_AI_JOBS or 2) then return false end
+
+    local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
+    if not field then return false end
+
+    local waypoints
+    if self.fieldWork and self.fieldWork.getWorkPattern then
+        pcall(function() waypoints = self.fieldWork:getWorkPattern(npc, field) end)
+    end
+    if not waypoints or #waypoints == 0 then return false end
+
+    npc.goToWaypoints = waypoints
+    npc.goToIndex = 1
+    npc.goToActive = true
+    npc.goToFailCount = 0
+    npc.usingComboFieldWork = false
+    npc.currentAction = "field work (AI)"
+
+    -- The game's helper (createAgent) occupies the cab; hide our walking model.
+    self:setNPCEntityHidden(npc, true)
+
+    if self:startGoToWaypoint(npc) then
+        return true
+    end
+
+    -- Could not start the first GoTo; roll back.
+    npc.goToActive = false
+    npc.goToWaypoints = nil
+    npc.goToIndex = nil
+    self:setNPCEntityHidden(npc, false)
+    return false
+end
+
+--- Advance the GoTo chain when a waypoint job finishes. Detects likely failures
+-- (a job that stopped almost immediately) and gives up after a few in a row.
+-- @param npc        the NPC whose GoTo just stopped
+-- @param aiMessage  the stop message (unused; timing is the reliable signal)
+function NPCSystem:advanceNPCGoTo(npc, aiMessage)
+    if not npc.goToActive then return end
+
+    -- A GoTo that stops within ~1s almost certainly failed to path rather than
+    -- actually drove somewhere. Class-name detection of the AIMessage is unreliable.
+    local now = (g_currentMission and g_currentMission.time) or 0
+    local elapsed = now - (npc.goToStartTime or now)
+    if elapsed >= 0 and elapsed < 1000 then
+        npc.goToFailCount = (npc.goToFailCount or 0) + 1
+    else
+        npc.goToFailCount = 0
+    end
+
+    if (npc.goToFailCount or 0) >= 3 then
+        -- The AI can't drive this field; stop and let the NPC idle out.
+        self:stopNPCGoTo(npc)
+        return
+    end
+
+    npc.goToIndex = (npc.goToIndex or 1) + 1
+    if npc.goToIndex > #(npc.goToWaypoints or {}) then
+        npc.goToIndex = 1  -- loop the field pass until the NPC leaves WORKING
+    end
+
+    if not self:startGoToWaypoint(npc) then
+        self:stopNPCGoTo(npc)
+    end
+end
+
+--- Stop an NPC's GoTo chain cleanly (order avoids re-entrancy via onAIJobStopped).
+function NPCSystem:stopNPCGoTo(npc)
+    npc.goToActive = false
+    npc.goToWaypoints = nil
+    npc.goToIndex = nil
+    local job = npc.activeAIJob
+    npc.activeAIJob = nil  -- clear BEFORE stopJob so onAIJobStopped won't re-match
+    if job then
+        pcall(function() g_currentMission.aiSystem:stopJob(job) end)
+    end
+    self:unseatNPCFromVehicle(npc)
+end
+
+--- Count NPCs that currently hold (or are loading) an on-demand field-work
+-- vehicle. Used to cap concurrent spawns for performance.
+-- @return number  count of active/pending field vehicles
+function NPCSystem:countActiveFieldVehicles()
+    local n = 0
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.realTractor or npc._pendingFieldSpawn then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+--- On-demand field-work vehicle spawn. Called when an NPC reaches their field and
+-- enters WORKING (NPCAI:startWorking). Reads the field's CURRENT need, spawns
+-- matching equipment at the field edge (async), then seats the NPC + starts the AI
+-- job inside the spawn callback. The vehicle is despawned again when the NPC leaves
+-- WORKING (NPCAI:setState). Because the role + equipment are decided here, at work
+-- time, from the live field, they can never go stale the way pre-spawned ones did.
+-- @param npc  NPC data table (should be at its assigned field, in WORKING state)
+-- @return boolean  true if a spawn was started (caller should NOT show the prop)
+function NPCSystem:spawnFieldWorkVehicle(npc)
+    -- Mode / capability guards.
+    if not self.settings.npcDriveVehicles then return false end
+    local mode = self.settings.npcVehicleMode
+    if mode ~= "realistic" and mode ~= "hybrid" then return false end
+    if not g_currentMission or not g_currentMission:getIsServer() then return false end
+    if not VehicleLoadingData then return false end
+
+    -- Already have (or are loading) a vehicle for this NPC: don't double-spawn.
+    if npc.realTractor or npc._pendingFieldSpawn then return false end
+
+    -- Need an assigned field to work.
+    local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
+    if not field or not field.center then return false end
+
+    -- Concurrency cap for performance; extra NPCs work the field on foot.
+    if self:countActiveFieldVehicles() >= (self.MAX_FIELD_VEHICLES or 4) then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] Field-vehicle cap reached — %s works on foot", npc.name or "?"))
+        end
+        return false
+    end
+
+    -- Re-evaluate the role from the field's CURRENT state. Clearing these cached
+    -- values is the crux of the on-demand fix: getNPCJobRole / getWorkVehicleFilename
+    -- rebuild the role and combo from the live field instead of an init snapshot.
+    npc.jobRole = nil
+    npc._harvestComboIndex = nil
+
+    -- Growing crop -> nothing to work. Don't spawn equipment; the NPC just visits
+    -- on foot. This structurally eliminates plow/combine-on-standing-crop.
+    local need = self:getFieldJobType(field)
+    if need == "protect" then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] %s: field has a growing crop — no equipment, visiting on foot", npc.name or "?"))
+        end
+        return false
+    end
+
+    npc._pendingFieldSpawn = true
+
+    self:spawnNPCTractor(npc, function(vehicle)
+        -- Clear the pending flag FIRST so the concurrency cap never leaks a slot,
+        -- whatever path we take below.
+        npc._pendingFieldSpawn = false
+
+        -- The NPC may have left WORKING (storm, go-home, break) while we loaded
+        -- async. Never strand a vehicle: remove it and bail. If the spawn itself
+        -- failed (vehicle == nil), there is nothing to remove and the NPC simply
+        -- works the field on foot.
+        if not vehicle or npc.aiState ~= "working" or not npc.realTractor then
+            if npc.realTractor then
+                pcall(function() self:removeNPCTractor(npc) end)
+            end
+            return
+        end
+
+        -- Seat the NPC and start the AI job (tillage -> GoTo -> kinematic fallback).
+        pcall(function() self:activateNPCTractor(npc) end)
+    end)
+
+    return true
+end
+
 function NPCSystem:activateNPCTractor(npc)
     if not npc.realTractor then return false end
 
-    -- Seat NPC in the tractor
-    self:seatNPCInVehicle(npc, npc.realTractor)
-
-    -- Try to start AI field work
-    local started = self:startNPCFieldWork(npc)
-    if started then
-        print(string.format("[NPC Favor] %s activated tractor for AI field work", npc.name or "?"))
-    else
-        -- AI job didn't start — NPC is still visually in the tractor at least
-        npc.currentAction = "field work (manual)"
-        print(string.format("[NPC Favor] %s in tractor (AI job not available — parked at field)", npc.name or "?"))
+    -- 1. Real AI TILLAGE via AIJobFieldWork with temporary field ownership
+    --    (the AI actually works the ground).
+    if self:startNPCFieldWorkOwned(npc) then
+        print(string.format("[NPC Favor] %s tilling field via base-game AI (temp ownership)", npc.name or "?"))
+        return true
     end
+
+    -- 2. Real AI DRIVING via chained AIJobGoTo (no ownership needed; drives but
+    --    does not till). Used when there's no implement or the ownership flip fails.
+    if self:startNPCComboGoTo(npc) then
+        print(string.format("[NPC Favor] %s driving combo via base-game AI (GoTo)", npc.name or "?"))
+        return true
+    end
+
+    -- 3. Kinematic visual fallback (AI hire limit reached, etc.).
+    self:seatNPCInVehicle(npc, npc.realTractor)
+    npc.usingComboFieldWork = true
+    npc.currentAction = "field work"
+    print(string.format("[NPC Favor] %s working field with combo (visual fallback)", npc.name or "?"))
     return true
 end
 
@@ -2013,11 +2987,16 @@ end
 function NPCSystem:deactivateNPCTractor(npc)
     if not npc.realTractor then return end
 
-    -- Stop AI field work
-    self:stopNPCFieldWork(npc)
+    npc.usingComboFieldWork = false
 
-    -- Unseat NPC from tractor — restore walking model
-    self:unseatNPCFromVehicle(npc)
+    if npc.goToActive then
+        -- Stop the base-game AI GoTo chain (also unseats).
+        self:stopNPCGoTo(npc)
+    else
+        -- Stop any AI job (no-op in visual mode) and unseat, restoring the walking model
+        self:stopNPCFieldWork(npc)
+        self:unseatNPCFromVehicle(npc)
+    end
 
     print(string.format("[NPC Favor] %s left tractor (parked at field)", npc.name or "?"))
 end
@@ -2032,40 +3011,21 @@ function NPCSystem:initializeNPCVehicles()
     if mode ~= "realistic" and mode ~= "hybrid" then return end
     if not g_currentMission:getIsServer() then return end  -- server authority only
 
-    -- Validate vehicle pools against the store before spawning
+    -- Validate vehicle pools against the store once, so on-demand spawns have a
+    -- ready pool to draw from.
     self:validateVehiclePools()
 
-    -- If no valid tractors found, can't spawn anything
     if #self.TRACTOR_POOL == 0 then
-        print("[NPC Favor] No valid tractors available — skipping vehicle initialization")
+        print("[NPC Favor] No valid tractors available — on-demand field vehicles disabled")
         return
     end
 
-    local spawnCount = 0
-    local maxConcurrent = 4  -- limit concurrent real tractors for performance
-
-    for _, npc in ipairs(self.activeNPCs) do
-        if spawnCount >= maxConcurrent then break end
-        if npc.isActive and (npc.role == "farmer" or npc.role == "farmhand") then
-            if npc.assignedField or (npc.assignedFields and #npc.assignedFields > 0) then
-                self:spawnNPCTractor(npc, function(vehicle)
-                    if vehicle and mode == "hybrid" then
-                        -- Hybrid mode: tractor spawns parked at the field.
-                        -- NPC walks on foot normally. When NPC enters WORKING state,
-                        -- NPCAI calls activateNPCTractor() to seat NPC + start AI.
-                        -- When NPC leaves WORKING state, deactivateNPCTractor() restores walking.
-                        print(string.format("[NPC Favor] Hybrid tractor parked at field for %s", npc.name or "?"))
-                    end
-                end)
-                spawnCount = spawnCount + 1
-            end
-        end
-    end
-
-    if self.settings.debugMode then
-        print(string.format("[NPC Favor] Initialized %d real NPC vehicles (mode: %s)",
-            spawnCount, self.settings.npcVehicleMode))
-    end
+    -- On-demand model: vehicles are NOT pre-spawned/parked at fields anymore. Each
+    -- NPC's equipment is spawned at the field edge when they actually enter WORKING
+    -- (NPCSystem:spawnFieldWorkVehicle), matched to the field's CURRENT need, and
+    -- despawned when they leave. This structurally removes the stale-equipment
+    -- mismatch that came from deciding a role once at init from a field snapshot.
+    print("[NPC Favor] Field vehicles are on-demand (spawn at work start, despawn on leave)")
 end
 
 --- Switch vehicle mode at runtime (called from console command).
@@ -2423,7 +3383,11 @@ function NPCSystem:update(dt)
         if self.syncTimer >= self.SYNC_INTERVAL or self.syncDirty then
             self.syncTimer = 0
             self.syncDirty = false
-            if NPCStateSyncEvent then
+            -- delegate-when-present: fold the NPC state broadcast into NetworkSync's 1Hz
+            -- batch when it is installed; otherwise fire our own NPCStateSyncEvent.
+            if NPCNetworkSyncBridge ~= nil and NPCNetworkSyncBridge.markDirty() then
+                -- handled by NetworkSync
+            elseif NPCStateSyncEvent then
                 NPCStateSyncEvent.broadcastState()
             end
         end
@@ -3061,8 +4025,128 @@ function NPCSystem:consoleCommandReset()
     
     -- Try to reinitialize
     self:onMissionLoaded()
-    
+
     return "NPC system reset and reinitializing..."
+end
+
+--- Clear any NPC references to a vehicle about to be deleted, so the AI never
+-- touches a deleted object. Stops an active AI job for that NPC as well.
+-- @param vehicle  The vehicle being removed
+function NPCSystem:clearNPCVehicleReferences(vehicle)
+    if not vehicle then return end
+    for _, npc in ipairs(self.activeNPCs) do
+        local matches = (npc.realTractor == vehicle)
+            or (npc.realImplement == vehicle)
+            or (npc.realCar == vehicle)
+            or (npc.currentVehicle == vehicle)
+        if matches then
+            if npc.activeAIJob then
+                pcall(function() g_currentMission.aiSystem:stopJob(npc.activeAIJob) end)
+                npc.activeAIJob = nil
+            end
+            if npc.realTractor == vehicle then npc.realTractor = nil end
+            if npc.realImplement == vehicle then npc.realImplement = nil end
+            if npc.realCar == vehicle then npc.realCar = nil end
+            if npc.currentVehicle == vehicle then npc.currentVehicle = nil end
+            npc.isSeatedInVehicle = false
+        end
+    end
+end
+
+--- Console: delete the nearest vehicle (and its whole attached combo) to the
+-- player. Cleanup tool for stranded NPC tractors/implements. Server/SP only.
+-- Never deletes the vehicle the player is currently inside.
+-- @param radiusArg  optional search radius in metres (default 30, clamped 1-200)
+function NPCSystem:consoleCommandDeleteNearestVehicle(radiusArg)
+    if g_currentMission == nil then
+        return "Not in a game"
+    end
+    if g_currentMission.getIsServer and not g_currentMission:getIsServer() then
+        return "npcDeleteVehicle only works on the host / single player"
+    end
+
+    local vehicleSystem = g_currentMission.vehicleSystem
+    if vehicleSystem == nil or vehicleSystem.vehicles == nil then
+        return "Vehicle system unavailable"
+    end
+
+    -- Refresh and read the player's current position
+    pcall(function() self:updatePlayerPosition() end)
+    if not self.playerPositionValid then
+        return "Could not determine player position"
+    end
+    local px, pz = self.playerPosition.x, self.playerPosition.z
+
+    local radius = tonumber(radiusArg) or 30
+    radius = math.max(1, math.min(200, radius))
+
+    -- The vehicle the player is currently controlling — never delete it
+    local controlled = nil
+    if g_localPlayer and g_localPlayer.getCurrentVehicle then
+        pcall(function() controlled = g_localPlayer:getCurrentVehicle() end)
+    end
+    if controlled == nil then
+        controlled = g_currentMission.controlledVehicle
+    end
+    local controlledRoot = controlled and (controlled.rootVehicle or controlled) or nil
+
+    -- Find the nearest vehicle within radius (by root node distance)
+    local nearest, nearestDist = nil, radius + 1
+    for _, vehicle in ipairs(vehicleSystem.vehicles) do
+        if vehicle ~= nil and vehicle.rootNode ~= nil and vehicle.rootNode ~= 0 then
+            local root = vehicle.rootVehicle or vehicle
+            if root ~= controlledRoot then
+                local ok, vx, _, vz = pcall(getWorldTranslation, vehicle.rootNode)
+                if ok and vx then
+                    local dist = math.sqrt((px - vx) ^ 2 + (pz - vz) ^ 2)
+                    if dist <= radius and dist < nearestDist then
+                        nearestDist = dist
+                        nearest = vehicle
+                    end
+                end
+            end
+        end
+    end
+
+    if nearest == nil then
+        return string.format("No vehicle found within %.0fm of you", radius)
+    end
+
+    -- Collect the whole combo the nearest vehicle belongs to
+    local root = nearest.rootVehicle or nearest
+    local combo = {}
+    if type(root.childVehicles) == "table" and #root.childVehicles > 0 then
+        for _, v in ipairs(root.childVehicles) do
+            table.insert(combo, v)
+        end
+    else
+        table.insert(combo, root)
+    end
+
+    -- Friendly name for feedback (grab before deletion)
+    local name = "vehicle"
+    pcall(function()
+        if root.getName then name = root:getName() or name end
+    end)
+
+    -- Drop any NPC references so the AI won't touch the deleted objects
+    for _, v in ipairs(combo) do
+        self:clearNPCVehicleReferences(v)
+    end
+
+    -- Delete children first, then the root (Vehicle:delete stops the AI job too)
+    local removed = 0
+    for _, v in ipairs(combo) do
+        if v ~= root then
+            local ok = pcall(function() if v.delete then v:delete() end end)
+            if ok then removed = removed + 1 end
+        end
+    end
+    local okRoot = pcall(function() if root.delete then root:delete() end end)
+    if okRoot then removed = removed + 1 end
+
+    return string.format("Deleted '%s' (%d part%s) %.0fm away",
+        tostring(name), removed, removed == 1 and "" or "s", nearestDist)
 end
 
 function NPCSystem:clearAllNPCs()
@@ -3192,6 +4276,41 @@ function NPCSystem:getNPCById(id)
 end
 
 -- =========================================================
+-- COMPANION READ API
+-- Read-only relationship / favor reads for companion mods (e.g. DairyCore,
+-- ProStaff) reached via g_currentMission.npcFavorSystem. Server-authoritative
+-- state; nil/neutral-safe. No writes.
+-- =========================================================
+
+--- Relationship value (0-100) for an NPC by id, or 0 when the NPC is unknown.
+function NPCSystem:getRelationshipValue(npcId)
+    local npc = self:getNPCById(npcId)
+    return (npc and npc.relationship) or 0
+end
+
+--- True when an NPC's relationship is at least `threshold`.
+function NPCSystem:isRelationshipAtLeast(npcId, threshold)
+    return self:getRelationshipValue(npcId) >= (threshold or 0)
+end
+
+--- True when any ACCEPTED favor (status active / in_progress, matching
+--- getActiveFavorForNPC) is of the given type. An optional farmId scopes the
+--- check to that farm's favors; omit it to check across all farms.
+function NPCSystem:hasActiveFavorOfType(favorType, farmId)
+    if favorType == nil or self.favorSystem == nil then return false end
+    local favors = self.favorSystem:getActiveFavors()
+    if type(favors) ~= "table" then return false end
+    for _, favor in ipairs(favors) do
+        if favor.type == favorType
+            and (favor.status == "active" or favor.status == "in_progress")
+            and (farmId == nil or favor.farmId == farmId) then
+            return true
+        end
+    end
+    return false
+end
+
+-- =========================================================
 -- Multiplayer: Server-Side Interaction Handlers
 -- Called from NPCInteractionEvent.execute() after validation
 -- =========================================================
@@ -3205,47 +4324,76 @@ function NPCSystem:serverAcceptFavor(npc, farmId)
         return false
     end
 
-    -- Delegate to favor system
-    if self.favorSystem and self.favorSystem.acceptFavor then
-        local success = self.favorSystem:acceptFavor(npc.id, farmId)
-        if success then
+    -- Delegate to the favor system. acceptFavorForNPC(npcId, farmId) stamps
+    -- favor.ownerFarmId = farmId (the acting farm, validated by NPCInteractionEvent:run)
+    -- and returns the favor table. The old call to a non-existent acceptFavor(npc.id,
+    -- farmId) was dead; this is the real signature.
+    if self.favorSystem and self.favorSystem.acceptFavorForNPC then
+        local favor = self.favorSystem:acceptFavorForNPC(npc.id, farmId)
+        if favor then
             self.syncDirty = true
+            return true
         end
-        return success
     end
     return false
 end
 
 function NPCSystem:serverCompleteFavor(npc, farmId)
-    if self.favorSystem and self.favorSystem.completeFavor then
-        local success = self.favorSystem:completeFavor(npc.id, farmId)
-        if success then
-            -- Update relationship on favor completion
-            self.relationshipManager:updateRelationship(npc.id, 15, "FAVOR_COMPLETED")
-            self.syncDirty = true
+    -- Resolve the NPC's active favor, then complete it by its real favorId.
+    -- completeFavor(favorId) is server-authoritative and pays favor.ownerFarmId once
+    -- (idempotency flags + reward.relationship), so this is the single completion +
+    -- money path. The old completeFavor(npc.id, farmId) passed npc.id as a favorId and
+    -- was dead. No extra relationship boost here; applyFavorRewards owns that.
+    if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.completeFavor then
+        local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
+        if favor then
+            local success = self.favorSystem:completeFavor(favor.id)
+            if success then
+                self.syncDirty = true
+            end
+            return success
         end
-        return success
     end
     return false
 end
 
 function NPCSystem:serverAbandonFavor(npc, farmId)
-    if self.favorSystem and self.favorSystem.abandonFavor then
-        local success = self.favorSystem:abandonFavor(npc.id, farmId)
-        if success then
-            -- Negative relationship impact
-            self.relationshipManager:updateRelationship(npc.id, -5, "FAVOR_ABANDONED")
-            self.syncDirty = true
+    -- Resolve the favor, then abandon it by its real favorId. abandonFavor(favorId)
+    -- applies its own (half) relationship penalty, so no extra penalty here. The old
+    -- abandonFavor(npc.id, farmId) passed npc.id as a favorId and was dead.
+    if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.abandonFavor then
+        local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
+        if favor then
+            local success = self.favorSystem:abandonFavor(favor.id)
+            if success then
+                self.syncDirty = true
+            end
+            return success
         end
-        return success
     end
     return false
 end
 
 function NPCSystem:serverGiveGift(npc, farmId, giftValue, giftType)
     if self.relationshipManager and self.relationshipManager.giveGiftToNPC then
+        -- Server-authoritative money: a money gift moves giftValue out of the acting
+        -- farm. Re-check the farm balance on the server (never trust the client's local
+        -- check) and deduct only after the gift applies, so a rejected gift never
+        -- charges the player and an unaffordable gift is refused cleanly.
+        local amount = giftValue or 0
+        local isMoneyGift = (giftType == nil or giftType == "money") and amount > 0
+        if isMoneyGift then
+            local farm = g_farmManager and g_farmManager:getFarmById(farmId)
+            local balance = farm and farm.money or 0
+            if balance < amount then
+                return false
+            end
+        end
         local success = self.relationshipManager:giveGiftToNPC(npc.id, giftType or "money", giftValue)
         if success then
+            if isMoneyGift then
+                g_currentMission:addMoney(-amount, farmId, MoneyType.OTHER, true)
+            end
             self.syncDirty = true
         end
         return success
@@ -3367,6 +4515,28 @@ local NPC_SAVE_FILE = "npc_favor.xml"
 local NPC_SAVE_ROOT = "npcFavor"
 local SAVE_SCHEMA_VERSION = "1.2.4"
 
+-- xmlFile:setString does NOT escape XML-special characters (& < > "). The base
+-- game wraps every free-form / user-derived string in HTMLUtil.encodeToHTML
+-- before writing (Vehicle.lua, Dog.lua, Enterable.lua) and reads it back with a
+-- plain getString because the XML parser auto-decodes the entities. We mirror
+-- that: a building name, favor description or encounter detail containing '&'
+-- would otherwise write malformed XML and corrupt npc_favor.xml, so nothing
+-- could be loaded next session. Encoding a clean string is a no-op, so this is
+-- safe to apply to every string value; the read side needs no change.
+local function encodeXMLValue(s)
+    s = tostring(s or "")
+    if HTMLUtil ~= nil and HTMLUtil.encodeToHTML ~= nil then
+        return HTMLUtil.encodeToHTML(s)
+    end
+    -- Fallback (HTMLUtil unavailable): escape the XML predefined entities. '&'
+    -- must be first so the entities we insert are not themselves re-escaped.
+    s = s:gsub("&", "&amp;")
+    s = s:gsub("<", "&lt;")
+    s = s:gsub(">", "&gt;")
+    s = s:gsub("\"", "&quot;")
+    return s
+end
+
 local function schemaVersionLessThan(a, b)
     local function parts(v)
         local t = {}
@@ -3385,6 +4555,10 @@ end
 -- Called from FSCareerMissionInfo.saveToXMLFile hook in main.lua.
 -- @param missionInfo  FS25 missionInfo table (has savegameDirectory)
 function NPCSystem:saveToXMLFile(missionInfo)
+    -- Safeguard: restore any temporary field-ownership flips BEFORE saving so a
+    -- borrowed farmland can never persist to disk (see startNPCFieldWorkOwned).
+    pcall(function() self:restoreAllOwnershipFlips() end)
+
     local ok, err = pcall(function()
         self:_doSaveToXMLFile(missionInfo)
     end)
@@ -3422,9 +4596,9 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
             local npcKey = string.format(NPC_SAVE_ROOT .. ".npcs.npc(%d)", npcIndex)
 
             -- Identity
-            xmlFile:setString(npcKey .. "#uniqueId", npc.uniqueId or "")
-            xmlFile:setString(npcKey .. "#name", npc.name or "")
-            xmlFile:setString(npcKey .. "#personality", npc.personality or "")
+            xmlFile:setString(npcKey .. "#uniqueId", encodeXMLValue(npc.uniqueId or ""))
+            xmlFile:setString(npcKey .. "#name", encodeXMLValue(npc.name or ""))
+            xmlFile:setString(npcKey .. "#personality", encodeXMLValue(npc.personality or ""))
             xmlFile:setInt(npcKey .. "#age", npc.age or 30)
 
             -- Position
@@ -3439,7 +4613,7 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
                 xmlFile:setFloat(npcKey .. ".home#y", npc.homePosition.y or 0)
                 xmlFile:setFloat(npcKey .. ".home#z", npc.homePosition.z or 0)
             end
-            xmlFile:setString(npcKey .. ".home#buildingName", npc.homeBuildingName or "")
+            xmlFile:setString(npcKey .. ".home#buildingName", encodeXMLValue(npc.homeBuildingName or ""))
 
             -- Relationship & stats
             xmlFile:setInt(npcKey .. ".stats#relationship", npc.relationship or 50)
@@ -3448,8 +4622,8 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
             xmlFile:setFloat(npcKey .. ".stats#favorCooldown", npc.favorCooldown or 0)
 
             -- AI state
-            xmlFile:setString(npcKey .. ".ai#state", npc.aiState or "idle")
-            xmlFile:setString(npcKey .. ".ai#action", npc.currentAction or "idle")
+            xmlFile:setString(npcKey .. ".ai#state", encodeXMLValue(npc.aiState or "idle"))
+            xmlFile:setString(npcKey .. ".ai#action", encodeXMLValue(npc.currentAction or "idle"))
 
             -- Personality modifiers
             if npc.aiPersonalityModifiers then
@@ -3471,18 +4645,18 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
                 xmlFile:setFloat(npcKey .. ".needs#hunger", npc.needs.hunger or 10)
                 xmlFile:setFloat(npcKey .. ".needs#workSatisfaction", npc.needs.workSatisfaction or 50)
             end
-            xmlFile:setString(npcKey .. ".needs#mood", npc.mood or "neutral")
+            xmlFile:setString(npcKey .. ".needs#mood", encodeXMLValue(npc.mood or "neutral"))
 
             -- Encounters (up to 10 recent, with sentiment + partner)
             if npc.encounters and #npc.encounters > 0 then
                 for ei, encounter in ipairs(npc.encounters) do
                     if ei > 10 then break end
                     local eKey = string.format("%s.encounters.encounter(%d)", npcKey, ei - 1)
-                    xmlFile:setString(eKey .. "#type", encounter.type or "")
+                    xmlFile:setString(eKey .. "#type", encodeXMLValue(encounter.type or ""))
                     xmlFile:setFloat(eKey .. "#time", encounter.time or 0)
-                    xmlFile:setString(eKey .. "#details", encounter.details or "")
-                    xmlFile:setString(eKey .. "#partner", encounter.partner or "")
-                    xmlFile:setString(eKey .. "#sentiment", encounter.sentiment or "neutral")
+                    xmlFile:setString(eKey .. "#details", encodeXMLValue(encounter.details or ""))
+                    xmlFile:setString(eKey .. "#partner", encodeXMLValue(encounter.partner or ""))
+                    xmlFile:setString(eKey .. "#sentiment", encodeXMLValue(encounter.sentiment or "neutral"))
                 end
             end
 
@@ -3498,12 +4672,20 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
             for _, favor in ipairs(activeFavors) do
                 local favorKey = string.format(NPC_SAVE_ROOT .. ".favors.favor(%d)", favorIndex)
                 xmlFile:setInt(favorKey .. "#npcId", favor.npcId or 0)
-                xmlFile:setString(favorKey .. "#npcName", favor.npcName or "")
-                xmlFile:setString(favorKey .. "#type", favor.type or "")
-                xmlFile:setString(favorKey .. "#description", favor.description or "")
+                xmlFile:setString(favorKey .. "#npcName", encodeXMLValue(favor.npcName or ""))
+                xmlFile:setString(favorKey .. "#type", encodeXMLValue(favor.type or ""))
+                xmlFile:setString(favorKey .. "#description", encodeXMLValue(favor.description or ""))
                 xmlFile:setFloat(favorKey .. "#timeRemaining", favor.timeRemaining or 0)
                 xmlFile:setInt(favorKey .. "#progress", favor.progress or 0)
                 xmlFile:setBool(favorKey .. "#awaitingConfirmation", favor.awaitingConfirmation or false)
+                -- Farm-attribution: persist the owning farm and the money idempotency
+                -- flags so a reload never re-pays or pays the wrong farm. ownerFarmId is
+                -- only written when set, so a legacy favor loads as nil and gets migrated.
+                if favor.ownerFarmId then
+                    xmlFile:setInt(favorKey .. "#ownerFarmId", favor.ownerFarmId)
+                end
+                xmlFile:setBool(favorKey .. "#rewardPaid", favor.rewardPaid or false)
+                xmlFile:setBool(favorKey .. "#repaymentCollected", favor.repaymentCollected or false)
                 if favor.taskData then
                     xmlFile:setBool(favorKey .. "#loanAmountDeducted", favor.taskData.loanAmountDeducted or false)
                     if favor.taskData.loanAmount then
@@ -3527,7 +4709,7 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
         local relIndex = 0
         for key, rel in pairs(self.relationshipManager.npcRelationships) do
             local relKey = string.format(NPC_SAVE_ROOT .. ".npcRelationships.rel(%d)", relIndex)
-            xmlFile:setString(relKey .. "#key", key)
+            xmlFile:setString(relKey .. "#key", encodeXMLValue(key))
             xmlFile:setFloat(relKey .. "#value", rel.value or 50)
             xmlFile:setFloat(relKey .. "#lastInteraction", rel.lastInteraction or 0)
             xmlFile:setInt(relKey .. "#interactionCount", rel.interactionCount or 0)
@@ -3573,8 +4755,23 @@ end
 --- Load saved NPC state from XML file, restoring relationships and positions.
 -- Called after initializeNPCs() in the delayed init updater.
 -- Matches saved NPCs to spawned NPCs by uniqueId or name.
+--
+-- Thin wrapper: the actual parse runs under pcall so a malformed or legacy
+-- npc_favor.xml (e.g. one written before string values were XML-encoded) can
+-- never throw out of the init updater. A throw there would leave the mod half
+-- initialised (isInitialized stays false), which silently disables every future
+-- save. Mirrors the saveToXMLFile/_doSaveToXMLFile split above.
 -- @param missionInfo  FS25 missionInfo table (has savegameDirectory)
 function NPCSystem:loadFromXMLFile(missionInfo)
+    local ok, err = pcall(function()
+        self:_doLoadFromXMLFile(missionInfo)
+    end)
+    if not ok then
+        print(string.format("[NPC Favor] Load error (non-fatal): %s", tostring(err)))
+    end
+end
+
+function NPCSystem:_doLoadFromXMLFile(missionInfo)
     local savegameDirectory = missionInfo and missionInfo.savegameDirectory
     if not savegameDirectory then
         return
@@ -3707,6 +4904,11 @@ function NPCSystem:loadFromXMLFile(missionInfo)
                 timeRemaining = xmlFile:getFloat(favorKey .. "#timeRemaining", 0),
                 progress = xmlFile:getInt(favorKey .. "#progress", 0),
                 awaitingConfirmation = xmlFile:getBool(favorKey .. "#awaitingConfirmation", false),
+                -- ownerFarmId stays nil for legacy saves (guarded by hasProperty) so
+                -- restoreFavor migrates it; 0 would be the spectator farm and truthy.
+                ownerFarmId = (xmlFile:hasProperty(favorKey .. "#ownerFarmId") and xmlFile:getInt(favorKey .. "#ownerFarmId", 0)) or nil,
+                rewardPaid = xmlFile:getBool(favorKey .. "#rewardPaid", false),
+                repaymentCollected = xmlFile:getBool(favorKey .. "#repaymentCollected", false),
                 loanAmountDeducted = xmlFile:getBool(favorKey .. "#loanAmountDeducted", false),
                 loanAmount = xmlFile:getFloat(favorKey .. "#loanAmount", nil),
                 reward = {
@@ -3739,6 +4941,191 @@ function NPCSystem:loadFromXMLFile(missionInfo)
 
     if self.settings.debugMode then
         print(string.format("[NPC Favor] Restored %d/%d NPCs from save", restoredCount, savedNpcCount))
+    end
+end
+
+-- =========================================================
+-- StateLedger table serialization (delegate-when-present)
+-- =========================================================
+-- serializeState / deserializeState round-trip the SAME data the XML save/load handles,
+-- but as a plain Lua table, so FS25_StateLedger can own the save when it is installed
+-- while npc_favor.xml stays the standalone fallback. The two halves are written together
+-- and mirror each other; the XML path above is independent and untouched. NPCStateLedgerBridge
+-- calls these when the ledger is present.
+
+function NPCSystem:serializeState()
+    local state = { schemaVersion = SAVE_SCHEMA_VERSION, npcs = {}, favors = {}, relationships = {} }
+
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.isActive then
+            local pm = npc.aiPersonalityModifiers or {}
+            local nd = npc.needs or {}
+            local d = {
+                uniqueId = npc.uniqueId or "",
+                name = npc.name or "",
+                personality = npc.personality or "",
+                age = npc.age or 30,
+                px = npc.position.x or 0, py = npc.position.y or 0, pz = npc.position.z or 0,
+                ry = npc.rotation.y or 0,
+                relationship = npc.relationship or 50,
+                favorsCompleted = npc.totalFavorsCompleted or 0,
+                favorsFailed = npc.totalFavorsFailed or 0,
+                favorCooldown = npc.favorCooldown or 0,
+                aiState = npc.aiState or "idle",
+                currentAction = npc.currentAction or "idle",
+                workEthic = pm.workEthic or 1.0, sociability = pm.sociability or 1.0,
+                generosity = pm.generosity or 1.0, punctuality = pm.punctuality or 1.0,
+                appearanceSeed = npc.appearanceSeed or 1,
+                isFemale = npc.isFemale or false,
+                movementSpeed = npc.movementSpeed or 1.0,
+                energy = nd.energy or 20, social = nd.social or 30,
+                hunger = nd.hunger or 10, workSatisfaction = nd.workSatisfaction or 50,
+                mood = npc.mood or "neutral",
+                homeBuildingName = npc.homeBuildingName or "",
+                encounters = {},
+            }
+            if npc.homePosition then
+                d.hasHome = true
+                d.hx = npc.homePosition.x or 0
+                d.hy = npc.homePosition.y or 0
+                d.hz = npc.homePosition.z or 0
+            end
+            if npc.encounters then
+                for ei, e in ipairs(npc.encounters) do
+                    if ei > 10 then break end
+                    d.encounters[#d.encounters + 1] = {
+                        type = e.type or "", time = e.time or 0, details = e.details or "",
+                        partner = e.partner or "", sentiment = e.sentiment or "neutral",
+                    }
+                end
+            end
+            state.npcs[#state.npcs + 1] = d
+        end
+    end
+
+    if self.favorSystem and self.favorSystem.getActiveFavors then
+        local favors = self.favorSystem:getActiveFavors() or {}
+        for _, favor in ipairs(favors) do
+            local reward = favor.reward
+            state.favors[#state.favors + 1] = {
+                npcId = favor.npcId or 0,
+                npcName = favor.npcName or "",
+                type = favor.type or "",
+                description = favor.description or "",
+                timeRemaining = favor.timeRemaining or 0,
+                progress = favor.progress or 0,
+                awaitingConfirmation = favor.awaitingConfirmation or false,
+                ownerFarmId = favor.ownerFarmId,
+                rewardPaid = favor.rewardPaid or false,
+                repaymentCollected = favor.repaymentCollected or false,
+                loanAmountDeducted = (favor.taskData and favor.taskData.loanAmountDeducted) or false,
+                loanAmount = favor.taskData and favor.taskData.loanAmount or nil,
+                rewardRelationship = (type(reward) == "table" and (reward.relationship or 0)) or 0,
+                rewardMoney = (type(reward) == "table" and (reward.money or 0)) or (tonumber(reward) or 0),
+                rewardXp = (type(reward) == "table" and (reward.xp or 0)) or 0,
+            }
+        end
+    end
+
+    if self.relationshipManager and self.relationshipManager.npcRelationships then
+        for key, rel in pairs(self.relationshipManager.npcRelationships) do
+            state.relationships[#state.relationships + 1] = {
+                key = key,
+                value = rel.value or 50,
+                lastInteraction = rel.lastInteraction or 0,
+                interactionCount = rel.interactionCount or 0,
+            }
+        end
+    end
+
+    return state
+end
+
+function NPCSystem:deserializeState(data)
+    if type(data) ~= "table" then return end
+
+    -- Match saved NPCs to spawned ones by uniqueId, then name (same as loadFromXMLFile).
+    local byId, byName = {}, {}
+    for _, npc in ipairs(self.activeNPCs) do
+        if npc.uniqueId then byId[npc.uniqueId] = npc end
+        if npc.name then byName[npc.name] = npc end
+    end
+
+    for _, d in ipairs(data.npcs or {}) do
+        local npc = byId[d.uniqueId] or byName[d.name]
+        if npc then
+            npc.position.x = d.px or npc.position.x
+            npc.position.y = d.py or npc.position.y
+            npc.position.z = d.pz or npc.position.z
+            npc.rotation.y = d.ry or npc.rotation.y
+            if d.hasHome then
+                npc.homePosition = npc.homePosition or {}
+                npc.homePosition.x = d.hx or 0
+                npc.homePosition.y = d.hy or 0
+                npc.homePosition.z = d.hz or 0
+            end
+            npc.homeBuildingName = d.homeBuildingName or npc.homeBuildingName or ""
+            npc.relationship = d.relationship or npc.relationship
+            npc.totalFavorsCompleted = d.favorsCompleted or 0
+            npc.totalFavorsFailed = d.favorsFailed or 0
+            npc.favorCooldown = d.favorCooldown or 0
+            npc.aiState = d.aiState or "idle"
+            npc.currentAction = d.currentAction or "idle"
+            if npc.aiPersonalityModifiers then
+                npc.aiPersonalityModifiers.workEthic = d.workEthic or npc.aiPersonalityModifiers.workEthic
+                npc.aiPersonalityModifiers.sociability = d.sociability or npc.aiPersonalityModifiers.sociability
+                npc.aiPersonalityModifiers.generosity = d.generosity or npc.aiPersonalityModifiers.generosity
+                npc.aiPersonalityModifiers.punctuality = d.punctuality or npc.aiPersonalityModifiers.punctuality
+            end
+            npc.appearanceSeed = d.appearanceSeed or npc.appearanceSeed
+            npc.isFemale = d.isFemale
+            npc.movementSpeed = d.movementSpeed or npc.movementSpeed
+            if npc.needs then
+                npc.needs.energy = d.energy or npc.needs.energy
+                npc.needs.social = d.social or npc.needs.social
+                npc.needs.hunger = d.hunger or npc.needs.hunger
+                npc.needs.workSatisfaction = d.workSatisfaction or npc.needs.workSatisfaction
+            end
+            npc.mood = d.mood or npc.mood or "neutral"
+            npc.encounters = {}
+            for _, e in ipairs(d.encounters or {}) do
+                if #npc.encounters >= 10 then break end
+                local enc = {
+                    type = e.type or "", time = e.time or 0, details = e.details or "",
+                    partner = e.partner or "", sentiment = e.sentiment or "neutral",
+                }
+                if enc.partner == "" then enc.partner = nil end
+                table.insert(npc.encounters, enc)
+            end
+            if self.entityManager then
+                self.entityManager:updateNPCEntity(npc, 0)
+            end
+        end
+    end
+
+    if self.favorSystem and self.favorSystem.restoreFavor then
+        for _, f in ipairs(data.favors or {}) do
+            self.favorSystem:restoreFavor({
+                npcId = f.npcId, npcName = f.npcName, type = f.type, description = f.description,
+                timeRemaining = f.timeRemaining, progress = f.progress,
+                awaitingConfirmation = f.awaitingConfirmation,
+                ownerFarmId = f.ownerFarmId, rewardPaid = f.rewardPaid, repaymentCollected = f.repaymentCollected,
+                loanAmountDeducted = f.loanAmountDeducted, loanAmount = f.loanAmount,
+                reward = { relationship = f.rewardRelationship or 0, money = f.rewardMoney or 0, xp = f.rewardXp or 0 },
+            })
+        end
+    end
+
+    if self.relationshipManager and self.relationshipManager.npcRelationships then
+        for _, r in ipairs(data.relationships or {}) do
+            if r.key and r.key ~= "" then
+                self.relationshipManager.npcRelationships[r.key] = {
+                    value = r.value or 50,
+                    lastInteraction = r.lastInteraction or 0,
+                    interactionCount = r.interactionCount or 0,
+                }
+            end
+        end
     end
 end
 
@@ -4279,6 +5666,15 @@ end
 
 function NPCSystem:delete()
     print("[NPC Favor] Shutting down")
+
+    -- Drop AI job message subscription
+    if self._aiJobMsgSubscribed and g_messageCenter then
+        pcall(function() g_messageCenter:unsubscribeAll(self) end)
+        self._aiJobMsgSubscribed = false
+    end
+
+    -- Restore any temporary field-ownership flips on shutdown.
+    pcall(function() self:restoreAllOwnershipFlips() end)
 
     -- Clean up NPCs
     self:clearAllNPCs()

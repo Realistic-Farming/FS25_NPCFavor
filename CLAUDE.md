@@ -462,4 +462,4 @@ Type `npcHelp` in the developer console (`~` key) for the full list. Key command
 6. Copy `TakeLoanDialog.xml` pattern for new dialogs
 7. FS25 = Lua 5.1 (no `goto`, no `continue`)
 8. Images from ZIP: set dynamically via `setImageFilename()` in Lua
-9. Build with `bash build.sh --deploy` (always deploy to mods folder)
+9. Build with `py build.py --deploy` (always deploy to mods folder; this repo has no build.sh)

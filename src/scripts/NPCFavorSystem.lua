@@ -176,7 +176,6 @@ function NPCFavorSystem.new(npcSystem)
     
     -- Active favors
     self.activeFavors = {} -- Player's active favors
-    self.npcFavorCooldowns = {} -- When NPCs can ask again
     
     -- Player's favor history
     self.completedFavors = {}
@@ -216,13 +215,6 @@ function NPCFavorSystem:update(dt)
         else
             -- Check progress conditions
             self:checkFavorProgress(favor, dt)
-        end
-    end
-    
-    -- Update NPC cooldowns
-    for npcId, cooldown in pairs(self.npcFavorCooldowns) do
-        if cooldown > 0 then
-            self.npcFavorCooldowns[npcId] = math.max(0, cooldown - dt)
         end
     end
     
@@ -567,9 +559,6 @@ function NPCFavorSystem:generateFavorRequest()
         selectedNPC.favorCooldown = cooldownDays * 300  -- 5 real-seconds per "day" (dt is real seconds)
         selectedNPC.lastFavorTime = g_currentMission.time
         
-        -- Update NPC cooldown tracking
-        self.npcFavorCooldowns[selectedNPC.id] = selectedNPC.favorCooldown
-        
         -- Flash notification on HUD
         if self.npcSystem.favorHUD then
             local msg = string.format(g_i18n:getText("npc_hud_new_favor") or "New: %s needs help!", selectedNPC.name)
@@ -878,21 +867,25 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
                     if favor.type == "loan_money" and step.id == 1
                         and not (favor.taskData and favor.taskData.loanAmountDeducted) then
                         local loanAmount = (favor.taskData and favor.taskData.loanAmount) or 5000
-                        local farmId = g_currentMission.player and g_currentMission.player.farmId
-                        if farmId then
-                            g_currentMission:addMoney(-loanAmount, farmId, MoneyType.OTHER, true)
-                        end
+                        -- This sim loop runs only under `if self.isServer`, so this is
+                        -- already server-authoritative. Pay the owning farm (stamped at
+                        -- accept), not the local player, which is nil on a dedicated
+                        -- server. Guarded by loanAmountDeducted so it disburses once.
+                        local farmId = favor.ownerFarmId or self:resolveOwnerFarmId(favor)
+                        favor.ownerFarmId = farmId
+                        g_currentMission:addMoney(-loanAmount, farmId, MoneyType.OTHER, true)
                         if favor.taskData then favor.taskData.loanAmountDeducted = true end
                     end
 
                     step.completed = true
 
-                    self:queueNotification(
-                        "Favor Progress",
-                        string.format("Step %d completed: %s", step.id, step.description),
-                        "favor_progress",
-                        3000
-                    )
+                    -- Flash notification on HUD (queueNotification never existed;
+                    -- all favor notifications route through favorHUD:flashFavor)
+                    if self.npcSystem.favorHUD then
+                        local fmt = g_i18n:getText("npc_hud_step_done") or "Step %d done: %s"
+                        local msg = string.format(fmt, step.id, step.description or "")
+                        self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1, 0.3, 1})
+                    end
                 end
             end
 
@@ -921,7 +914,15 @@ function NPCFavorSystem:completeFavor(favorId)
     if not favor or favor.status == "completed" then
         return false
     end
-    
+
+    -- Server-authoritative: the status flip and all money happen only on the
+    -- server/host. Clients reach completion by sending intent through
+    -- NPCInteractionEvent, never by flipping status or paying money locally. In
+    -- single-player the host is the server, so this never blocks SP.
+    if g_server == nil then
+        return false
+    end
+
     -- Calculate completion time
     favor.completionTime = g_currentMission.time
     if favor.startTime then
@@ -1085,16 +1086,28 @@ function NPCFavorSystem:applyFavorRewards(favor)
             )
         end
         
-        -- Give money reward
-        if favor.reward.money and g_currentMission.player then
-            g_currentMission:addMoney(
-                favor.reward.money, 
-                g_currentMission.player.farmId, 
-                MoneyType.OTHER, 
-                true
-            )
+        -- Every payout targets the owning farm (stamped at accept), never the local
+        -- player, so rewards land correctly on a dedicated server. Resolve+persist a
+        -- default for any legacy favor that predates farm-attribution.
+        local farmId = favor.ownerFarmId or self:resolveOwnerFarmId(favor)
+        favor.ownerFarmId = farmId
+        local payMoney = not favor.rewardPaid
+
+        -- Return the loan principal to the owning farm when a loan favor completes
+        -- (the NPC pays you back). Guarded by repaymentCollected so a reconnect or a
+        -- double-complete cannot collect it twice. Replaces the old inline dialog payout.
+        if favor.type == "loan_money" and not favor.repaymentCollected then
+            local loanAmount = (favor.taskData and favor.taskData.loanAmount) or 5000
+            g_currentMission:addMoney(loanAmount, farmId, MoneyType.OTHER, true)
+            favor.repaymentCollected = true
         end
-        
+
+        -- Give money reward (guarded by rewardPaid; the perfect bonus below shares the
+        -- same guard so the whole reward payout is one idempotent unit).
+        if favor.reward.money and payMoney then
+            g_currentMission:addMoney(favor.reward.money, farmId, MoneyType.OTHER, true)
+        end
+
         -- Give XP (if XP system exists)
         if favor.reward.xp then
             -- Implementation depends on game's XP system
@@ -1126,13 +1139,8 @@ function NPCFavorSystem:applyFavorRewards(favor)
                     npc.id, bonusRel, "perfect_completion"
                 )
             end
-            if bonusMoney > 0 and g_currentMission.player then
-                g_currentMission:addMoney(
-                    bonusMoney,
-                    g_currentMission.player.farmId,
-                    MoneyType.OTHER,
-                    true
-                )
+            if bonusMoney > 0 and payMoney then
+                g_currentMission:addMoney(bonusMoney, farmId, MoneyType.OTHER, true)
             end
 
             -- Flash notification for perfect completion
@@ -1146,6 +1154,12 @@ function NPCFavorSystem:applyFavorRewards(favor)
                 print(string.format("PERFECT favor completion bonus: +%d rel, +%d money for %s",
                     bonusRel, bonusMoney, npc.name))
             end
+        end
+
+        -- Mark the reward payout done once (covers both the reward and the perfect
+        -- bonus), so a replayed completion cannot pay either a second time.
+        if payMoney then
+            favor.rewardPaid = true
         end
 
         -- Log for debugging
@@ -1263,13 +1277,46 @@ function NPCFavorSystem:getActiveFavorForNPC(npcId)
     return nil
 end
 
+--- Resolve the owning farm for a favor whose ownerFarmId is missing. Used to migrate
+-- in-flight favors saved before farm-attribution existed, and as a defensive default.
+-- Prefers the host / single-player local farm; on a dedicated server (no local player)
+-- falls back to the first valid non-spectator farm, then to farm 1. Logs the default so
+-- a migrated favor is traceable.
+function NPCFavorSystem:resolveOwnerFarmId(favor)
+    local farmId = nil
+    if g_currentMission and g_currentMission.player and g_currentMission.player.farmId
+        and g_currentMission.player.farmId ~= FarmManager.SPECTATOR_FARM_ID then
+        farmId = g_currentMission.player.farmId
+    elseif g_farmManager and g_farmManager.getFarms then
+        for _, farm in ipairs(g_farmManager:getFarms()) do
+            if farm.farmId and farm.farmId ~= FarmManager.SPECTATOR_FARM_ID then
+                farmId = farm.farmId
+                break
+            end
+        end
+    end
+    farmId = farmId or 1
+    print(string.format("[NPC Favor] Favor '%s' (npc %s) had no owner farm; defaulted to farm %d",
+        tostring(favor and favor.type or "?"), tostring(favor and favor.npcId or "?"), farmId))
+    return farmId
+end
+
 --- Transition the pending favor for npcId to active (player has accepted it).
+-- @param npcId  the NPC whose pending favor is being accepted
+-- @param farmId (optional) the acting user's farm, validated server-side by
+--        NPCInteractionEvent:run. Stamped as favor.ownerFarmId so every money site
+--        pays the accepting farm, never the local player (nil on a dedicated server).
 -- @return the favor table if found, nil otherwise
-function NPCFavorSystem:acceptFavorForNPC(npcId)
+function NPCFavorSystem:acceptFavorForNPC(npcId, farmId)
     for _, favor in ipairs(self.activeFavors) do
         if favor.npcId == npcId and favor.status == "pending" then
             favor.status = "active"
             favor.startTime = TimeHelper.getGameTimeMs()
+            if farmId and farmId ~= FarmManager.SPECTATOR_FARM_ID then
+                favor.ownerFarmId = farmId
+            elseif not favor.ownerFarmId then
+                favor.ownerFarmId = self:resolveOwnerFarmId(favor)
+            end
             if self.npcSystem.favorHUD then
                 local msg = string.format("Favor accepted: %s", favor.description or favor.name or "")
                 self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1.0, 0.3, 1})
@@ -1353,7 +1400,6 @@ function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
         table.insert(self.activeFavors, favor)
         local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
         npc.favorCooldown = cooldownDays * 300
-        self.npcFavorCooldowns[npc.id] = npc.favorCooldown
     end
     return favor
 end
@@ -1406,6 +1452,9 @@ function NPCFavorSystem:restoreFavor(savedFavor)
             loanAmount          = savedFavor.loanAmount or nil,
             loanAmountDeducted  = savedFavor.loanAmountDeducted or false,
         },
+        ownerFarmId          = savedFavor.ownerFarmId,
+        rewardPaid           = savedFavor.rewardPaid or false,
+        repaymentCollected   = savedFavor.repaymentCollected or false,
         awaitingConfirmation = savedFavor.awaitingConfirmation or false,
         startTime = currentGameTime,
         completionTime = nil,
@@ -1416,6 +1465,12 @@ function NPCFavorSystem:restoreFavor(savedFavor)
         totalSteps = 1,
         steps = {}
     }
+
+    -- Migrate legacy in-flight favors saved before farm-attribution: give them an
+    -- owning farm once (logged in resolveOwnerFarmId) so their money lands correctly.
+    if not favor.ownerFarmId then
+        favor.ownerFarmId = self:resolveOwnerFarmId(favor)
+    end
 
     table.insert(self.activeFavors, favor)
 end
@@ -1594,7 +1649,6 @@ function NPCFavorSystem:triggerContextualFavor(npc, context)
         table.insert(self.activeFavors, favor)
         local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
         npc.favorCooldown = cooldownDays * 300
-        self.npcFavorCooldowns[npc.id] = npc.favorCooldown
 
         if self.npcSystem.settings and self.npcSystem.settings.debugMode then
             print(string.format("[NPC Favor] Contextual favor '%s' triggered for %s (context: %s)",

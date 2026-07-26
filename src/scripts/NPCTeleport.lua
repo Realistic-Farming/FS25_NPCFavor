@@ -15,24 +15,28 @@
 
 NPCTeleport = {}
 
---- Teleport the player to an NPC with context-aware positioning.
--- @param npcSystem  NPCSystem instance (for building detection, time tracking)
+--- Compute a safe approach position near an NPC: in front of them if standing,
+-- behind them (facing the same way) if moving, snapped to terrain, and nudged
+-- clear of buildings. Returns nil x/y/z and a reason if the NPC itself is
+-- inside a building (we never hand out a teleport target into geometry).
+-- Shared by teleportToNPC and the native map hotspot "Visit" button (see
+-- NPCEntity:createMapHotspot / updateMapHotspot).
+-- @param npcSystem  NPCSystem instance (for building detection)
 -- @param npc        NPC data table (requires .position, .rotation, .aiState)
--- @return boolean   true if teleported successfully
--- @return string    status message describing what happened
-function NPCTeleport.teleportToNPC(npcSystem, npc)
+-- @return number|nil x, number|nil y, number|nil z, string|nil blockedReason,
+--         number|nil playerRotY, boolean|nil isMoving
+function NPCTeleport.getSafeApproachPosition(npcSystem, npc)
     if not npc or not npc.position then
-        return false, "NPC position unknown"
+        return nil, nil, nil, "NPC position unknown"
     end
 
-    -- Check if NPC is inside a building — don't teleport into structures
+    -- Check if NPC is inside a building — don't hand out a target inside structures
     if npcSystem and npcSystem.isPositionInsideBuilding then
         local insideBuilding, building = npcSystem:isPositionInsideBuilding(
             npc.position.x, npc.position.z, nil)
         if insideBuilding then
             local buildingName = building and building.name or "a building"
-            return false, string.format("%s is inside %s - cannot teleport there",
-                npc.name or "NPC", buildingName)
+            return nil, nil, nil, string.format("%s is inside %s", npc.name or "NPC", buildingName)
         end
     end
 
@@ -75,6 +79,20 @@ function NPCTeleport.teleportToNPC(npcSystem, npc)
         if ok and h then
             y = h + 0.05
         end
+    end
+
+    return x, y, z, nil, playerRotY, isMoving
+end
+
+--- Teleport the player to an NPC with context-aware positioning.
+-- @param npcSystem  NPCSystem instance (for building detection, time tracking)
+-- @param npc        NPC data table (requires .position, .rotation, .aiState)
+-- @return boolean   true if teleported successfully
+-- @return string    status message describing what happened
+function NPCTeleport.teleportToNPC(npcSystem, npc)
+    local x, y, z, blockedReason, playerRotY, isMoving = NPCTeleport.getSafeApproachPosition(npcSystem, npc)
+    if not x then
+        return false, (blockedReason or "NPC position unknown") .. " - cannot teleport there"
     end
 
     -- Teleport the player

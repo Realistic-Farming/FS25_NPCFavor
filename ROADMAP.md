@@ -1,7 +1,7 @@
-# NPC Favor — Roadmap
+# NPC Favor Roadmap
 
-**Current version:** 1.2.4.0  
-**Last updated:** May 2026
+**Current version:** 1.2.7.1
+**Last updated:** 2026-07-25
 
 > *"These NPCs notice me. They remember what I do. I'm part of this world, not just passing through it."*
 
@@ -9,48 +9,90 @@
 
 ## What works today
 
-Everything below is confirmed working as of v1.2.3.0, accounting for all changes through the v1.2.2.6 HUD rework:
+Confirmed working as of v1.2.7.0 (verified against the source checklists):
 
-- NPC lifecycle: spawn, update, save/load, delete
-- 8-state AI with needs system (energy, social, hunger, workSatisfaction)
-- 5 personality types influencing behavior and schedules
-- Road spline pathfinding with LRU path cache
-- Boustrophedon field work with personality-driven row patterns
-- Weather-aware scheduling
-- 7-tier relationship system (Hostile → Best Friend), NPC-NPC social graph, grudge system
-- 7 favor types with time limits, progress tracking, and rewards
-- Favor Management Dialog (F6), NPC List dialog (F7), E-key interaction dialog
-- HUD: resizable favor overlay, compass direction arrows, flash notifications, edit mode (right-click)
-- Favor timers running on in-game time (corrected in v1.2.2.6)
-- 42 settings persisted to XML per savegame, 13 exposed in ESC menu
-- Multiplayer event infrastructure: state sync, interaction routing, settings sync
-- 10-language localization for all core UI, settings, and relationship labels
-- ContractorModBridge: worker detection and relationship layer (Phases 1–3 complete)
-- Favor completion detection: all 10 favor types have step-based proximity completion; `isDialogStep` closes watch_property; `isLoanRepayStep` drives loan repayment via dialog; money deducted on loan handoff
-- Player-offered favors: "Offer help" button with personality-aware decline chance and 15% reward bonus
-- Personality-weighted favor generation: each personality steers toward matching favor categories
-- NPC memory influencing behavior: `analyzeEncounterHistory()` score feeds favor generation weights, NPC selection, and dialog tone ("It's always good to see you" / "Hmm. You again.")
-- Auto-save NPC data every 5 real minutes on server to prevent data loss on crash
-- Save schema versioning: `SAVE_SCHEMA_VERSION` constant, `migrateSaveData()` function, legacy save detection
+**Core lifecycle and AI**
+- NPC spawn, update, save/load, delete; persistence across sessions via uniqueId/name matching
+- 8-state AI with a needs system (energy, social, hunger, workSatisfaction)
+- 5 personality types plus a "loner" variant driving behavior and schedules
+- Road spline pathfinding with an LRU path cache
+- Weather-aware scheduling with a schedule-aware commute speed boost
+- Building-based spawning and role assignment (farmer, shopkeeper, worker) at shops, garages, and farms
+- NPC farm ownership: farmland assignment, farm naming, field assignment
+
+**Relationships**
+- 7-tier system (Hostile to Best Friend), color coded, with an NPC-to-NPC social graph
+- Grudge mechanic (memory of past slights), temporary moods with expiry, passive decay for inactive NPCs
+- Per-tier benefits are defined and displayed (discounts, equipment borrowing, gifts) but see Known Issues for enforcement
+- NPC-initiated gift giving at the best-friend tier
+- Relationship change floating text ("+5 with John")
+
+**Favors**
+- 10 favor types with time limits, progress tracking, difficulty-scaled rewards and penalties
+- Multi-step progression with location checkpoints; all stuck-favor conditions resolved
+- Step-completion crash fixed in v1.2.7.0 (issue #62)
+- Player-offered favors ("Offer help") with personality-aware decline and a 15% reward bonus
+- Personality- and role-weighted generation
+- Weather-emergency contextual favors (farmers first, one per in-game day)
+- Seasonal favors (snow clearing in winter, irrigation in summer)
+- NPC encounter memory feeding generation weights, NPC selection, and dialog tone
+
+**Field work (v1.2.7.0)**
+- Farmer NPCs spawn their own equipment on demand at the field edge and run a genuine base-game AIJobFieldWork: till, sow, or harvest, matched to the field's current state
+- Crop safety (never plow or cut a standing crop), with GoTo pathfinding and kinematic visual fallbacks
+- FieldSentry integration masks NPC favor fields from the soil sim (issue #56)
+
+**UI and dialog**
+- E-key interaction dialog, F6 Favor Management, F7 NPC List (paginated), F5 custom settings panel (3 categories)
+- Dialog shows relationship level and benefits, favor progress, backstory/bio, mood face (happy/neutral/angry), decay warnings, and a schedule board ("Ask about work" shows the current activity plus the next slots)
+- Gift selection UI: 3-tier panel ($200 / $500 / $1,000) with correct money deduction
+- Admin GUI: NPCAdminListDialog and NPCAdminEditDialog for host management
+- HUD: resizable favor overlay, compass direction arrows, flash notifications, right-click edit mode
+- Map hotspots via the PlaceableHotspot API; markers can be toggled with showMapMarkers
+- NPC name tags and relationship level projected above heads
+- 1-on-1 socializing and group gatherings both produce staggered speech bubbles
+
+**Multiplayer (implemented in code, not yet live-tested)**
+- State sync (collectSyncData / applyNetworkState) broadcast every 5 seconds and on join
+- Interaction routing with distance and ownership checks
+- Settings sync through a master-rights-gated event pipeline
+
+**Persistence and settings**
+- 42 settings persisted per savegame; separate settings XML
+- Auto-save NPC data every 5 real minutes on the server
+- Save schema versioning with a migrate function and legacy detection
+
+**Localization**
+- 10 languages for all core UI, settings, relationship labels, HUD notifications, and personality backstories
+
+**Integration**
+- ContractorModBridge Phases 1 to 3 (worker detection, relationship layer, job-complete triggers)
+- Companion-mod detection adds context-aware conversation topics
+- Ecosystem bedrock migration BUILT (2026-07-11, folded into v1.2.7.1): all four core-API bridges delegate-when-present (StateLedger `NPCFavor_State`, NetworkSync `NPCFavor_Sync`, MasterHUD `NPCFavor_HUD`, SettingsHub `FS25_NPCFavor` selfPersisted). Each no-ops when its core API is absent.
+- Farm-attributed money authority BUILT: favor money is server-authoritative through the mod's own NPCInteractionEvent, stamped with `favor.ownerFarmId` at accept, with idempotency flags on reward/repayment/loan. Correct on host/SP; the double-pay exploit is closed. See TODO.md for the test-owed items.
+- Companion read API BUILT (9bdfdde): a relationship + favor read surface for DairyCore / ProStaff consumers.
 
 ---
 
 ## Known issues (partially working)
 
-### NPC vehicles
-Vehicle prop code exists — `spawnNPCTractor`, `seatNPCInVehicle`, `unseatNPCFromVehicle` are all implemented — but i3d models cannot be loaded from game pak archives at runtime. NPCs walk everywhere. The `driving` AI state and the vehicle mode setting (hybrid/realistic/visual) exist but have no effect.
+### Ambient vehicles
+Farmer NPCs now drive real spawned equipment for field work. What remains missing is *ambient* travel: NPCs still commute on foot between home, town, and social events, and do not drive cars or tractors around the map for non-work movement. The `driving` AI state and the hybrid/realistic/visual vehicle-mode setting have no effect on commuting. The tractor/commute visual props are still blocked because i3d models will not load from game pak archives at runtime.
 
-### Group social content
-Group gatherings position NPCs correctly but generate no conversation content. Walking pairs form but produce no speech bubbles. Only 1-on-1 NPC socializing produces speech bubbles today. The Friday party, harvest gathering, morning market, and Sunday rest events exist in `NPCScheduler` but are untested.
+### Reputation benefits are shown but not enforced
+Per-tier discounts, equipment borrowing, and shared resources are defined in NPCRelationshipManager and displayed in the dialog, but there is no hook into actual shop or buy prices. High relationship shows a "20% discount" label that does not yet change what the player pays.
+
+### Group and emergent social content
+Speech bubbles now fire for pairs and gatherings, but the emergent events (Friday party, harvest gathering, morning market, Sunday rest) exist in NPCScheduler and position NPCs without much unique content, and are largely untested in a full playthrough.
 
 ### Borrow tractor favor
-The favor type generates and can be accepted, but steps 1–3 are all proximity-to-farm. No actual vehicle interaction is possible (blocked by NPC vehicles being non-functional). It completes but feels hollow.
+The step-completion crash is fixed (v1.2.7.0), so the favor now progresses and completes. Steps 1 to 3 are still proximity-to-farm rather than a true hand-over-the-keys vehicle interaction, so it works but feels thin.
 
-### Multiplayer
-The sync infrastructure is complete but has never been tested in a real two-player session. No per-player interaction cooldowns exist and there is no conflict resolution when two players interact with the same NPC simultaneously.
+### Multiplayer never live-tested
+The sync infrastructure is complete and wired, but has not been exercised in a real two-player session. There are no per-player interaction cooldowns and no conflict resolution when two players interact with the same NPC at once.
 
 ### Flavor text localization
-Mood prefixes, NPC backstories, personality-flavored dialog, and birthday messages are English-only. All structural UI, settings labels, and relationship tier names are fully localized across all 10 languages.
+Personality backstories and farm/age snippets are translated across all 10 languages. Mood prefixes, some personality-flavored dialog, and birthday messages remain English-only.
 
 ---
 
@@ -58,11 +100,13 @@ Mood prefixes, NPC backstories, personality-flavored dialog, and birthday messag
 
 *Things that can ship in the next patch or two.*
 
-**Custom map hotspot icon**  
-`icon.dds` currently fails to load from the ZIP at runtime because DirectStorage can't resolve mod ZIP paths outside the mission-load window. The fix is to preload the texture during `loadMission00Finished` while the ZIP context is still active — the same window used for eager dialog loading.
+**Multiplayer 2-player live test.** The single highest-value item. Infrastructure and wiring are done; it needs a real session with sync logging to shake out edge cases.
 
-**Multiplayer end-to-end test**  
-Run a real two-player session with sync logging enabled. The infrastructure is there — it just needs to be exercised and the inevitable edge cases fixed.
+**Custom map hotspot icon.** icon.dds still fails to load from the ZIP at runtime. The fix is to preload the texture during loadMission00Finished while the ZIP context is active. Marker show/hide already works.
+
+**TV / 4K settings-panel readability.** A player reported the F5 panel text is tiny and low-contrast at distance. favorHudScale sizes the HUD but not the panel. Add a panel scale or contrast option.
+
+**Reputation discount enforcement.** The tier benefits are already computed and displayed. Hook the discount into shop or buy prices so the number actually means something.
 
 ---
 
@@ -70,71 +114,47 @@ Run a real two-player session with sync logging enabled. The infrastructure is t
 
 *Deeper features that close the gap between what exists in code and what the vision describes.*
 
-**NPC vehicles**  
-The biggest open gap. Options to investigate: loading vehicle models from the mod's own ZIP rather than the game pak, or building a visual-only prop vehicle using a simpler mesh that doesn't require pak access. The vision document explicitly endorses "illusion of travel" — off-screen teleporting and despawning outside the player's view are acceptable. Perfect driving AI is not required.
+**Ambient vehicles.** Field-work equipment spawning works. The remaining gap is travel: NPCs driving to town, home, and events instead of walking. The vision endorses the "illusion of travel" so off-screen teleport and despawn are acceptable; perfect driving AI is not required.
 
-**Group conversation content**  
-Generate speech bubble content for walking pairs and group gatherings. The positioning logic already works; only the content generation is missing. The untested emergent events (Friday party, harvest gathering, morning market, Sunday rest) should be validated at the same time.
+**Richer group conversation content.** Deepen speech-bubble topics for pairs and gatherings, and validate the emergent events. Positioning and staggered bubbles already work; only richer content is missing.
 
-**Contextual favor triggers**  
-React to world state: NPC vehicle breaks down, a delivery is missed, a weather emergency interrupts work. `NPCScheduler` already has weather and event callbacks — they need to feed into `NPCFavorSystem` to produce reactive favor requests.
+**Contextual favor triggers (remaining legs).** Weather emergencies are wired. triggerContextualFavor also supports missed_delivery and equipment_failure and just needs world-state callbacks to fire them.
 
-**NPC role differentiation**  
-Roles (farmer, shop owner, contractor, resident) are assigned at spawn but barely affect behavior. A shop owner should skew their schedule toward their building; a contractor should generate transport and equipment favors. Implement role-based schedule overrides in `NPCScheduler` and role-filtered favor weights in `NPCFavorSystem`.
+**NPCs refusing help.** The grudge mechanic exists but does not yet gate favor offers. An NPC with a grudge or a pattern of ignored favors should decline or offer worse rewards.
 
-**Flavor text localization**  
-Coordinate with community translators to cover backstories, mood dialog, and personality responses in all 10 languages. The infrastructure is already in place.
+**Location-based schedule enforcement.** Roles drive schedule templates and favor weights already. Still missing: a shopkeeper physically staying near their building, and an NPC not "working" unless near a field.
 
-**Schedule improvements**  
-- Custom per-NPC schedules instead of only personality templates  
-- Location-based enforcement (NPC won't "work" if not physically near a field)  
-- Dynamic adjustments (field harvested → switch to maintenance activity)  
-- Player-visible schedule board showing when and where NPCs will be  
+**Dynamic schedule adjustments.** Field harvested triggers a switch to a maintenance activity. Not started.
 
-**Dialog improvements**  
-- Gift selection UI (choose from money, crops, or equipment rather than a hardcoded $500)  
-- Favor acceptance/rejection dialog when multiple favors are on offer  
-- Context-aware buttons (e.g. "Return equipment" when the player holds a borrowed item)  
-- NPC portrait/avatar image in the conversation dialog  
+**Dialog improvements.** Favor acceptance/rejection when multiple favors are offered; context-aware buttons such as "Return equipment"; an NPC portrait in the conversation dialog (map detail card already has partial portrait support via getPortraitImagePath).
+
+**Flavor text localization (remaining).** Cover the remaining mood dialog and personality responses in all 10 languages. Backstories are done.
 
 ---
 
 ## Long-term
 
-*Aspirational items from the vision document and source-file TODOs. Sequencing depends on what the FS25 engine allows and how earlier phases land.*
+*Aspirational items from the vision document and source TODOs. Sequencing depends on what the engine allows.*
 
-**Reputation-based unlocks**  
-High-relationship NPCs offer shop discounts, equipment loans, and shared resources. The relationship tier benefits are already defined in `NPCRelationshipManager` — they need to be enforced at interaction time rather than just displayed.
+**NPCs approaching the player proactively.** Best-friend NPCs already initiate gifts. Extend this so high-relationship NPCs walk toward the player to start a request, a thank-you, or a greeting rather than always waiting for E.
 
-**NPCs refusing help**  
-An NPC with a grudge or a pattern of ignored favors should decline new requests or offer worse rewards.
+**Word of mouth.** When two NPCs socialize they occasionally exchange opinions about the player, nudging the listener's relationship value.
 
-**NPCs approaching the player proactively**  
-High-relationship NPCs walk toward the player to initiate a request, a thank-you, or a greeting, rather than always waiting for E to be pressed.
+**Home interactions.** Visiting an NPC at home: knock, wait, NPC answers if home and awake. isAtHome exists; the interaction does not.
 
-**Word of mouth**  
-When two NPCs socialize they occasionally exchange opinions about the player, nudging the listener's relationship value. This creates indirect consequences without any direct player action.
+**Global town reputation.** A town-wide opinion that affects all NPCs, layered on top of the per-NPC values.
 
-**Home interactions**  
-Visiting an NPC at their home: knock, wait, NPC answers if home and awake. Home-proximity mood modifiers (distance traveled from home, time spent away) connect naturally here.
+**Dynamic population and lifecycle.** New NPCs arrive over time, existing ones age and eventually leave. Population density per area.
 
-**NPC lifecycle**  
-New NPCs arrive over time, existing ones age and eventually retire or leave. Dynamic population density per area.
+**Economy tie-ins.** NPC farm output nudges local market prices; NPC-owned fields compete with the player. NPC field work now produces real crop-state changes, which makes this more reachable.
 
-**Economy tie-ins**  
-NPC farm output nudges local market prices. NPC-owned fields compete with the player for harvest and sales.
+**Hiring NPCs as farmhands.** Permanent workers with wages, skill progression, task assignment, and the ability to quit if mistreated.
 
-**Hiring NPCs as farmhands**  
-Permanent workers with wages, skill progression, task assignment, and the ability to quit if mistreated or underpaid.
+**Mod API hooks.** A public g_NPCFavorAPI with registerNPCType and registerFavorType so other mods can extend the system without patching source.
 
-**Mod API hooks**  
-A public `g_NPCFavorAPI` table with `registerNPCType()` and `registerFavorType()` so other mods can extend the system without patching NPC Favor's source directly.
+**Southern hemisphere season support.** A single boolean in NPCSettings to invert the calendar. TimeHelper.getSeason is the only place that changes.
 
-**Southern hemisphere season support**  
-A single boolean setting in `NPCSettings` to invert the season calendar. `TimeHelper.getSeason()` is the only place that needs to change.
-
-**Relative time formatting**  
-"2 hours ago", "yesterday" in favor timers and interaction timestamps. `TimeHelper` already has a `TODO` stub for `formatRelativeTime(ms)`.
+**Relative time formatting.** "2 hours ago", "yesterday" in favor timers and timestamps. TimeHelper has a TODO stub for this.
 
 ---
 
@@ -142,7 +162,7 @@ A single boolean setting in `NPCSettings` to invert the season calendar. `TimeHe
 
 These will not be built:
 
-- Full life simulation (eating animations, sleeping animations)
+- Full life simulation (eating, sleeping animations)
 - Enterable NPC homes with interiors
 - Branching dialogue trees or heavy narrative scripting
 - Romance or dating mechanics
@@ -151,4 +171,4 @@ These will not be built:
 
 ## Guiding principle
 
-Every item on this list should make NPCs feel **noticed**, **persistent**, and **socially meaningful** — without overwhelming the farming experience.
+Every item here should make NPCs feel **noticed**, **persistent**, and **socially meaningful**, without overwhelming the farming experience.
