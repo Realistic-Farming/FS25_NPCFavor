@@ -104,7 +104,7 @@ Personality backstories and farm/age snippets are translated across all 10 langu
 
 **Custom map hotspot icon.** icon.dds still fails to load from the ZIP at runtime. The fix is to preload the texture during loadMission00Finished while the ZIP context is active. Marker show/hide already works.
 
-**TV / 4K settings-panel readability.** A player reported the F5 panel text is tiny and low-contrast at distance. favorHudScale sizes the HUD but not the panel. Add a panel scale or contrast option.
+**TV / 4K settings-panel readability.** A player reported the F5 panel text is tiny and low-contrast at distance. favorHudScale sizes the HUD but not the panel. Add a `favorPanelScale` setting (independent of HUD scale, range 0.8-2.0) and a high-contrast toggle for the panel. Both persist through SettingsHub and ship in 26 languages. See ecosystem ledger 2026-07-26. Wizard ready to build once Arissani approves (toggle vs fixed default contrast).
 
 **Reputation discount enforcement.** The tier benefits are already computed and displayed. Hook the discount into shop or buy prices so the number actually means something.
 

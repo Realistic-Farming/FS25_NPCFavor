@@ -86,6 +86,9 @@ This TODO reflects the **honest current state** of the mod. The "Done" block bel
 - [ ] Multiplayer sync infrastructure is complete but multiplayer is untested
 - [ ] State sync, interaction routing, and settings sync events all implemented
 
+### TV / 4K readability (issue #63 sub-issue #2)
+- [ ] F5 settings panel has no independent scale and uses light-gray-on-white text, unreadable on TV at distance. Design: add `favorPanelScale` (independent of HUD scale, range 0.8-2.0) + high-contrast toggle. See ecosystem ledger 2026-07-26. Wizard ready to build once Arissani approves (toggle vs fixed default contrast).
+
 ### Ecosystem bedrock migration + money authority (BUILT 2026-07-11, pending in-game + two-machine MP test)
 Built as one coherent pass per the farm-attribution cert (NPCFAVOR-FARM-ATTRIBUTION-CERT.md) + the bedrock playbook. All four bridges are delegate-when-present (no bedrock dependency; each no-ops when its core API is absent). Money is server-authoritative through the mod's OWN NPCInteractionEvent, so money correctness does not depend on bedrock being installed.
 - [x] Bedrock migration built: StateLedger (`NPCFavor_State`, serializeState/deserializeState, npc_favor.xml kept as safety copy), NetworkSync (`NPCFavor_Sync`, full-snapshot state sync via collectSyncData/applyNetworkState, own NPCStateSyncEvent kept as fallback), MasterHUD (`NPCFavor_HUD` subscribe of NPCSystem:draw, own draw hook stands down when active), SettingsHub (`FS25_NPCFavor`, selfPersisted mirror of the panel's settings + admin/player split). Bridge files in src/integrations/, registered at loadMission00Finished.
