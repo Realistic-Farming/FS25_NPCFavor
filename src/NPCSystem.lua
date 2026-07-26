@@ -1106,7 +1106,7 @@ function NPCSystem:findNearestField(x, z, npcId)
             if dist < nearestDist then
                 nearestDist = dist
                 nearest = {
-                    id = field.fieldId or 0,
+                    id = field.farmlandId or 0,
                     center = { x = cx, y = 0, z = cz },
                     size = (field.fieldArea and field.fieldArea.fieldArea) or 1
                 }
@@ -1118,7 +1118,7 @@ function NPCSystem:findNearestField(x, z, npcId)
     if nearest then
         nearest.cropInfo = nil
         for _, field in pairs(g_fieldManager.fields) do
-            local fid = field.fieldId or 0
+            local fid = field.farmlandId or 0
             if fid == nearest.id then
                 local cropInfo = {}
                 -- Try to read fruit type

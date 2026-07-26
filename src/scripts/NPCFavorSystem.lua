@@ -176,7 +176,6 @@ function NPCFavorSystem.new(npcSystem)
     
     -- Active favors
     self.activeFavors = {} -- Player's active favors
-    self.npcFavorCooldowns = {} -- When NPCs can ask again
     
     -- Player's favor history
     self.completedFavors = {}
@@ -216,13 +215,6 @@ function NPCFavorSystem:update(dt)
         else
             -- Check progress conditions
             self:checkFavorProgress(favor, dt)
-        end
-    end
-    
-    -- Update NPC cooldowns
-    for npcId, cooldown in pairs(self.npcFavorCooldowns) do
-        if cooldown > 0 then
-            self.npcFavorCooldowns[npcId] = math.max(0, cooldown - dt)
         end
     end
     
@@ -566,9 +558,6 @@ function NPCFavorSystem:generateFavorRequest()
         
         selectedNPC.favorCooldown = cooldownDays * 300  -- 5 real-seconds per "day" (dt is real seconds)
         selectedNPC.lastFavorTime = g_currentMission.time
-        
-        -- Update NPC cooldown tracking
-        self.npcFavorCooldowns[selectedNPC.id] = selectedNPC.favorCooldown
         
         -- Flash notification on HUD
         if self.npcSystem.favorHUD then
@@ -1411,7 +1400,6 @@ function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
         table.insert(self.activeFavors, favor)
         local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
         npc.favorCooldown = cooldownDays * 300
-        self.npcFavorCooldowns[npc.id] = npc.favorCooldown
     end
     return favor
 end
@@ -1661,7 +1649,6 @@ function NPCFavorSystem:triggerContextualFavor(npc, context)
         table.insert(self.activeFavors, favor)
         local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
         npc.favorCooldown = cooldownDays * 300
-        self.npcFavorCooldowns[npc.id] = npc.favorCooldown
 
         if self.npcSystem.settings and self.npcSystem.settings.debugMode then
             print(string.format("[NPC Favor] Contextual favor '%s' triggered for %s (context: %s)",

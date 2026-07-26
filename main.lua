@@ -478,12 +478,14 @@ local function hookNPCInteractInput()
         return
     end
 
-    npcInteractOriginalFunc = PlayerInputComponent.registerActionEvents
+    npcInteractOriginalFunc = true -- sentinel: already hooked
 
-    PlayerInputComponent.registerActionEvents = function(inputComponent, ...)
-        npcInteractOriginalFunc(inputComponent, ...)
+    PlayerInputComponent.registerActionEvents = Utils.overwrittenFunction(
+        PlayerInputComponent.registerActionEvents,
+        function(inputComponent, superFunc, ...)
+            superFunc(inputComponent, ...)
 
-        if inputComponent.player ~= nil and inputComponent.player.isOwner then
+            if inputComponent.player ~= nil and inputComponent.player.isOwner then
             g_inputBinding:beginActionEventsModification(PlayerInputComponent.INPUT_CONTEXT_NAME)
 
             -- Register E: NPC Interact
@@ -575,7 +577,7 @@ local function hookNPCInteractInput()
 
             g_inputBinding:endActionEventsModification()
         end
-    end
+    end)
 
 end
 
@@ -758,6 +760,7 @@ addModEventListener({
         end
     end,
     mouseEvent = function(self, posX, posY, isDown, isUp, button, eventUsed)
+        if not npcSystem then return false end
         if eventUsed then return eventUsed end
 
         -- Guard helper: any GUI overlay or dialog is open
