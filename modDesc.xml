@@ -48,9 +48,7 @@
         <action name="NPC_SETTINGS" />
     </actions>
     <inputBinding>
-        <actionBinding action="NPC_INTERACT">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_e" />
-        </actionBinding>
+        <actionBinding action="NPC_INTERACT" />
         <actionBinding action="FAVOR_MENU" />
         <actionBinding action="NPC_LIST" />
         <actionBinding action="HUD_EDIT_MODE" />
