@@ -110,6 +110,10 @@ local MULTI_OPTS = {
         values = {0.75, 1.0, 1.25, 1.5},
         labels = {"75%", "100%", "125%", "150%"},
     },
+    favorPanelScale = {
+        values = {0.8, 1.0, 1.2, 1.5, 1.8, 2.0},
+        labels = {"80%", "100%", "120%", "150%", "180%", "200%"},
+    },
     favorFrequency = {
         values = {1, 2, 3, 4, 5},
         labels = {"npc_freq_1", "npc_freq_2", "npc_freq_3", "npc_freq_4", "npc_freq_5"},
@@ -147,6 +151,7 @@ local SETTING_LABELS = {
     npcHelpPlayer          = { key = "npc_help_player_short",       fb = "Offer Help to Player"  },
     showFavorList          = { key = "npc_show_favor_list_short",   fb = "Show Favor List"       },
     favorHudScale          = { key = "npc_hud_scale_short",         fb = "Favor HUD Scale"       },
+    favorPanelScale        = { key = "npc_panel_scale_short",       fb = "Settings Panel Scale"  },
     favorHudLocked         = { key = "npc_hud_locked_short",        fb = "Lock Favor HUD"        },
     showNames              = { key = "npc_show_names_short",        fb = "Show NPC Names"        },
     showRelationshipBars   = { key = "npc_show_rel_bars_short",     fb = "Relationship Bars"     },
@@ -177,6 +182,7 @@ local SETTING_DESCS = {
     npcHelpPlayer          = "npc_desc_npcHelpPlayer",
     showFavorList          = "npc_desc_showFavorList",
     favorHudScale          = "npc_desc_favorHudScale",
+    favorPanelScale        = "npc_desc_favorPanelScale",
     favorHudLocked         = "npc_desc_favorHudLocked",
     showNames              = "npc_desc_showNames",
     showRelationshipBars   = "npc_desc_showRelationshipBars",
@@ -200,6 +206,7 @@ local LOCAL_ONLY = {
     showNames = true, showNotifications = true, showFavorList = true,
     showRelationshipBars = true, showMapMarkers = true,
     favorHudScale = true, favorHudLocked = true,
+    favorPanelScale = true,
     showPaths = true, showAIDecisions = true, debugMode = true,
 }
 
@@ -222,7 +229,7 @@ local CATEGORIES = {
         descKey  = "npc_panel_cat_display_desc",
         accent   = C.accent_disp,
         sections = {
-            { headerKey = "npc_panel_hdr_hud",   items = {"showFavorList", "favorHudScale", "favorHudLocked"} },
+            { headerKey = "npc_panel_hdr_hud",   items = {"showFavorList", "favorHudScale", "favorPanelScale", "favorHudLocked"} },
             { headerKey = "npc_panel_hdr_world",  items = {"showNames", "showRelationshipBars", "showMapMarkers", "showNotifications"} },
         },
     },
@@ -426,6 +433,14 @@ function NPCSettingsPanel:requestChange(id, value)
     end
 end
 
+-- ── Panel scale ───────────────────────────────────────────
+function NPCSettingsPanel:panelScale()
+    if self.settings and self.settings.favorPanelScale then
+        return self.settings.favorPanelScale
+    end
+    return 1.0
+end
+
 -- ── Drawing helpers ───────────────────────────────────────
 function NPCSettingsPanel:drawRect(x, y, w, h, col, alpha)
     if not self.fillOverlay then return end
@@ -435,10 +450,11 @@ function NPCSettingsPanel:drawRect(x, y, w, h, col, alpha)
 end
 
 function NPCSettingsPanel:drawText(x, y, size, text, col, align, bold)
+    local scaledSize = size * self:panelScale()
     setTextColor(col[1], col[2], col[3], col[4] or 1.0)
     setTextBold(bold == true)
     setTextAlignment(align or RenderText.ALIGN_LEFT)
-    renderText(x, y, size, tostring(text))
+    renderText(x, y, scaledSize, tostring(text))
 end
 
 function NPCSettingsPanel:registerClick(id, x, y, w, h, data)
@@ -455,6 +471,9 @@ function NPCSettingsPanel:draw()
     if not self.initialized then return end
     if not g_currentMission then return end
 
+    local ps = self:panelScale()
+    local PX, PY, PW, PH = PX * ps, PY * ps, PW * ps, PH * ps
+
     self._clickRects = {}
 
     -- Dark screen fade
@@ -467,7 +486,7 @@ function NPCSettingsPanel:draw()
     self:drawRect(PX, PY, PW, PH, C.bg)
 
     -- Border
-    local bw = 0.0015
+    local bw = 0.0015 * ps
     local bc = self.activeCatIdx and CATEGORIES[self.activeCatIdx].accent or C.border
     self:drawRect(PX,           PY,           PW, bw, bc)
     self:drawRect(PX,           PY + PH - bw, PW, bw, bc)
@@ -489,13 +508,16 @@ end
 
 -- ── Title bar ─────────────────────────────────────────────
 function NPCSettingsPanel:drawTitleBar()
-    local ty = PY + PH - TB_H
-    self:drawRect(PX, ty, PW, TB_H, C.title_bg)
+    local ps = self:panelScale()
+    local PX, PY, PW, PH = PX * ps, PY * ps, PW * ps, PH * ps
+    local TB_H_s = TB_H * ps
+    local ty = PY + PH - TB_H_s
+    self:drawRect(PX, ty, PW, TB_H_s, C.title_bg)
 
     local acc = (self.page == PAGE_ADMIN) and C.admin_acc
              or (self.activeCatIdx and CATEGORIES[self.activeCatIdx].accent)
              or C.border
-    self:drawRect(PX, ty, 0.004, TB_H, acc)
+    self:drawRect(PX, ty, 0.004 * ps, TB_H_s, acc)
 
     local title = "NPC FAVOR SETTINGS"
     if self.page == PAGE_ADMIN then
@@ -504,17 +526,17 @@ function NPCSettingsPanel:drawTitleBar()
         local cat = CATEGORIES[self.activeCatIdx]
         title = title .. "  /  " .. string.upper(tr(cat.labelKey, cat.id))
     end
-    self:drawText(PX + 0.018, ty + TB_H * 0.32, TS_TITLE, title, C.white, RenderText.ALIGN_LEFT, true)
+    self:drawText(PX + 0.018 * ps, ty + TB_H_s * 0.32, TS_TITLE, title, C.white, RenderText.ALIGN_LEFT, true)
 
     -- Version
     local ver = (g_NPCFavorMod and g_NPCFavorMod.version) or "?"
-    self:drawText(PX + PW - 0.020, ty + TB_H * 0.32, TS_TINY, "v" .. ver, C.hint, RenderText.ALIGN_RIGHT, false)
+    self:drawText(PX + PW - 0.020 * ps, ty + TB_H_s * 0.32, TS_TINY, "v" .. ver, C.hint, RenderText.ALIGN_RIGHT, false)
 
     -- [X] close button
-    local cbW = 0.038
-    local cbH = TB_H * 0.60
-    local cbX = PX + PW - cbW - 0.010
-    local cbY = ty + (TB_H - cbH) / 2
+    local cbW = 0.038 * ps
+    local cbH = TB_H_s * 0.60
+    local cbX = PX + PW - cbW - 0.010 * ps
+    local cbY = ty + (TB_H_s - cbH) / 2
     local chov = self:hitTest(cbX, cbY, cbW, cbH, self.mouseX, self.mouseY)
     self:drawRect(cbX, cbY, cbW, cbH, chov and C.close_hover or C.off_bg)
     self:drawText(cbX + cbW * 0.5, cbY + cbH * 0.18, TS_SMALL, "X", C.white, RenderText.ALIGN_CENTER, true)
@@ -523,9 +545,13 @@ end
 
 -- ── Info bar ──────────────────────────────────────────────
 function NPCSettingsPanel:drawInfoBar()
+    local ps = self:panelScale()
+    local PX, PY, PW, PH = PX * ps, PY * ps, PW * ps, PH * ps
+    local IB_H_s = IB_H * ps
+    local PAD_s = PAD * ps
     local iy = PY
-    self:drawRect(PX, iy, PW, IB_H, C.info_bg)
-    self:drawRect(PX, iy + IB_H - 0.001, PW, 0.001, C.divider)
+    self:drawRect(PX, iy, PW, IB_H_s, C.info_bg)
+    self:drawRect(PX, iy + IB_H_s - 0.001 * ps, PW, 0.001 * ps, C.divider)
 
     local isAdmin = self:isAdmin()
     local isMP    = g_currentMission and g_currentMission.missionDynamicInfo and
@@ -537,19 +563,19 @@ function NPCSettingsPanel:drawInfoBar()
     local modeText   = isMP   and tr("npc_panel_multiplayer",   "Multiplayer")
                                or tr("npc_panel_singleplayer",  "Singleplayer")
 
-    local textY = iy + IB_H * 0.25
-    self:drawText(PX + PAD,         textY, TS_SMALL, adminText,          adminColor, RenderText.ALIGN_LEFT, true)
-    self:drawText(PX + PAD + 0.095, textY, TS_SMALL, "·  " .. modeText,  C.info_mode, RenderText.ALIGN_LEFT, false)
+    local textY = iy + IB_H_s * 0.25
+    self:drawText(PX + PAD_s,         textY, TS_SMALL, adminText,          adminColor, RenderText.ALIGN_LEFT, true)
+    self:drawText(PX + PAD_s + 0.095 * ps, textY, TS_SMALL, ".  " .. modeText,  C.info_mode, RenderText.ALIGN_LEFT, false)
 
     if self.page == PAGE_CATEGORY or self.page == PAGE_ADMIN then
         -- Back button
-        local bbW = 0.085
-        local bbH = IB_H * 0.62
-        local bbX = PX + PW - bbW - 0.014
-        local bbY = iy + (IB_H - bbH) / 2
+        local bbW = 0.085 * ps
+        local bbH = IB_H_s * 0.62
+        local bbX = PX + PW - bbW - 0.014 * ps
+        local bbY = iy + (IB_H_s - bbH) / 2
         local bhov = self:hitTest(bbX, bbY, bbW, bbH, self.mouseX, self.mouseY)
         self:drawRect(bbX, bbY, bbW, bbH, bhov and C.back_hover or C.off_bg)
-        self:drawRect(bbX, bbY, 0.002, bbH, C.green_dim)
+        self:drawRect(bbX, bbY, 0.002 * ps, bbH, C.green_dim)
         self:drawText(bbX + bbW * 0.5, bbY + bbH * 0.18, TS_SMALL,
             tr("npc_panel_btn_back", "Back"), C.white, RenderText.ALIGN_CENTER, false)
         self:registerClick("back", bbX, bbY, bbW, bbH)
@@ -561,21 +587,33 @@ end
 
 -- ── Landing page ──────────────────────────────────────────
 function NPCSettingsPanel:drawLandingPage()
-    local headerY = CY_BOT + CH - 0.040
+    local ps = self:panelScale()
+    local PX, PY, PW, PH = PX * ps, PY * ps, PW * ps, PH * ps
+    local PAD_s = PAD * ps
+    local IB_H_s = IB_H * ps
+    local CX = PX + PAD_s
+    local CW = PW - PAD_s * 2
+    local CY_BOT = PY + IB_H_s + 0.010 * ps
+    local CY_TOP = PY + PH - TB_H * ps - 0.008 * ps
+    local CH = CY_TOP - CY_BOT
+    local headerY = CY_BOT + CH - 0.040 * ps
     self:drawText(PX + PW * 0.5, headerY, TS_SMALL,
         tr("npc_panel_select_category", "Select a category to configure"),
         C.hint, RenderText.ALIGN_CENTER, false)
 
     for i, cat in ipairs(CATEGORIES) do
-        local cardX = CX + (i - 1) * (CARD_W + CARD_GAP)
-        self:drawCategoryCard(cardX, CARD_Y, CARD_W, CARD_H, cat, i)
+        local cardW = (CW - CARD_GAP * ps * 2) / 3
+        local cardH = CARD_H * ps
+        local cardY = CY_BOT + (CH - cardH) / 2
+        local cardX = CX + (i - 1) * (cardW + CARD_GAP * ps)
+        self:drawCategoryCard(cardX, cardY, cardW, cardH, cat, i)
     end
 
     -- ADMIN button — bottom-right
-    local btnW = 0.090
-    local btnH = 0.030
+    local btnW = 0.090 * ps
+    local btnH = 0.030 * ps
     local btnX = CX + CW - btnW
-    local btnY = CY_BOT + 0.005
+    local btnY = CY_BOT + 0.005 * ps
     local bhov = self:hitTest(btnX, btnY, btnW, btnH, self.mouseX, self.mouseY)
     self:drawRect(btnX, btnY, btnW, btnH,
         bhov and {0.55, 0.08, 0.08, 0.95} or {0.22, 0.05, 0.05, 0.88})
@@ -587,50 +625,52 @@ function NPCSettingsPanel:drawLandingPage()
 end
 
 function NPCSettingsPanel:drawCategoryCard(x, y, w, h, cat, idx)
+    local ps = self:panelScale()
     local hovered = self:hitTest(x, y, w, h, self.mouseX, self.mouseY)
 
     self:drawRect(x, y, w, h, C.bg)
     if hovered then self:drawRect(x, y, w, h, C.card_hover) end
 
     -- Border
-    local bw = 0.0012
+    local bw = 0.0012 * ps
     self:drawRect(x,         y,         w, bw, cat.accent, 0.30)
     self:drawRect(x,         y + h - bw, w, bw, cat.accent, 0.30)
     self:drawRect(x,         y,         bw, h,  cat.accent, 0.30)
     self:drawRect(x + w - bw, y,         bw, h,  cat.accent, 0.30)
 
     -- Top color bar
-    self:drawRect(x, y + h - 0.018, w, 0.018, cat.accent, hovered and 0.85 or 0.65)
+    local barH = 0.018 * ps
+    self:drawRect(x, y + h - barH, w, barH, cat.accent, hovered and 0.85 or 0.65)
 
     -- Title
-    local titleY = y + h - 0.018 - 0.042
+    local titleY = y + h - barH - 0.042 * ps
     self:drawText(x + w * 0.5, titleY, TS_BODY,
         string.upper(tr(cat.labelKey, cat.id)), C.white, RenderText.ALIGN_CENTER, true)
 
     -- Divider
-    self:drawRect(x + 0.010, titleY - 0.006, w - 0.020, 0.001, C.divider)
+    self:drawRect(x + 0.010 * ps, titleY - 0.006 * ps, w - 0.020 * ps, 0.001 * ps, C.divider)
 
     -- Count
     local count = 0
     for _, sec in ipairs(cat.sections) do count = count + #sec.items end
 
     -- Description
-    local descY = titleY - 0.036
+    local descY = titleY - 0.036 * ps
     local descStr = tr(cat.descKey, "")
     for line in (descStr .. "\n"):gmatch("([^\n]*)\n") do
         self:drawText(x + w * 0.5, descY, TS_SMALL, line, C.dim, RenderText.ALIGN_CENTER, false)
-        descY = descY - 0.020
+        descY = descY - 0.020 * ps
     end
 
     -- Count badge
-    self:drawText(x + w * 0.5, y + 0.038, TS_SMALL,
+    self:drawText(x + w * 0.5, y + 0.038 * ps, TS_SMALL,
         count .. " settings", cat.accent, RenderText.ALIGN_CENTER, false)
 
     -- Configure button
-    local bW = w - 0.024
-    local bH = 0.028
-    local bX = x + 0.012
-    local bY = y + 0.006
+    local bW = w - 0.024 * ps
+    local bH = 0.028 * ps
+    local bX = x + 0.012 * ps
+    local bY = y + 0.006 * ps
     self:drawRect(bX, bY, bW, bH, hovered and cat.accent or C.off_bg, hovered and 0.20 or 1.0)
     self:drawText(bX + bW * 0.5, bY + bH * 0.18, TS_SMALL,
         hovered and tr("npc_panel_btn_open", "Open") or tr("npc_panel_btn_configure", "Configure"),
@@ -645,52 +685,73 @@ function NPCSettingsPanel:drawCategoryPage()
     local cat = CATEGORIES[self.activeCatIdx]
     if not cat then return end
 
+    local ps = self:panelScale()
+    local PX, PY, PW, PH = PX * ps, PY * ps, PW * ps, PH * ps
+    local PAD_s = PAD * ps
+    local IB_H_s = IB_H * ps
+    local CX = PX + PAD_s
+    local CW = PW - PAD_s * 2
+    local CY_BOT = PY + IB_H_s + 0.010 * ps
+    local CY_TOP = PY + PH - TB_H * ps - 0.008 * ps
+    local SEC_H_s = SEC_H * ps
+    local ROW_H_s = ROW_H * ps
+
     local curY   = CY_TOP
     local isAdmin = self:isAdmin()
     local rowIdx  = 0
 
     for _, sec in ipairs(cat.sections) do
-        curY = curY - SEC_H
+        curY = curY - SEC_H_s
         if curY < CY_BOT then break end
 
-        self:drawRect(CX, curY, CW, SEC_H, C.title_bg, 0.60)
-        self:drawRect(CX, curY, 0.003, SEC_H, cat.accent)
-        self:drawText(CX + 0.012, curY + SEC_H * 0.25, TS_SMALL,
+        self:drawRect(CX, curY, CW, SEC_H_s, C.title_bg, 0.60)
+        self:drawRect(CX, curY, 0.003 * ps, SEC_H_s, cat.accent)
+        self:drawText(CX + 0.012 * ps, curY + SEC_H_s * 0.25, TS_SMALL,
             string.upper(tr(sec.headerKey, "")), cat.accent, RenderText.ALIGN_LEFT, true)
 
         for _, sid in ipairs(sec.items) do
-            curY = curY - ROW_H
+            curY = curY - ROW_H_s
             if curY < CY_BOT then break end
             rowIdx = rowIdx + 1
-            self:drawSettingRow(CX, curY, CW, sid, rowIdx, isAdmin, cat.accent)
+            self:drawSettingRow(CX, curY, CW, sid, rowIdx, isAdmin, cat.accent, ROW_H_s)
         end
 
-        curY = curY - 0.005
+        curY = curY - 0.005 * ps
     end
 
-    self:drawRect(CX, CY_TOP, CW, 0.001, C.divider)
+    self:drawRect(CX, CY_TOP, CW, 0.001 * ps, C.divider)
 end
 
 -- ── Admin page ────────────────────────────────────────────
 function NPCSettingsPanel:drawAdminPage()
+    local ps = self:panelScale()
+    local PX, PY, PW, PH = PX * ps, PY * ps, PW * ps, PH * ps
+    local PAD_s = PAD * ps
+    local IB_H_s = IB_H * ps
+    local CX = PX + PAD_s
+    local CW = PW - PAD_s * 2
+    local CY_BOT = PY + IB_H_s + 0.010 * ps
+    local CY_TOP = PY + PH - TB_H * ps - 0.008 * ps
+    local SEC_H_s = SEC_H * ps
+
     local curY   = CY_TOP
     local isAdmin = self:isAdmin()
     local rowIdx  = 0
 
     for _, sec in ipairs(ADMIN_SECTIONS) do
-        curY = curY - SEC_H
+        curY = curY - SEC_H_s
         if curY < CY_BOT then break end
 
-        self:drawRect(CX, curY, CW, SEC_H, C.title_bg, 0.60)
-        self:drawRect(CX, curY, 0.003, SEC_H, C.admin_acc)
-        self:drawText(CX + 0.012, curY + SEC_H * 0.25, TS_SMALL,
+        self:drawRect(CX, curY, CW, SEC_H_s, C.title_bg, 0.60)
+        self:drawRect(CX, curY, 0.003 * ps, SEC_H_s, C.admin_acc)
+        self:drawText(CX + 0.012 * ps, curY + SEC_H_s * 0.25, TS_SMALL,
             string.upper(tr(sec.headerKey, "")),
             {C.admin_acc[1], C.admin_acc[2], C.admin_acc[3], 1.0},
             RenderText.ALIGN_LEFT, true)
 
         for _, item in ipairs(sec.items) do
             local isAction = (item.stype == "action" or item.stype == "danger")
-            local rh = isAction and ADMIN_ACT_H or ADMIN_ROW_H
+            local rh = isAction and ADMIN_ACT_H * ps or ADMIN_ROW_H * ps
             curY = curY - rh
             if curY < CY_BOT then break end
             rowIdx = rowIdx + 1
@@ -701,23 +762,23 @@ function NPCSettingsPanel:drawAdminPage()
                 self:drawSettingRow(CX, curY, CW, item.id, rowIdx, isAdmin, C.admin_acc, rh)
             else
                 local isDanger = (item.stype == "danger")
-                local btnW = 0.130
+                local btnW = 0.130 * ps
                 local btnH = rh * 0.72
-                local btnX = CX + CW - btnW - 0.012
+                local btnX = CX + CW - btnW - 0.012 * ps
                 local btnY = curY + (rh - btnH) * 0.5
                 local hov  = self:hitTest(btnX, btnY, btnW, btnH, self.mouseX, self.mouseY)
 
                 local aLabel = tr("npc_" .. item.id .. "_label", item.id)
                 local aDesc  = tr("npc_" .. item.id .. "_desc",  "")
-                self:drawText(CX + 0.008, curY + rh * 0.55, TS_BODY, aLabel, C.white, RenderText.ALIGN_LEFT, true)
-                self:drawText(CX + 0.008, curY + rh * 0.15, TS_TINY, aDesc,  C.dim,   RenderText.ALIGN_LEFT, false)
+                self:drawText(CX + 0.008 * ps, curY + rh * 0.55, TS_BODY, aLabel, C.white, RenderText.ALIGN_LEFT, true)
+                self:drawText(CX + 0.008 * ps, curY + rh * 0.15, TS_TINY, aDesc,  C.dim,   RenderText.ALIGN_LEFT, false)
 
                 local bgCol = isDanger
                     and (hov and {0.65, 0.10, 0.10, 0.95} or {0.30, 0.06, 0.06, 0.85})
                     or  (hov and {0.10, 0.35, 0.15, 0.95} or {0.08, 0.18, 0.10, 0.85})
                 local acCol = isDanger and C.admin_acc or C.accent_play
                 self:drawRect(btnX, btnY, btnW, btnH, bgCol)
-                self:drawRect(btnX, btnY, 0.002, btnH, acCol)
+                self:drawRect(btnX, btnY, 0.002 * ps, btnH, acCol)
                 self:drawText(btnX + btnW * 0.5, btnY + btnH * 0.20, TS_TINY,
                     (isDanger and "!! " or ">  ") .. aLabel,
                     hov and C.white or {0.75, 0.75, 0.75, 1},
@@ -725,18 +786,19 @@ function NPCSettingsPanel:drawAdminPage()
                 self:registerClick("admin_action_" .. item.id, btnX, btnY, btnW, btnH)
             end
 
-            self:drawRect(CX, curY, CW, 0.0005, C.divider, 0.35)
+            self:drawRect(CX, curY, CW, 0.0005 * ps, C.divider, 0.35)
         end
 
-        curY = curY - 0.005
+        curY = curY - 0.005 * ps
     end
 
-    self:drawRect(CX, CY_TOP, CW, 0.001, C.divider)
+    self:drawRect(CX, CY_TOP, CW, 0.001 * ps, C.divider)
 end
 
 -- ── Setting row ────────────────────────────────────────────
 function NPCSettingsPanel:drawSettingRow(x, y, w, sid, rowIdx, isAdmin, accent, rh)
-    rh = rh or ROW_H
+    local ps = self:panelScale()
+    rh = rh or ROW_H * ps
     local lbl = SETTING_LABELS[sid]
     if not lbl then return end
 
@@ -752,10 +814,10 @@ function NPCSettingsPanel:drawSettingRow(x, y, w, sid, rowIdx, isAdmin, accent, 
     local dc = locked and {C.lock_text[1] * 0.7, C.lock_text[2] * 0.7, C.lock_text[3] * 0.7, 1} or C.dim
 
     if locked then
-        self:drawRect(x, y, 0.003, rh, {0.88, 0.60, 0.18, 0.45})
+        self:drawRect(x, y, 0.003 * ps, rh, {0.88, 0.60, 0.18, 0.45})
     end
 
-    local lx = x + (locked and 0.010 or 0.008)
+    local lx = x + (locked and 0.010 * ps or 0.008 * ps)
     local labelText = tr(lbl.key, lbl.fb)
     local descKey   = SETTING_DESCS[sid]
     local descText  = (descKey and tr(descKey, "")) or ""
@@ -763,8 +825,8 @@ function NPCSettingsPanel:drawSettingRow(x, y, w, sid, rowIdx, isAdmin, accent, 
     self:drawText(lx, y + rh * 0.54, TS_BODY, labelText, lc, RenderText.ALIGN_LEFT, not locked)
     self:drawText(lx, y + rh * 0.15, TS_TINY, descText,  dc, RenderText.ALIGN_LEFT, false)
 
-    local ctrlX = x + w - 0.012
-    local ctrlY = y + (rh - TOGGLE_H) / 2
+    local ctrlX = x + w - 0.012 * ps
+    local ctrlY = y + (rh - TOGGLE_H * ps) / 2
 
     if MULTI_OPTS[sid] then
         self:drawMultiControl(ctrlX, ctrlY, sid, locked)
@@ -772,35 +834,43 @@ function NPCSettingsPanel:drawSettingRow(x, y, w, sid, rowIdx, isAdmin, accent, 
         self:drawToggleControl(ctrlX, ctrlY, sid, locked)
     end
 
-    self:drawRect(x, y, w, 0.0005, C.divider, 0.35)
+    self:drawRect(x, y, w, 0.0005 * ps, C.divider, 0.35)
 end
 
 -- ── Toggle control [OFF] [ON] ─────────────────────────────
 function NPCSettingsPanel:drawToggleControl(rightX, y, sid, locked)
+    local ps = self:panelScale()
+    local TW = TOGGLE_W * ps
+    local TH = TOGGLE_H * ps
+    local TG = TOGGLE_GAP * ps
     local val = self:getValue(sid)
     local isOn = val == true
 
-    local offX = rightX - TOGGLE_W * 2 - TOGGLE_GAP
-    local onX  = rightX - TOGGLE_W
+    local offX = rightX - TW * 2 - TG
+    local onX  = rightX - TW
 
-    local offHov = not locked and self:hitTest(offX, y, TOGGLE_W, TOGGLE_H, self.mouseX, self.mouseY)
-    self:drawRect(offX, y, TOGGLE_W, TOGGLE_H, (not isOn) and C.dim or C.off_bg, (not isOn) and 0.90 or 0.60)
-    self:drawText(offX + TOGGLE_W * 0.5, y + TOGGLE_H * 0.20, TS_TINY,
+    local offHov = not locked and self:hitTest(offX, y, TW, TH, self.mouseX, self.mouseY)
+    self:drawRect(offX, y, TW, TH, (not isOn) and C.dim or C.off_bg, (not isOn) and 0.90 or 0.60)
+    self:drawText(offX + TW * 0.5, y + TH * 0.20, TS_TINY,
         "OFF", (not isOn) and C.white or C.off_text, RenderText.ALIGN_CENTER, not isOn)
 
-    local onHov = not locked and self:hitTest(onX, y, TOGGLE_W, TOGGLE_H, self.mouseX, self.mouseY)
-    self:drawRect(onX, y, TOGGLE_W, TOGGLE_H, isOn and C.on_bg or C.off_bg, isOn and 1.0 or 0.60)
-    self:drawText(onX + TOGGLE_W * 0.5, y + TOGGLE_H * 0.20, TS_TINY,
+    local onHov = not locked and self:hitTest(onX, y, TW, TH, self.mouseX, self.mouseY)
+    self:drawRect(onX, y, TW, TH, isOn and C.on_bg or C.off_bg, isOn and 1.0 or 0.60)
+    self:drawText(onX + TW * 0.5, y + TH * 0.20, TS_TINY,
         "ON", isOn and C.on_text or C.off_text, RenderText.ALIGN_CENTER, isOn)
 
     if not locked then
-        self:registerClick("toggle_off_" .. sid, offX, y, TOGGLE_W, TOGGLE_H, {id = sid, value = false})
-        self:registerClick("toggle_on_"  .. sid, onX,  y, TOGGLE_W, TOGGLE_H, {id = sid, value = true})
+        self:registerClick("toggle_off_" .. sid, offX, y, TW, TH, {id = sid, value = false})
+        self:registerClick("toggle_on_"  .. sid, onX,  y, TW, TH, {id = sid, value = true})
     end
 end
 
 -- ── Multi-select control [< Option >] ────────────────────
 function NPCSettingsPanel:drawMultiControl(rightX, y, sid, locked)
+    local ps = self:panelScale()
+    local TW = TOGGLE_W * ps
+    local TH = TOGGLE_H * ps
+    local MW = MULTI_W * ps
     local opt = MULTI_OPTS[sid]
     if not opt then return end
 
@@ -812,30 +882,30 @@ function NPCSettingsPanel:drawMultiControl(rightX, y, sid, locked)
     local rawLabel = opt.labels[curIdx] or "?"
     local label    = (opt.i18n and tr(rawLabel, rawLabel)) or rawLabel
 
-    local arrowW = 0.022
-    local labelW = MULTI_W - arrowW * 2
-    local totalX = rightX - MULTI_W
+    local arrowW = 0.022 * ps
+    local labelW = MW - arrowW * 2
+    local totalX = rightX - MW
     local leftX  = totalX
     local midX   = totalX + arrowW
     local rightBX = totalX + arrowW + labelW
 
-    local lHov = not locked and self:hitTest(leftX, y, arrowW, TOGGLE_H, self.mouseX, self.mouseY)
-    self:drawRect(leftX, y, arrowW, TOGGLE_H, lHov and C.back_hover or C.off_bg)
-    self:drawText(leftX + arrowW * 0.5, y + TOGGLE_H * 0.18, TS_TINY,
+    local lHov = not locked and self:hitTest(leftX, y, arrowW, TH, self.mouseX, self.mouseY)
+    self:drawRect(leftX, y, arrowW, TH, lHov and C.back_hover or C.off_bg)
+    self:drawText(leftX + arrowW * 0.5, y + TH * 0.18, TS_TINY,
         "<", lHov and C.accent_npc or C.dim, RenderText.ALIGN_CENTER, true)
 
-    self:drawRect(midX, y, labelW, TOGGLE_H, {0.10, 0.11, 0.15, 0.90})
-    self:drawText(midX + labelW * 0.5, y + TOGGLE_H * 0.18, TS_TINY,
+    self:drawRect(midX, y, labelW, TH, {0.10, 0.11, 0.15, 0.90})
+    self:drawText(midX + labelW * 0.5, y + TH * 0.18, TS_TINY,
         label, C.white, RenderText.ALIGN_CENTER, false)
 
-    local rHov = not locked and self:hitTest(rightBX, y, arrowW, TOGGLE_H, self.mouseX, self.mouseY)
-    self:drawRect(rightBX, y, arrowW, TOGGLE_H, rHov and C.back_hover or C.off_bg)
-    self:drawText(rightBX + arrowW * 0.5, y + TOGGLE_H * 0.18, TS_TINY,
+    local rHov = not locked and self:hitTest(rightBX, y, arrowW, TH, self.mouseX, self.mouseY)
+    self:drawRect(rightBX, y, arrowW, TH, rHov and C.back_hover or C.off_bg)
+    self:drawText(rightBX + arrowW * 0.5, y + TH * 0.18, TS_TINY,
         ">", rHov and C.accent_npc or C.dim, RenderText.ALIGN_CENTER, true)
 
     if not locked then
-        self:registerClick("multi_prev_" .. sid, leftX,   y, arrowW, TOGGLE_H, {id = sid, dir = -1})
-        self:registerClick("multi_next_" .. sid, rightBX, y, arrowW, TOGGLE_H, {id = sid, dir =  1})
+        self:registerClick("multi_prev_" .. sid, leftX,   y, arrowW, TH, {id = sid, dir = -1})
+        self:registerClick("multi_next_" .. sid, rightBX, y, arrowW, TH, {id = sid, dir =  1})
     end
 end
 
@@ -856,8 +926,9 @@ function NPCSettingsPanel:onMouseEvent(posX, posY, isDown, isUp, button, eventUs
         end
     end
 
-    -- Click outside panel → close
-    if not self:hitTest(PX, PY, PW, PH, posX, posY) then
+    -- Click outside panel -> close
+    local ps = self:panelScale()
+    if not self:hitTest(PX * ps, PY * ps, PW * ps, PH * ps, posX, posY) then
         self:close()
     end
 

@@ -60,6 +60,7 @@ local DEFS = {
     { id = "showRelationshipBars",     type = "bool",  admin = false, labelKey = "npc_show_rel_bars_short",       fb = "Relationship Bars" },
     { id = "showMapMarkers",           type = "bool",  admin = false, labelKey = "npc_show_map_markers_short",    fb = "Show Map Markers" },
     { id = "favorHudScale",            type = "float", admin = false, min = 0.5, max = 2.0, step = 0.25, labelKey = "npc_hud_scale_short",   fb = "Favor HUD Scale" },
+    { id = "favorPanelScale",          type = "float", admin = false, min = 0.8, max = 2.0, step = 0.1,  labelKey = "npc_panel_scale_short",  fb = "Settings Panel Scale" },
     { id = "favorHudLocked",           type = "bool",  admin = false, labelKey = "npc_hud_locked_short",          fb = "Lock Favor HUD" },
     { id = "showPaths",                type = "bool",  admin = false, labelKey = "npc_show_paths_short",          fb = "Show NPC Paths" },
     { id = "showAIDecisions",          type = "bool",  admin = false, labelKey = "npc_show_ai_short",             fb = "AI Decisions" },
