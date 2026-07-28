@@ -61,6 +61,7 @@ function NPCSettings:resetToDefaults()
     self.favorHudPosY = 0.7
     self.favorHudScale = 1.0
     self.favorHudLocked = false
+    self.favorPanelScale = 1.0
 
     -- Gameplay
     self.enableFavors = true
@@ -175,6 +176,7 @@ function NPCSettings:load()
     self.favorHudPosY = getFloat("favorHudPosY", self.favorHudPosY)
     self.favorHudScale = getFloat("favorHudScale", self.favorHudScale)
     self.favorHudLocked = getBool("favorHudLocked", self.favorHudLocked)
+    self.favorPanelScale = getFloat("favorPanelScale", self.favorPanelScale)
 
     -- Gameplay
     self.enableFavors = getBool("enableFavors", self.enableFavors)
@@ -278,6 +280,7 @@ function NPCSettings:saveToXMLFile(missionInfo)
     setFloat("favorHudPosY", self.favorHudPosY)
     setFloat("favorHudScale", self.favorHudScale)
     setBool("favorHudLocked", self.favorHudLocked)
+    setFloat("favorPanelScale", self.favorPanelScale)
 
     -- Gameplay
     setBool("enableFavors", self.enableFavors)
@@ -351,6 +354,7 @@ function NPCSettings:validateSettings()
     self.favorHudPosY = math.max(0.1, math.min(1.0, self.favorHudPosY))
     self.favorHudScale = math.max(0.5, math.min(2.0, self.favorHudScale))
     self.favorHudLocked = not not self.favorHudLocked
+    self.favorPanelScale = math.max(0.8, math.min(2.0, self.favorPanelScale))
     self.notificationDuration = math.max(1000, math.min(10000, self.notificationDuration))
     self.decayRate = math.max(0, math.min(10, self.decayRate))
 

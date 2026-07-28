@@ -150,6 +150,8 @@
 		<text name="npc_hud_locked_long" text="Když je zamknutý, seznam laskavostí nelze přesunout ani změnit velikost" />
 		<text name="npc_hud_scale_short" text="Velikost HUD laskavostí" />
 		<text name="npc_hud_scale_long" text="Velikost seznamu aktivních laskavostí na obrazovce" />
+		<text name="npc_panel_scale_short" text="[EN] Settings Panel Scale" />
+		<text name="npc_panel_scale_long" text="[EN] Size of the F5 settings panel on screen" />
 		<text name="npc_admin_title" text="Admin panel NPC" />
 		<text name="npc_admin_subtitle_fmt" text="%d aktivních NPC  |  Klikněte Upravit pro úpravu" />
 		<text name="npc_admin_no_npcs" text="Žádné aktivní NPC. NPC se objeví po inicializaci." />
@@ -253,6 +255,7 @@
 		<text name="npc_desc_npcHelpPlayer"         text="NPCs may proactively offer to help the player" />
 		<text name="npc_desc_showFavorList"         text="Show active favors list on the HUD" />
 		<text name="npc_desc_favorHudScale"         text="Size of the favor list overlay" />
+		<text name="npc_desc_favorPanelScale"       text="[EN] Size of the F5 settings panel" />
 		<text name="npc_desc_favorHudLocked"        text="Prevent accidental HUD repositioning" />
 		<text name="npc_desc_showNames"             text="Display NPC names above their heads" />
 		<text name="npc_desc_showRelationshipBars"  text="Show relationship bars in conversation" />

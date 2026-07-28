@@ -150,6 +150,8 @@
 		<text name="npc_hud_locked_long" text="Cuando está bloqueado, la lista de favores no se puede mover ni redimensionar" />
 		<text name="npc_hud_scale_short" text="Tamaño del HUD" />
 		<text name="npc_hud_scale_long" text="Tamaño de la lista de favores activos en pantalla" />
+		<text name="npc_panel_scale_short" text="[EN] Settings Panel Scale" />
+		<text name="npc_panel_scale_long" text="[EN] Size of the F5 settings panel on screen" />
 		<text name="npc_admin_title" text="Panel Admin NPC" />
 		<text name="npc_admin_subtitle_fmt" text="%d NPCs activos  |  Haz clic en Editar para ajustar" />
 		<text name="npc_admin_no_npcs" text="No hay NPCs activos. Los NPCs aparecerán tras la inicialización." />
@@ -253,6 +255,7 @@
 		<text name="npc_desc_npcHelpPlayer"         text="NPCs may proactively offer to help the player" />
 		<text name="npc_desc_showFavorList"         text="Show active favors list on the HUD" />
 		<text name="npc_desc_favorHudScale"         text="Size of the favor list overlay" />
+		<text name="npc_desc_favorPanelScale"       text="[EN] Size of the F5 settings panel" />
 		<text name="npc_desc_favorHudLocked"        text="Prevent accidental HUD repositioning" />
 		<text name="npc_desc_showNames"             text="Display NPC names above their heads" />
 		<text name="npc_desc_showRelationshipBars"  text="Show relationship bars in conversation" />
