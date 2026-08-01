@@ -22739,5 +22739,255 @@
     "stars": 33,
     "forks": 3,
     "watchers": 5
+  },
+  {
+    "timestamp": "2026-08-01T12:44:42Z",
+    "date": "2026-08-01",
+    "views": {
+      "count": 377,
+      "uniques": 167
+    },
+    "clones": {
+      "count": 440,
+      "uniques": 120
+    },
+    "referrers": [
+      {
+        "referrer": "github.com",
+        "count": 151,
+        "uniques": 65
+      },
+      {
+        "referrer": "Google",
+        "count": 74,
+        "uniques": 33
+      },
+      {
+        "referrer": "kingmods.net",
+        "count": 64,
+        "uniques": 38
+      },
+      {
+        "referrer": "Bing",
+        "count": 6,
+        "uniques": 4
+      },
+      {
+        "referrer": "Yahoo",
+        "count": 6,
+        "uniques": 2
+      },
+      {
+        "referrer": "search.brave.com",
+        "count": 4,
+        "uniques": 2
+      },
+      {
+        "referrer": "yandex.ru",
+        "count": 3,
+        "uniques": 3
+      }
+    ],
+    "popular_paths": [
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor",
+        "title": "Overview",
+        "count": 236,
+        "uniques": 149
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1",
+        "title": "/releases/tag/v1.2.7.1",
+        "count": 42,
+        "uniques": 37
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/wiki",
+        "title": "/wiki",
+        "count": 17,
+        "uniques": 17
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/issues",
+        "title": "/issues",
+        "count": 17,
+        "uniques": 10
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/releases",
+        "title": "/releases",
+        "count": 9,
+        "uniques": 9
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/issues/62",
+        "title": "/issues/62",
+        "count": 5,
+        "uniques": 3
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/commits/main",
+        "title": "/commits/main",
+        "count": 4,
+        "uniques": 3
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/tree/main/translations",
+        "title": "/tree/main/translations",
+        "count": 4,
+        "uniques": 3
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/commit/5add751d53eafae83b435557d0c1eca235ee44e6",
+        "title": "/commit/5add751d53eafae83b435557d0c1eca235ee44e6",
+        "count": 3,
+        "uniques": 3
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/issues/63",
+        "title": "/issues/63",
+        "count": 3,
+        "uniques": 3
+      }
+    ],
+    "releases": [
+      {
+        "assets": [
+          {
+            "downloads": 57,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.7.1"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 67,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.7.0"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 62,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.6.0"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 77,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.5.3"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 33,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.5.2"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 19,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.5.1"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 48,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.5.0"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 3,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.4.0-pre1"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 52,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.4.0"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 53,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.3.0"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 255,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.2.5"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 76,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.2.4"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 19,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "v1.2.2.0"
+      },
+      {
+        "assets": [
+          {
+            "downloads": 11,
+            "name": "FS25_NPCFavor.zip"
+          }
+        ],
+        "tag": "1.2.2.1"
+      },
+      {
+        "assets": [],
+        "tag": "v1,2,1,0"
+      },
+      {
+        "assets": [],
+        "tag": "v1.0.0.0"
+      }
+    ],
+    "stars": 33,
+    "forks": 3,
+    "watchers": 5
   }
 ]
