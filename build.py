@@ -32,7 +32,7 @@ from pathlib import Path
 ZIP_NAME = "FS25_NPCFavor.zip"
 
 # Exclusion lists — keep in sync with build.sh
-EXCLUDE_DIRS = {".git", ".claude", ".vscode", ".idea", "node_modules"}
+EXCLUDE_DIRS = {".git", ".claude", ".vscode", ".idea", "node_modules", "tools"}
 EXCLUDE_FILES = {
     "build.sh", "build.py",
     "find_unused_code.sh", "find_unused_code.py",
