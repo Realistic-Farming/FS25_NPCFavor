@@ -1,0 +1,10 @@
+{
+  "name": "fs25_npcfavor-checks",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lua 5.1 pre-commit gate. Excluded from the mod zip with the rest of tools/.",
+  "devDependencies": {
+    "luaparse": "^0.3.1"
+  }
+}
