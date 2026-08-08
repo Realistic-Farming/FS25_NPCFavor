@@ -1,4 +1,4 @@
-﻿-- =========================================================
+-- =========================================================
 -- NpcRfPdaGuest - Esc RF PDA NPC Favor densify (Table shell)
 -- Soft-detect: mission.npcFavorSystem. Standing roster rows.
 -- Active favors → rfFwMore bridge. Read-only glance; spoiler ban held.
