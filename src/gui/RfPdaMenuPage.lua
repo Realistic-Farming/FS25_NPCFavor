@@ -111,6 +111,61 @@ local function soilPanel()
     return nil
 end
 
+--- Resolve any Soil-exposed class cross-mod. The door is created by whichever
+--- mod's RfPdaMenuPage loads first, so Soil globals (dialogs, PDAScreen) are nil
+--- when a non-Soil mod built the door (FS25 envs are per-mod). Soil publishes its
+--- deep tools on g_currentMission at registration, so read those first, then
+--- g_modEnvironments, then getfenv(0), matching soilPanel() above.
+local function soilGlobal(name)
+    local missionHandles = {
+        SoilGuideDialog       = "rfSoilGuideDialog",
+        SoilHelpDialog        = "rfSoilHelpDialog",
+        SoilPDAScreen         = "rfSoilPDAScreen",
+        RotationPlannerDialog = "rfRotationPlannerDialog",
+        SoilFieldDetailDialog = "rfSoilFieldDetailDialog",
+    }
+    local key = missionHandles[name]
+    if g_currentMission ~= nil and key ~= nil then
+        local v = g_currentMission[key]
+        if v ~= nil then
+            return v
+        end
+    end
+    local env0 = getfenv and getfenv(0)
+    if env0 and env0[name] ~= nil then
+        return env0[name]
+    end
+    if _G and _G[name] ~= nil then
+        return _G[name]
+    end
+    if g_modEnvironments ~= nil then
+        for _, modName in ipairs({ "FS25_SoilFertilizer", "FS25_SoilFertilizer_Refined" }) do
+            local modEnv = g_modEnvironments[modName]
+            local v = modEnv and modEnv[name]
+            if v ~= nil then
+                return v
+            end
+        end
+    end
+    return nil
+end
+
+--- Cross-mod Soil help dialog resolve. The door is created by whichever mod's
+--- RfPdaMenuPage loads first, so a bare SoilGuideDialog/SoilHelpDialog global
+--- is nil when a non-Soil mod built the door (FS25 envs are per-mod). Delegate
+--- to soilGlobal, which reads the g_currentMission handoff first.
+local function soilGuideDialog()
+    local dlg = soilGlobal("SoilGuideDialog")
+    if dlg ~= nil and type(dlg.show) == "function" then
+        return dlg
+    end
+    local dlgHelp = soilGlobal("SoilHelpDialog")
+    if dlgHelp ~= nil and type(dlgHelp.show) == "function" then
+        return dlgHelp
+    end
+    return nil
+end
+
 --- Resolve l10n with English fallback. When CS/WC create the Esc door, MOD_NAME
 --- i18n may lack Soil table keys - also probe Soil modEnv, then g_i18n.
 local function tr(key, fallback)
@@ -328,6 +383,12 @@ function RfPdaMenuPage:onGuiSetupFinished()
     self.soilColFert = self:getDescendantById("soilColFert") or self.soilColFert
     self.soilSectionTreatment = self:getDescendantById("soilSectionTreatment") or self.soilSectionTreatment
     self.soilTreatProducts = self:getDescendantById("soilTreatProducts") or self.soilTreatProducts
+    -- Read-only rotation card (2026-08-07). Nil-safe: older door XML lacks these ids.
+    self.soilRotationCard   = self:getDescendantById("soilRotationCard") or self.soilRotationCard
+    self.soilRotationTitle  = self:getDescendantById("soilRotationTitle") or self.soilRotationTitle
+    self.soilRotationLast   = self:getDescendantById("soilRotationLast") or self.soilRotationLast
+    self.soilRotationStatus = self:getDescendantById("soilRotationStatus") or self.soilRotationStatus
+    self.soilRotationTip    = self:getDescendantById("soilRotationTip") or self.soilRotationTip
     self.treatSelectedLabel = self:getDescendantById("treatSelectedLabel") or self.treatSelectedLabel
     self.treatNextLabel     = self:getDescendantById("treatNextLabel") or self.treatNextLabel
     self.treatTargetsLabel  = self:getDescendantById("treatTargetsLabel") or self.treatTargetsLabel
@@ -401,29 +462,118 @@ function RfPdaMenuPage:initialize()
     -- Do NOT bind MENU_PAGE_PREV/NEXT to cyclePanel; modules use MTO L/R arrows.
     self.btnHelp = {
         inputAction = InputAction.MENU_EXTRA_1,
+        showWhenPaused = true,
         text = tr("sf_pda_btn_help", "Help"),
         callback = function()
-            if SoilGuideDialog then
-                SoilGuideDialog.show()
-            elseif SoilHelpDialog then
+            local dlg = soilGuideDialog()
+            if dlg ~= nil then
+                dlg.show()
+            elseif SoilHelpDialog ~= nil and type(SoilHelpDialog.show) == "function" then
                 SoilHelpDialog.show()
             end
         end
     }
-    -- SPACE / MENU_ACTIVATE: Open full Market when MDM module is active (bottom strip twin).
-    self.btnOpenMarket = {
+    -- MENU_EXTRA_2: open the Rotation Planner from the Esc glance.
+    self.btnRotationPlanner = {
+        inputAction = InputAction.MENU_EXTRA_2,
+        showWhenPaused = true,
+        text = tr("sf_pda_btn_rotation_planner", "Rotation Planner"),
+        callback = function()
+            local dlg = soilGlobal("RotationPlannerDialog")
+            if dlg ~= nil and type(dlg.show) == "function" then
+                dlg.show(self.selectedFieldId)
+            end
+        end
+    }
+    -- MENU_ACTIVATE: open the per-field detail dialog from the Esc glance.
+    self.btnFieldDetail = {
         inputAction = InputAction.MENU_ACTIVATE,
+        showWhenPaused = true,
+        text = tr("sf_pda_btn_field_detail", "Field Detail"),
+        callback = function()
+            local dlg = soilGlobal("SoilFieldDetailDialog")
+            if dlg ~= nil and type(dlg.show) == "function" then
+                dlg.show(self.selectedFieldId)
+            end
+        end
+    }
+    -- Open full Market when MDM module is active (bottom strip twin).
+    -- MENU_EXTRA_1, NOT MENU_ACTIVATE: the commodity SmoothList consumes ACTIVATE/SPACE
+    -- first, so the footer callback never fired at all - zero MarketScreen.show lines in
+    -- the client log on click (Ash+George r2 2026-08-07). EXTRA_1 is free while MDM is
+    -- the active module, since Help / Rotation Planner / Field Detail are Soil-only footers.
+    self.btnOpenMarket = {
+        inputAction = InputAction.MENU_EXTRA_1,
+        showWhenPaused = true,
         text = tr("md_rf_pda_open_market", "Open full Market"),
         callback = function()
+            print("[MarketDynamics] Esc footer Open full Market pressed")
+            -- Cross-mod resolve (Vera F2 2026-08-07). MdRfPdaGuest / MDMMarketScreen are
+            -- MarketDynamics-env globals and are nil on a Soil/WC/SCS hosted door, so the
+            -- bare calls silently did nothing there. Same shape as the Worker Manager
+            -- resolve below and Soil's soilGlobal: try in-env, then g_modEnvironments.
+            local host = self:_getHost()
+            local activeId = host ~= nil and host.activeModuleId or nil
+            local mod = (host ~= nil and host.modules ~= nil and activeId ~= nil)
+                and host.modules[activeId] or nil
+            if mod ~= nil and type(mod.onOpenFullMarket) == "function" then
+                print("[MarketDynamics] Open full Market via active module def")
+                mod.onOpenFullMarket()
+                return
+            end
             if MdRfPdaGuest ~= nil and type(MdRfPdaGuest.onOpenFullMarket) == "function" then
+                print("[MarketDynamics] Open full Market via in-env MdRfPdaGuest")
                 MdRfPdaGuest.onOpenFullMarket()
-            elseif MDMMarketScreen ~= nil and type(MDMMarketScreen.show) == "function" then
+                return
+            end
+            local mdEnv = g_modEnvironments ~= nil and g_modEnvironments["FS25_MarketDynamics"] or nil
+            local guest = mdEnv ~= nil and mdEnv.MdRfPdaGuest or nil
+            if guest ~= nil and type(guest.onOpenFullMarket) == "function" then
+                print("[MarketDynamics] Open full Market via g_modEnvironments MdRfPdaGuest")
+                guest.onOpenFullMarket()
+                return
+            end
+            local scr = mdEnv ~= nil and mdEnv.MDMMarketScreen or nil
+            if scr ~= nil and type(scr.show) == "function" then
+                print("[MarketDynamics] Open full Market via g_modEnvironments MDMMarketScreen")
+                scr.show()
+                return
+            end
+            if MDMMarketScreen ~= nil and type(MDMMarketScreen.show) == "function" then
+                print("[MarketDynamics] Open full Market via in-env MDMMarketScreen")
                 MDMMarketScreen.show()
+                return
+            end
+            print("[MarketDynamics] Open full Market: no handler available (all resolve paths nil)")
+        end
+    }
+    -- SPACE / MENU_ACTIVATE: open the Worker Manager deep desk when WC is active.
+    self.btnOpenWorkerManager = {
+        -- MENU_EXTRA_2, not MENU_ACTIVATE: same SmoothList swallow class as Open full
+        -- Market (Ash 2026-08-07). Free while WC is active, Rotation Planner is Soil-only.
+        inputAction = InputAction.MENU_EXTRA_2,
+        showWhenPaused = true,
+        text = tr("wc_rf_pda_open_manager", "Open Worker Manager"),
+        callback = function()
+            local wcGui = g_currentMission ~= nil and g_currentMission.rfWcGui
+            if wcGui == nil then
+                local env0 = getfenv and getfenv(0)
+                wcGui = env0 and env0.g_wcGui
+            end
+            if wcGui == nil and g_modEnvironments ~= nil then
+                local wcEnv = g_modEnvironments["FS25_WorkerCosts"]
+                wcGui = wcEnv and wcEnv.g_wcGui
+            end
+            if wcGui ~= nil then
+                g_gui:showGui("WCGui")
             end
         end
     }
 
-    self.menuButtonInfo = { self.btnBack, self.btnHelp }
+    -- Back only. Help is Soil-only and _syncHostGuestChrome adds it when the Soil
+    -- module is the active one; seeding it here leaked Help onto every module's
+    -- footer for the window before the first sync ran.
+    self.menuButtonInfo = { self.btnBack }
     self:_applyChromeL10n()
     self:_bindHostListener()
 end
@@ -977,10 +1127,10 @@ function RfPdaMenuPage:_refreshSideInfo(activeId)
     if self.rfSideInfoBody and self.rfSideInfoBody.setText then
         if isSoil then
             self.rfSideInfoBody:setText(tr("rf_pda_side_info_soil",
-                "Soil Fertilizer\n\nOwned fields: Field #, Area, N/P/K, Status, Fert need.\n\nClick a row for Treatment: product, rate, total, Next.\nDry goods = spreader; liquids = sprayer. Fix lime/gypsum before nutrients when pH is off.\nStart with the weakest Status."))
+                "Soil Fertilizer\n\nThis table lists every field you own. One row = one field.\n\nColumns: Field #, Area, N/P/K (% of a healthy target), pH (like the soil monitor - e.g. 6.2), Status (Good / Fair / Poor), Fertilizer need (short cue for what still looks short).\n\nClick a row. Treatment (below) is the plan for that field:\n- PRODUCT = what to buy (first is preferred; \"or ...\" is an alternate)\n- RATE = amount per area / TOTAL = amount for this field\n- Selected names the field; Next (under it) says what to do first\n\nHow to apply: dry goods (urea, MAP, potash, lime) go through a fertilizer spreader; liquids go in a sprayer tank. If pH and nutrients both show, fix lime or gypsum first so nutrients can work. Weed, pest, or disease lines mean spray (or weed mechanically) before you expect a full crop.\n\nStart with the weakest Status, open Treatment, follow Next, then the rest of the list."))
         elseif isCs then
             self.rfSideInfoBody:setText(tr("rf_pda_side_info_crop_stress",
-                "Crop Stress\n\nOwned fields: Crop, Moisture, Stress, Irrigation, Status.\n\nClick a row. Next says water / protect / recheck.\nIrrigation Yes = coverage. Edit systems on Farm Tablet when needed.\nStart with Critical Status."))
+                "Crop Stress\n\nThis table lists every field you own. One row = one field.\n\nColumns: Field # / Crop, Moisture (how wet the soil is), Stress (how hard the crop is fighting dry spells), Irrigation (water help covering this field), Status (Healthy / Warning / Critical).\n\nClick a row. The strip below names the field, then Next says what to do first:\n- Critical or Warning Moisture → water that field (turn on irrigation if covered, or spray WATER / place coverage)\n- High Stress or a sensitive growth window → protect now; stress today cuts harvest later\n- Looking fine → recheck later; worse fields first\n\nIrrigation: Yes means a system can cover this field. The strip under the table shows this field's schedule, water rate, yield keep, and air dry-pull. Edit systems on Farm Tablet / Crop Consultant when you need to change them.\n\nIf Soil Fertilizer is also loaded, check nutrients there too. Dry soil drains faster when soil health is poor.\n\nStart with Critical Status, follow Next, then work up the list."))
         else
             self.rfSideInfoBody:setText("")
         end
@@ -1132,11 +1282,10 @@ function RfPdaMenuPage:_syncHostGuestChrome(activeId)
     setVis(self.wcSideInfoShell, isWc)
     setVis(self.wcSideVersion, false)
     setVis(self.mdSideInfoShell, isMd)
+    -- Keep framework (Income/Depot/etc) side shell; dots always visible per origin/development tip.
     setVis(self.rfSideInfoShell, isSoil or isCs or isFw)
-    -- Modules dots stay visible with WC/MDM subnav (Samantha 2026-08-05; George ACK).
-    -- Prefer n>=2 from panel cache; if count not ready yet, show (playtest multi-panel).
-    local nDots = #(self._panelCache or {})
-    setVis(self.rfPanelDotBox, nDots >= 2 or nDots == 0)
+    -- Module page dots always visible (umbrella: dots = N, chrome geometry unchanged).
+    setVis(self.rfPanelDotBox, true)
     setVis(self.rfDotLegend, false)
     setVis(self.rfSuiteHint, false)
     setVis(self.rfSideMidSeparator, false)
@@ -1180,8 +1329,12 @@ function RfPdaMenuPage:_syncHostGuestChrome(activeId)
         if type(trFn) == "function" then
             self.btnOpenMarket.text = trFn("md_rf_pda_open_market", "Open full Market")
         end
+    elseif isWc and self.btnOpenWorkerManager ~= nil then
+        self.menuButtonInfo = { self.btnBack, self.btnOpenWorkerManager }
+    elseif isSoil then
+        self.menuButtonInfo = { self.btnBack, self.btnHelp, self.btnRotationPlanner, self.btnFieldDetail }
     else
-        self.menuButtonInfo = { self.btnBack, self.btnHelp }
+        self.menuButtonInfo = { self.btnBack }
     end
     if type(self.setMenuButtonInfoDirty) == "function" then
         self:setMenuButtonInfoDirty()
