@@ -54,6 +54,37 @@
 NPCDialog = {}
 local NPCDialog_mt = Class(NPCDialog, MessageDialog)
 
+-- Mod-scoped i18n with Missing-reject (same class as MDMUtil.getModText).
+-- Giants g_i18n:getText returns a truthy "Missing '…'" banner on miss; never paint that.
+local NPC_DIALOG_MOD_NAME = g_currentModName
+local function getModText(key, fallback)
+    if key == nil or key == "" then
+        return fallback
+    end
+    local text = nil
+    local modEnv = g_modEnvironments and g_modEnvironments[NPC_DIALOG_MOD_NAME]
+    local i18n = (modEnv and modEnv.i18n) or g_i18n
+    if i18n ~= nil then
+        local ok, result = pcall(function() return i18n:getText(key) end)
+        if ok and type(result) == "string" and result ~= "" then
+            text = result
+        end
+    end
+    if type(text) ~= "string" or text == "" then
+        return fallback
+    end
+    local lower = text:lower()
+    if lower == tostring(key):lower()
+        or text == ("$l10n_" .. key)
+        or lower:find("^missing%s")
+        or lower:find("^missing_")
+        or lower:find("^missing '")
+    then
+        return fallback
+    end
+    return text
+end
+
 -- Button color constants
 NPCDialog.COLORS = {
     BTN_NORMAL   = {0.15, 0.15, 0.18, 1},     -- Default dark
@@ -119,13 +150,13 @@ function NPCDialog:onOpen()
         self.responseText:setVisible(false)
     end
 
-    -- Hide gift selection panel; initialize button texts from i18n
+    -- Hide gift selection panel; initialize button texts from i18n (Missing-reject)
     self:hideGiftPanel()
-    if self.giftSelectTitle   then self.giftSelectTitle:setText(g_i18n:getText("npc_gift_panel_title") or "Choose a gift:") end
-    if self.btnGiftSmallText  then self.btnGiftSmallText:setText(g_i18n:getText("npc_gift_small_btn") or "Small Gift ($200)  +2 rel") end
-    if self.btnGiftStandardText then self.btnGiftStandardText:setText(g_i18n:getText("npc_gift_standard_btn") or "Standard Gift ($500)  +5 rel") end
-    if self.btnGiftGenerousText then self.btnGiftGenerousText:setText(g_i18n:getText("npc_gift_generous_btn") or "Generous Gift ($1,000)  +10 rel") end
-    if self.btnGiftCancelText then self.btnGiftCancelText:setText(g_i18n:getText("npc_gift_cancel_btn") or "Cancel") end
+    if self.giftSelectTitle   then self.giftSelectTitle:setText(getModText("npc_gift_panel_title", "Choose a gift:")) end
+    if self.btnGiftSmallText  then self.btnGiftSmallText:setText(getModText("npc_gift_small_btn", "Small Gift ($200)  +2 rel")) end
+    if self.btnGiftStandardText then self.btnGiftStandardText:setText(getModText("npc_gift_standard_btn", "Standard Gift ($500)  +5 rel")) end
+    if self.btnGiftGenerousText then self.btnGiftGenerousText:setText(getModText("npc_gift_generous_btn", "Generous Gift ($1,000)  +10 rel")) end
+    if self.btnGiftCancelText then self.btnGiftCancelText:setText(getModText("npc_gift_cancel_btn", "Cancel")) end
 
     if self.npc and self.npcSystem then
         local ok2, err2 = pcall(function()
@@ -147,7 +178,7 @@ function NPCDialog:updateDisplay()
     if not npc then return end
 
     if self.npcNameText then
-        self.npcNameText:setText(npc.name or g_i18n:getText("npc_dialog_unknown_npc") or "Unknown NPC")
+        self.npcNameText:setText(npc.name or getModText("npc_dialog_unknown_npc", "Unknown NPC"))
     end
 
     if self.npcPersonalityText then
@@ -185,7 +216,7 @@ function NPCDialog:updateDisplay()
     if self.relationshipText then
         local relValue = npc.relationship or 0
         local levelName = self:getRelationshipLevelName(relValue)
-        self.relationshipText:setText(string.format(g_i18n:getText("npc_dialog_relationship_fmt") or "Relationship: %d/100 (%s)", relValue, levelName))
+        self.relationshipText:setText(string.format(getModText("npc_dialog_relationship_fmt", "Relationship: %d/100 (%s)"), relValue, levelName))
         local r, g, b = self:getRelationshipColor(relValue)
         self.relationshipText:setTextColor(r, g, b, 1)
     end
@@ -202,21 +233,34 @@ function NPCDialog:updateButtonStates()
     local relationship = npc.relationship or 0
 
     -- Talk - always enabled
-    self:setButtonEnabled("Talk", true, g_i18n:getText("npc_dialog_btn_talk") or "Talk")
+    self:setButtonEnabled("Talk", true, getModText("npc_dialog_btn_talk", "Talk"))
 
     -- Ask about work - always enabled
-    self:setButtonEnabled("Work", true, g_i18n:getText("npc_dialog_btn_work") or "Ask about work")
+    self:setButtonEnabled("Work", true, getModText("npc_dialog_btn_work", "Ask about work"))
 
-    -- Ask for favor - needs Neutral relationship (25+)
-    local favorEnabled = relationship >= 25
-    local favorText = g_i18n:getText("npc_dialog_btn_favor") or "Ask for favor"
+    -- Favor button gate is split (Wizard 2026-08-07, George ACK):
+    --   pending offer   -> Accept Favor, enabled at ANY relationship (the HUD already
+    --                      told the player to talk and accept; greying it out was a lie)
+    --   active favor    -> progress / complete / collect, also any relationship, so an
+    --                      in-flight favor stays finishable if standing dips
+    --   nothing yet     -> player-initiated Offer help / Ask for favor still needs 25+
+    local canInitiate = relationship >= 25
+    local favorEnabled = canInitiate
+    local defaultFavorText = getModText("npc_dialog_btn_favor", "Ask for favor")
+    local favorText = defaultFavorText
 
-    if favorEnabled and self.npcSystem and self.npcSystem.favorSystem then
+    if self.npcSystem and self.npcSystem.favorSystem then
         local sys = self.npcSystem.favorSystem
         if sys.getPendingFavorForNPC and sys:getPendingFavorForNPC(npc.id) then
-            favorText = g_i18n:getText("npc_dialog_btn_favor_accept") or "Accept Favor"
+            favorText = getModText("npc_dialog_btn_favor_accept", "Accept Favor")
+            favorEnabled = true
         elseif sys.getActiveFavorForNPC then
             local active = sys:getActiveFavorForNPC(npc.id)
+            if active then
+                -- In-flight favour stays usable even if standing dropped below 25.
+                favorEnabled = true
+                favorText = getModText("npc_dialog_btn_favor_progress", "Check favor progress")
+            end
             if active and active.steps then
                 local readyStep = nil
                 for _, step in ipairs(active.steps) do
@@ -236,33 +280,33 @@ function NPCDialog:updateButtonStates()
                 end
                 if readyStep and readyStep.isLoanRepayStep then
                     local loanAmt = (active.taskData and active.taskData.loanAmount) or 5000
-                    favorText = string.format(g_i18n:getText("npc_favor_loan_repay_btn") or "Collect Repayment ($%d)", loanAmt)
+                    favorText = string.format(getModText("npc_favor_loan_repay_btn", "Collect Repayment ($%d)"), loanAmt)
                 elseif readyStep then
-                    favorText = g_i18n:getText("npc_dialog_btn_favor_complete") or "Complete favor"
+                    favorText = getModText("npc_dialog_btn_favor_complete", "Complete favor")
                 else
-                    favorText = g_i18n:getText("npc_dialog_btn_favor_progress") or "Check favor progress"
+                    favorText = getModText("npc_dialog_btn_favor_progress", "Check favor progress")
                 end
             end
         end
     end
 
     -- No active or pending favor — show "Offer help" to let player initiate
-    if favorEnabled and favorText == (g_i18n:getText("npc_dialog_btn_favor") or "Ask for favor") then
-        favorText = g_i18n:getText("npc_dialog_btn_offer_help") or "Offer help"
+    if favorEnabled and favorText == defaultFavorText then
+        favorText = getModText("npc_dialog_btn_offer_help", "Offer help")
     end
 
     if not favorEnabled then
-        favorText = g_i18n:getText("npc_dialog_btn_favor_locked") or "Offer help (need Neutral 25+)"
+        favorText = getModText("npc_dialog_btn_favor_locked", "Offer help (need Neutral 25+)")
     end
     self:setButtonEnabled("Favor", favorEnabled, favorText)
 
     -- Give gift - needs relationship >= 30
     local giftEnabled = relationship >= 30
-    local giftText = giftEnabled and (g_i18n:getText("npc_dialog_btn_gift") or "Give gift ($500)") or (g_i18n:getText("npc_dialog_btn_gift_locked") or "Give gift (need Neutral 30+)")
+    local giftText = giftEnabled and getModText("npc_dialog_btn_gift", "Give gift ($500)") or getModText("npc_dialog_btn_gift_locked", "Give gift (need Neutral 30+)")
     self:setButtonEnabled("Gift", giftEnabled, giftText)
 
     -- Relationship info - always enabled
-    self:setButtonEnabled("Rel", true, g_i18n:getText("npc_dialog_btn_relationship") or "Relationship info")
+    self:setButtonEnabled("Rel", true, getModText("npc_dialog_btn_relationship", "Relationship info"))
 end
 
 --- Set a 3-layer button's enabled/disabled state
@@ -397,7 +441,15 @@ function NPCDialog:setResponse(text)
     end
     if self.responseText then
         self.responseText:setVisible(true)
-        self.responseText:setText(text or "")
+        local paint = text or ""
+        -- Reject Giants Missing banners if a caller passed raw getText output.
+        if type(paint) == "string" then
+            local lower = paint:lower()
+            if lower:find("^missing%s") or lower:find("^missing_") or lower:find("^missing '") then
+                paint = ""
+            end
+        end
+        self.responseText:setText(paint)
     end
 end
 
@@ -460,14 +512,15 @@ function NPCDialog:onClickAskWork()
 end
 
 --- "Ask for favor" / "Accept Favor" / "Check progress" button.
--- Requires relationship >= 25.
+-- Relationship 25+ gates ONLY player-initiated favours (branch 3). Accepting a pending
+-- offer and working an active favour are allowed at any relationship, matching the HUD
+-- prompt and updateButtonStates (Wizard 2026-08-07, George ACK).
 -- Flow: (1) pending favor → accept + show first step, (2) active favor → show current step + progress,
 --        (3) no favor → generate for this NPC, accept immediately, show first step.
 function NPCDialog:onClickFavor()
     if not self.npc or not self.npcSystem then return end
 
     local relationship = self.npc.relationship or 0
-    if relationship < 25 then return end
 
     local sys = self.npcSystem.favorSystem
     if not sys then return end
@@ -585,7 +638,7 @@ function NPCDialog:onClickFavor()
             else
                 readyStep.completed = true
                 self:requestCompleteFavor()
-                self:setResponse(self.npc.name .. ": \"" .. (g_i18n:getText("npc_dialog_favor_completed_confirm") or "Thanks so much for your help! Here's your reward.") .. "\"")
+                self:setResponse(self.npc.name .. ": \"" .. (getModText("npc_dialog_favor_completed_confirm", "Thanks so much for your help! Here's your reward.")) .. "\"")
             end
             self:updateButtonStates()
             return
@@ -603,6 +656,10 @@ function NPCDialog:onClickFavor()
     end
 
     -- 3) No favor — player offers help. Generate a favor with personality-aware decline chance.
+    -- Initiating is the only branch that needs Neutral 25+; pending accept and active
+    -- favour handling above deliberately run at any relationship.
+    if relationship < 25 then return end
+
     local personality = self.npc.personality or "friendly"
     local result = sys:generateFavorForNPC(self.npc, true)
 
@@ -664,7 +721,7 @@ function NPCDialog:onClickGift()
 
     self:showGiftPanel()
     self:setResponse(string.format(
-        g_i18n:getText("npc_gift_select_prompt") or "What would you like to give %s?",
+        getModText("npc_gift_select_prompt", "What would you like to give %s?"),
         self.npc.name
     ))
 end
@@ -680,7 +737,7 @@ function NPCDialog:executeGift(amount)
     local farm = g_farmManager and g_farmManager:getFarmById(farmId)
     local balance = farm and farm.money or 0
     if balance < amount then
-        self:setResponse(g_i18n:getText("npc_gift_insufficient_funds") or "You don't have enough money for this gift.")
+        self:setResponse(getModText("npc_gift_insufficient_funds", "You don't have enough money for this gift."))
         self:hideGiftPanel()
         return
     end
@@ -698,7 +755,7 @@ function NPCDialog:executeGift(amount)
         grumpy      = "Hmph. Well... thanks, I guess.",
         generous    = "Thank you! I'll find a way to return the favor.",
     }
-    local thankMsg = thanks[self.npc.personality] or (g_i18n:getText("npc_dialog_gift_thanks") or "Thank you for the gift!")
+    local thankMsg = thanks[self.npc.personality] or getModText("npc_dialog_gift_thanks", "Thank you for the gift!")
     self:setResponse(self.npc.name .. ": \"" .. thankMsg .. "\"")
 
     self:hideGiftPanel()
@@ -712,7 +769,7 @@ function NPCDialog:onClickGiftGenerous() self:executeGift(1000) end
 
 function NPCDialog:onClickGiftCancel()
     self:hideGiftPanel()
-    self:setResponse(g_i18n:getText("npc_gift_cancelled") or "Maybe another time!")
+    self:setResponse(getModText("npc_gift_cancelled", "Maybe another time!"))
 end
 
 --- "Relationship info" button: show level, benefits, next unlock, favor stats.
@@ -726,7 +783,7 @@ function NPCDialog:onClickRelationship()
     end
 
     if not info then
-        self:setResponse(g_i18n:getText("npc_rel_no_info") or "No relationship information available.")
+        self:setResponse(getModText("npc_rel_no_info", "No relationship information available."))
         return
     end
 
@@ -760,48 +817,48 @@ function NPCDialog:onClickRelationship()
     local benefits = (info.level and info.level.benefits) or (info.benefits) or {}
     local benefitList = {}
     if benefits.discount and benefits.discount > 0 then
-        table.insert(benefitList, string.format(g_i18n:getText("npc_rel_benefit_discount") or "%d%% discount", benefits.discount))
+        table.insert(benefitList, string.format(getModText("npc_rel_benefit_discount", "%d%% discount"), benefits.discount))
     end
     if benefits.canAskFavor then
-        table.insert(benefitList, g_i18n:getText("npc_rel_benefit_favors") or "can ask favors")
+        table.insert(benefitList, getModText("npc_rel_benefit_favors", "can ask favors"))
     end
     if benefits.canBorrowEquipment then
-        table.insert(benefitList, g_i18n:getText("npc_rel_benefit_borrow") or "borrow equipment")
+        table.insert(benefitList, getModText("npc_rel_benefit_borrow", "borrow equipment"))
     end
     if benefits.mayOfferHelp then
-        table.insert(benefitList, g_i18n:getText("npc_rel_benefit_help") or "may offer help")
+        table.insert(benefitList, getModText("npc_rel_benefit_help", "may offer help"))
     end
     if benefits.mayGiveGifts then
-        table.insert(benefitList, g_i18n:getText("npc_rel_benefit_gifts") or "gives gifts")
+        table.insert(benefitList, getModText("npc_rel_benefit_gifts", "gives gifts"))
     end
     if benefits.sharedResources then
-        table.insert(benefitList, g_i18n:getText("npc_rel_benefit_shared") or "shared resources")
+        table.insert(benefitList, getModText("npc_rel_benefit_shared", "shared resources"))
     end
-    local benefitStr = #benefitList > 0 and table.concat(benefitList, ", ") or (g_i18n:getText("npc_rel_benefit_none") or "none")
+    local benefitStr = #benefitList > 0 and table.concat(benefitList, ", ") or getModText("npc_rel_benefit_none", "none")
 
     -- Next level info
     local currentValue = info.value or 0
     local nextLevelStr = ""
     -- Thresholds aligned with getRelationshipLevelName()
     local levelThresholds = {
-        { min = 0,  name = g_i18n:getText("npc_rel_hostile") or "Hostile" },
-        { min = 10, name = g_i18n:getText("npc_rel_unfriendly") or "Unfriendly", unlock = g_i18n:getText("npc_rel_unlock_basic") or "basic interaction" },
-        { min = 25, name = g_i18n:getText("npc_rel_neutral") or "Neutral", unlock = g_i18n:getText("npc_rel_unlock_favors") or "ask favors, 5% discount" },
-        { min = 40, name = g_i18n:getText("npc_rel_acquaintance") or "Acquaintance", unlock = g_i18n:getText("npc_rel_unlock_borrow") or "borrow equipment, 10% discount" },
-        { min = 60, name = g_i18n:getText("npc_rel_friend") or "Friend", unlock = g_i18n:getText("npc_rel_unlock_help") or "NPC offers help, 15% discount" },
-        { min = 75, name = g_i18n:getText("npc_rel_close_friend") or "Close Friend", unlock = g_i18n:getText("npc_rel_unlock_gifts") or "gifts, shared resources, 18% discount" },
-        { min = 90, name = g_i18n:getText("npc_rel_best_friend") or "Best Friend", unlock = g_i18n:getText("npc_rel_unlock_full") or "full benefits, 20% discount" }
+        { min = 0,  name = getModText("npc_rel_hostile", "Hostile") },
+        { min = 10, name = getModText("npc_rel_unfriendly", "Unfriendly"), unlock = getModText("npc_rel_unlock_basic", "basic interaction") },
+        { min = 25, name = getModText("npc_rel_neutral", "Neutral"), unlock = getModText("npc_rel_unlock_favors", "ask favors, 5% discount") },
+        { min = 40, name = getModText("npc_rel_acquaintance", "Acquaintance"), unlock = getModText("npc_rel_unlock_borrow", "borrow equipment, 10% discount") },
+        { min = 60, name = getModText("npc_rel_friend", "Friend"), unlock = getModText("npc_rel_unlock_help", "NPC offers help, 15% discount") },
+        { min = 75, name = getModText("npc_rel_close_friend", "Close Friend"), unlock = getModText("npc_rel_unlock_gifts", "gifts, shared resources, 18% discount") },
+        { min = 90, name = getModText("npc_rel_best_friend", "Best Friend"), unlock = getModText("npc_rel_unlock_full", "full benefits, 20% discount") }
     }
     for _, lvl in ipairs(levelThresholds) do
         if currentValue < lvl.min then
             local needed = lvl.min - currentValue
-            nextLevelStr = string.format(g_i18n:getText("npc_rel_next_fmt") or "Next: %s at %d (+%d) - unlocks: %s",
+            nextLevelStr = string.format(getModText("npc_rel_next_fmt", "Next: %s at %d (+%d) - unlocks: %s"),
                 lvl.name, lvl.min, needed, lvl.unlock or "")
             break
         end
     end
     if nextLevelStr == "" then
-        nextLevelStr = g_i18n:getText("npc_rel_max_reached") or "MAX level reached!"
+        nextLevelStr = getModText("npc_rel_max_reached", "MAX level reached!")
     end
 
     -- Trend info
@@ -809,9 +866,9 @@ function NPCDialog:onClickRelationship()
     if info.statistics and info.statistics.trend then
         local trend = info.statistics.trend
         if trend > 0 then
-            trendStr = " " .. (g_i18n:getText("npc_rel_trend_up") or "(trending up)")
+            trendStr = " " .. getModText("npc_rel_trend_up", "(trending up)")
         elseif trend < 0 then
-            trendStr = " " .. (g_i18n:getText("npc_rel_trend_down") or "(trending down)")
+            trendStr = " " .. getModText("npc_rel_trend_down", "(trending down)")
         end
     end
 
@@ -859,12 +916,12 @@ end
 
 function NPCDialog:getGreeting()
     if not self.npc or not self.npcSystem then
-        return g_i18n:getText("npc_dialog_hello_generic") or "Hello there!"
+        return getModText("npc_dialog_hello_generic", "Hello there!")
     end
     if self.npcSystem.interactionUI then
         return self.npcSystem.interactionUI:getGreetingForNPC(self.npc)
     end
-    return g_i18n:getText("npc_dialog_hello") or "Hello there, neighbor!"
+    return getModText("npc_dialog_hello", "Hello there, neighbor!")
 end
 
 --- Check if this NPC's relationship is at risk of decaying.
@@ -886,7 +943,7 @@ function NPCDialog:getDecayWarning()
     if daysSince >= 1.5 then
         local daysText = math.floor(daysSince)
         return string.format(
-            g_i18n:getText("npc_decay_warning") or "(You haven't talked in %d days — relationship may decay!)",
+            getModText("npc_decay_warning", "(You haven't talked in %d days — relationship may decay!)"),
             daysText
         )
     end
@@ -919,13 +976,13 @@ end
 -- @param value  Relationship value (0-100)
 -- @return string  Level name
 function NPCDialog:getRelationshipLevelName(value)
-    if value < 10 then return g_i18n:getText("npc_rel_hostile") or "Hostile"
-    elseif value < 25 then return g_i18n:getText("npc_rel_unfriendly") or "Unfriendly"
-    elseif value < 40 then return g_i18n:getText("npc_rel_neutral") or "Neutral"
-    elseif value < 60 then return g_i18n:getText("npc_rel_acquaintance") or "Acquaintance"
-    elseif value < 75 then return g_i18n:getText("npc_rel_friend") or "Friend"
-    elseif value < 90 then return g_i18n:getText("npc_rel_close_friend") or "Close Friend"
-    else return g_i18n:getText("npc_rel_best_friend") or "Best Friend"
+    if value < 10 then return getModText("npc_rel_hostile", "Hostile")
+    elseif value < 25 then return getModText("npc_rel_unfriendly", "Unfriendly")
+    elseif value < 40 then return getModText("npc_rel_neutral", "Neutral")
+    elseif value < 60 then return getModText("npc_rel_acquaintance", "Acquaintance")
+    elseif value < 75 then return getModText("npc_rel_friend", "Friend")
+    elseif value < 90 then return getModText("npc_rel_close_friend", "Close Friend")
+    else return getModText("npc_rel_best_friend", "Best Friend")
     end
 end
 
@@ -937,24 +994,24 @@ function NPCDialog:getBackstory(npc)
     if not npc then return "" end
 
     local personalityBios = {
-        hardworking = g_i18n:getText("npc_backstory_hardworking") or "Known around town as an early riser who never misses a day in the fields.",
-        lazy        = g_i18n:getText("npc_backstory_lazy")        or "Prefers a leisurely pace. Often found relaxing in the shade.",
-        social      = g_i18n:getText("npc_backstory_social")      or "The neighborhood's most talkative resident. Knows everyone's business.",
-        grumpy      = g_i18n:getText("npc_backstory_grumpy")      or "Not much for small talk, but respected for straight-shooting honesty.",
-        generous    = g_i18n:getText("npc_backstory_generous")    or "Always first to lend a hand or share from the harvest.",
+        hardworking = getModText("npc_backstory_hardworking", "Known around town as an early riser who never misses a day in the fields."),
+        lazy        = getModText("npc_backstory_lazy", "Prefers a leisurely pace. Often found relaxing in the shade."),
+        social      = getModText("npc_backstory_social", "The neighborhood's most talkative resident. Knows everyone's business."),
+        grumpy      = getModText("npc_backstory_grumpy", "Not much for small talk, but respected for straight-shooting honesty."),
+        generous    = getModText("npc_backstory_generous", "Always first to lend a hand or share from the harvest."),
     }
 
-    local bio = personalityBios[npc.personality] or (g_i18n:getText("npc_backstory_default") or "A quiet member of the community.")
+    local bio = personalityBios[npc.personality] or getModText("npc_backstory_default", "A quiet member of the community.")
 
     if npc.farmName then
-        bio = bio .. " " .. string.format(g_i18n:getText("npc_backstory_farm_fmt") or "Works at %s.", npc.farmName)
+        bio = bio .. " " .. string.format(getModText("npc_backstory_farm_fmt", "Works at %s."), npc.farmName)
         if npc.assignedFields and #npc.assignedFields > 0 then
-            bio = bio .. " " .. string.format(g_i18n:getText("npc_backstory_fields_fmt") or "Tends %d field(s).", #npc.assignedFields)
+            bio = bio .. " " .. string.format(getModText("npc_backstory_fields_fmt", "Tends %d field(s)."), #npc.assignedFields)
         end
     end
 
     if npc.age then
-        bio = string.format(g_i18n:getText("npc_backstory_age_fmt") or "Age %d.", npc.age) .. " " .. bio
+        bio = string.format(getModText("npc_backstory_age_fmt", "Age %d."), npc.age) .. " " .. bio
     end
 
     return bio

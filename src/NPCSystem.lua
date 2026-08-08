@@ -1073,6 +1073,55 @@ end
 -- @param z      World Z position
 -- @param npcId  NPC ID (for debug logging)
 -- @return table  {id, center={x,y,z}, size} or nil if no fields found
+--- True when this farmland belongs to a human player farm.
+-- Unsolicited ambient NPC fieldwork must never target player land (Wizard eyes-on
+-- 2026-08-07, George ENGINE ACK). Unowned (NO_OWNER_FARM_ID 0) and NPC-held land
+-- stay eligible. Fails safe: if ownership cannot be read we return false rather
+-- than silently starving every NPC of fields.
+-- @param farmlandId  farmland id (field.farmlandId)
+-- @return boolean    true if a player farm owns it
+function NPCSystem:isPlayerOwnedFarmland(farmlandId)
+    if not farmlandId or farmlandId == 0 then return false end
+    if not g_farmlandManager then return false end
+
+    local owner
+    pcall(function() owner = g_farmlandManager:getFarmlandOwner(farmlandId) end)
+
+    -- Land this mod itself borrowed for an NPC job currently reads as the player's
+    -- farm. Judge those by the ORIGINAL owner we stashed, not the borrowed id, or we
+    -- would abort our own legitimate job on NPC/unowned land.
+    if self._ownershipFlips and self._ownershipFlips[farmlandId] ~= nil then
+        owner = self._ownershipFlips[farmlandId]
+    end
+
+    if owner == nil or owner == 0 then return false end
+
+    local localFarmId = (g_currentMission and g_currentMission.getFarmId and g_currentMission:getFarmId())
+        or (FarmManager and FarmManager.SINGLEPLAYER_FARM_ID) or 1
+    if owner == localFarmId then return true end
+
+    -- Multiplayer: any farm carrying human members is a player farm.
+    local farm = g_farmManager and g_farmManager:getFarmById(owner)
+    if farm ~= nil then
+        local users = farm.users or farm.userIds
+        if type(users) == "table" and next(users) ~= nil then return true end
+    end
+
+    return false
+end
+
+--- Position variant of isPlayerOwnedFarmland, for places that only have a world
+-- coordinate (e.g. the synthetic fallback field, which carries farmlandId 0 and would
+-- otherwise read as unowned no matter where it was dropped).
+-- @return boolean true if a player farm owns the parcel under x/z
+function NPCSystem:isPlayerOwnedAtPosition(x, z)
+    if not x or not z or not g_farmlandManager then return false end
+    local fid
+    pcall(function() fid = g_farmlandManager:getFarmlandIdAtWorldPosition(x, z) end)
+    if not fid then return false end
+    return self:isPlayerOwnedFarmland(fid)
+end
+
 function NPCSystem:findNearestField(x, z, npcId)
     if not g_fieldManager or not g_fieldManager.fields then
         return nil
@@ -1082,6 +1131,9 @@ function NPCSystem:findNearestField(x, z, npcId)
     local nearestDist = math.huge
 
     for _, field in pairs(g_fieldManager.fields) do
+        -- Ambient NPC fieldwork never targets player-owned land.
+        local skipField = self:isPlayerOwnedFarmland(field.farmlandId)
+
         -- Try multiple field center location patterns used by FS25
         local cx, cz = nil, nil
 
@@ -1099,7 +1151,7 @@ function NPCSystem:findNearestField(x, z, npcId)
             end
         end
 
-        if cx and cz then
+        if cx and cz and not skipField then
             local dx = cx - x
             local dz = cz - z
             local dist = math.sqrt(dx * dx + dz * dz)
@@ -2154,6 +2206,30 @@ function NPCSystem:startNPCFieldWork(npc)
         return false
     end
 
+    -- Never start unsolicited fieldwork on player-owned land, even if an older save
+    -- or a pre-fix assignment already pointed this NPC at it. Drop the assignment so
+    -- the scheduler re-picks a legal field instead of retrying this one forever.
+    if npc.assignedField and self:isPlayerOwnedFarmland(npc.assignedField.id) then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] %s assigned to player-owned farmland %s - clearing, no ambient work on player land",
+                npc.name or "?", tostring(npc.assignedField.id)))
+        end
+        npc.assignedField = nil
+        return false
+    end
+
+    -- Never start unsolicited fieldwork on player-owned land, even if an older save
+    -- or a pre-fix assignment already pointed this NPC at it. Drop the assignment so
+    -- the scheduler re-picks a legal field instead of retrying this one forever.
+    if npc.assignedField and self:isPlayerOwnedFarmland(npc.assignedField.id) then
+        if self.settings.debugMode then
+            print(string.format("[NPC Favor] %s assigned to player-owned farmland %s - clearing, no ambient work on player land",
+                npc.name or "?", tostring(npc.assignedField.id)))
+        end
+        npc.assignedField = nil
+        return false
+    end
+
     -- Engine gate: only start field work on a field-work-capable vehicle.
     -- Bare tractor -> false -> fall back to the visual path (no spam, no crash).
     local canFieldWork = false
@@ -2637,6 +2713,14 @@ function NPCSystem:startNPCFieldWorkOwned(npc)
     local vehicle = npc.realTractor
     if not vehicle or not g_currentMission or not g_currentMission.aiJobTypeManager then return false end
     if AIJobType == nil or AIJobType.FIELDWORK == nil or not g_farmlandManager then return false end
+
+    -- This path temporarily flips farmland ownership to make AIJobFieldWork run. Never
+    -- do that to land the player already owns: it is both the wrong tool and it makes
+    -- the land-steal worse (George ENGINE ACK 2026-08-07).
+    if npc.assignedField and self:isPlayerOwnedFarmland(npc.assignedField.id) then
+        npc.assignedField = nil
+        return false
+    end
 
     -- Needs a field-work-capable combo (tractor + lowerable implement with work areas).
     local canFieldWork = false
@@ -3322,6 +3406,32 @@ function NPCSystem:update(dt)
         self.fieldRetryTimer = (self.fieldRetryTimer or 0) + dt
         if self.fieldRetryTimer >= 5 then
             self.fieldRetryTimer = 0
+
+            -- Evict any NPC doing unsolicited work on player-owned land. Catches saves
+            -- made before this fix and anything that slipped past the assign-time gates:
+            -- stop the AI job (also restores any borrowed ownership and unseats), despawn
+            -- the combo, drop the assignment so the NPC re-picks a legal field and leaves.
+            -- Player-accepted favours are a separate path and are not touched here.
+            for _, npc in ipairs(self.activeNPCs) do
+                local onPlayerLand = false
+                if npc.assignedField then
+                    onPlayerLand = self:isPlayerOwnedFarmland(npc.assignedField.id)
+                    -- Synthetic fields carry id 0, so judge those by where they landed.
+                    if not onPlayerLand and npc.assignedField.center then
+                        onPlayerLand = self:isPlayerOwnedAtPosition(
+                            npc.assignedField.center.x, npc.assignedField.center.z)
+                    end
+                end
+                if onPlayerLand then
+                    print(string.format("[NPC Favor] %s was working player-owned farmland %s - stopping and leaving",
+                        npc.name or "?", tostring(npc.assignedField.id)))
+                    pcall(function() self:stopNPCFieldWork(npc) end)
+                    pcall(function() self:removeNPCTractor(npc) end)
+                    npc.assignedField = nil
+                    npc._fieldRetryAge = 0
+                end
+            end
+
             for _, npc in ipairs(self.activeNPCs) do
                 if not npc.assignedField and npc.homePosition then
                     npc.assignedField = self:findNearestField(npc.homePosition.x, npc.homePosition.z, npc.id)
@@ -3329,20 +3439,33 @@ function NPCSystem:update(dt)
                     if not npc.assignedField then
                         npc._fieldRetryAge = (npc._fieldRetryAge or 0) + 5
                         if npc._fieldRetryAge >= 30 then
-                            local angle = math.random() * math.pi * 2
-                            local dist  = math.random(80, 200)
-                            npc.assignedField = {
-                                id = 0,
-                                center = {
-                                    x = npc.homePosition.x + math.cos(angle) * dist,
-                                    y = npc.homePosition.y,
-                                    z = npc.homePosition.z + math.sin(angle) * dist
-                                },
-                                size = 1,
-                                isSynthetic = true
-                            }
-                            if self.settings.debugMode then
-                                print(string.format("[NPC Favor] Synthetic field assigned to %s after field-manager timeout",
+                            -- Try a few spots so the fallback never lands on player-owned
+                            -- ground. If every try is player land, leave the NPC without a
+                            -- field this pass (idling beats working the player's parcel).
+                            local sx, sz
+                            for _ = 1, 8 do
+                                local angle = math.random() * math.pi * 2
+                                local dist  = math.random(80, 200)
+                                local tx = npc.homePosition.x + math.cos(angle) * dist
+                                local tz = npc.homePosition.z + math.sin(angle) * dist
+                                if not self:isPlayerOwnedAtPosition(tx, tz) then
+                                    sx, sz = tx, tz
+                                    break
+                                end
+                            end
+                            if sx then
+                                npc.assignedField = {
+                                    id = 0,
+                                    center = { x = sx, y = npc.homePosition.y, z = sz },
+                                    size = 1,
+                                    isSynthetic = true
+                                }
+                                if self.settings.debugMode then
+                                    print(string.format("[NPC Favor] Synthetic field assigned to %s after field-manager timeout",
+                                        npc.name or "?"))
+                                end
+                            elseif self.settings.debugMode then
+                                print(string.format("[NPC Favor] No synthetic field for %s - all candidate spots are player-owned land",
                                     npc.name or "?"))
                             end
                         end

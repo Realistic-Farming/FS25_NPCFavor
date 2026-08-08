@@ -39,6 +39,9 @@ NPCMasterHUDBridge.active = false   -- MasterHUD present and we registered
 -- driven either by MasterHUD or by NPCFavor's own FSBaseMission.draw hook. NPCSystem:draw
 -- already guards on enabled + initialized internally.
 function NPCMasterHUDBridge.drawStack()
+    -- Suite hide: MasterHUD # key. No-op when MasterHUD absent.
+    local mh = (g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD
+    if mh ~= nil and mh.areHudsHidden ~= nil and mh:areHudsHidden() then return end
     if g_NPCSystem ~= nil and g_NPCSystem.draw ~= nil then
         g_NPCSystem:draw()
     end
@@ -64,6 +67,24 @@ function NPCMasterHUDBridge.register()
     if ok then
         NPCMasterHUDBridge.active = true
         print("[NPC Favor] Registered NPC HUD with MasterHUD (single draw loop + menu-suspend)")
+        if hud.registerEditListener ~= nil then
+            hud:registerEditListener(NPCMasterHUDBridge.HUD_ID, {
+                enter = function()
+                    local sys = g_NPCSystem
+                    if sys ~= nil and sys.favorHUD ~= nil and sys.favorHUD.enterEditMode ~= nil then
+                        if sys.settings and sys.settings.favorHudLocked then return end
+                        sys.favorHUD:enterEditMode()
+                    end
+                end,
+                exit = function()
+                    local sys = g_NPCSystem
+                    if sys ~= nil and sys.favorHUD ~= nil and sys.favorHUD.editMode
+                        and sys.favorHUD.exitEditMode ~= nil then
+                        sys.favorHUD:exitEditMode()
+                    end
+                end,
+            })
+        end
     else
         print(string.format("[NPC Favor] MasterHUD registration failed: %s (using own draw hook)", tostring(err)))
     end

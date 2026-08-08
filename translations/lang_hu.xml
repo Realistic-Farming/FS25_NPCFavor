@@ -49,7 +49,7 @@
 		<text name="npc_dialog_btn_talk" text="Talk" />
 		<text name="npc_dialog_btn_work" text="Ask about work" />
 		<text name="npc_dialog_btn_favor" text="Ask for favor" />
-		<text name="npc_dialog_btn_offer_help" text="Offer help" />
+		<text name="npc_dialog_btn_offer_help" text="Segítség felajánlása" />
 		<text name="npc_dialog_btn_favor_progress" text="Check favor progress" />
 		<text name="npc_dialog_btn_favor_accept" text="Accept Favor" />
 		<text name="npc_dialog_btn_favor_complete" text="Complete Favor" />
@@ -99,9 +99,9 @@
 		<text name="npc_greeting_evening" text="Good evening" />
 		<text name="npc_greeting_hostile" text="%s. What do you want?" />
 		<text name="npc_greeting_unfriendly" text="%s. Need something?" />
-		<text name="npc_greeting_neutral" text="%s. What can I do for you?" />
+		<text name="npc_greeting_neutral" text="%s. Miben segíthetek?" />
 		<text name="npc_greeting_friendly" text="%s, friend! How are you?" />
-		<text name="npc_greeting_close_friend" text="%s! Always great to see you!" />
+		<text name="npc_greeting_close_friend" text="%s! Mindig örülök, hogy látlak!" />
 		<text name="npc_greeting_best_friend" text="%s, my good friend! Great to see you!" />
 		<text name="npc_topic_weather" text="The weather has been nice lately, hasn't it?" />
 		<text name="npc_topic_farm" text="How's your farm doing?" />
@@ -310,26 +310,28 @@
 		<text name="npc_schedule_now_marker" text="&lt;- NOW" />
 
 		<!-- Esc RF PDA NPC Favor densify 2026-08-05 -->
-		<text name="rf_pda_side_info_npc_favor" text="This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. When a favor is waiting on you, the line above the table names who and how urgent it is. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
-		<text name="npc_rf_pda_module_title" text="NPC Favor" />
-		<text name="npc_rf_pda_blurb" text="Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only." />
-		<text name="npc_rf_pda_col_who" text="Who" />
-		<text name="npc_rf_pda_col_standing" text="Standing" />
-		<text name="npc_rf_pda_col_benefits" text="Benefits" />
-		<text name="npc_rf_pda_col_history" text="History" />
-		<text name="npc_rf_pda_empty" text="no neighbors yet" />
-		<text name="npc_rf_pda_history_none" text="no favors yet" />
-		<text name="npc_rf_pda_history_fmt" text="%d%% (%d/%d)" />
-		<text name="npc_rf_pda_active_none" text="Active favors: none" />
-		<text name="npc_rf_pda_active_one" text="Active: %s · %s · %s" />
-		<text name="npc_rf_pda_active_more" text="and %d more" />
-		<text name="npc_rf_pda_showing_of" text="showing %d of %d" />
-		<text name="npc_rf_pda_more" text="and %d more" />
-		<text name="npc_rf_pda_hint_sort" text="%d neighbors · sorted by standing (best first)" />
-		<text name="npc_rf_pda_trend_warming" text="warming" />
-		<text name="npc_rf_pda_trend_cooling" text="cooling" />
-		<text name="npc_rf_pda_urg_min" text="&lt;1h" />
-		<text name="npc_rf_pda_urg_hot" text="Urgent" />
-		<text name="npc_rf_pda_urg_warn" text="Soon" />
+
+		<!-- Esc RF PDA NPC Favor densify 2026-08-05 -->
+		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. When a favor is waiting on you, the line above the table names who and how urgent it is. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
+		<text name="npc_rf_pda_module_title" text="[EN] NPC Favor" />
+		<text name="npc_rf_pda_blurb" text="[EN] Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only." />
+		<text name="npc_rf_pda_col_who" text="[EN] Who" />
+		<text name="npc_rf_pda_col_standing" text="[EN] Standing" />
+		<text name="npc_rf_pda_col_benefits" text="[EN] Benefits" />
+		<text name="npc_rf_pda_col_history" text="[EN] History" />
+		<text name="npc_rf_pda_empty" text="[EN] no neighbors yet" />
+		<text name="npc_rf_pda_history_none" text="[EN] no favors yet" />
+		<text name="npc_rf_pda_history_fmt" text="[EN] %d%% (%d/%d)" />
+		<text name="npc_rf_pda_active_none" text="[EN] Active favors: none" />
+		<text name="npc_rf_pda_active_one" text="[EN] Active: %s · %s · %s" />
+		<text name="npc_rf_pda_active_more" text="[EN] and %d more" />
+		<text name="npc_rf_pda_showing_of" text="[EN] showing %d of %d" />
+		<text name="npc_rf_pda_more" text="[EN] and %d more" />
+		<text name="npc_rf_pda_hint_sort" text="[EN] %d neighbors · sorted by standing (best first)" />
+		<text name="npc_rf_pda_trend_warming" text="[EN] warming" />
+		<text name="npc_rf_pda_trend_cooling" text="[EN] cooling" />
+		<text name="npc_rf_pda_urg_min" text="[EN] &lt;1h" />
+		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
+		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 </texts>
 </l10n>

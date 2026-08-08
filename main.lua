@@ -105,6 +105,13 @@ if modDirectory then
     source(modDirectory .. "src/integrations/NPCMasterHUDBridge.lua")
     source(modDirectory .. "src/integrations/NPCSettingsHubBridge.lua")
 
+-- Esc RF PDA framework joiner (NO-HOST).
+source(g_currentModDirectory .. "src/gui/RfEscModules.lua")
+source(g_currentModDirectory .. "src/gui/RfPdaMenuPage.lua")
+source(g_currentModDirectory .. "src/gui/RfEscBootstrap.lua")
+source(g_currentModDirectory .. "src/gui/RfEscUiDebugger.lua")
+source(g_currentModDirectory .. "src/gui/NpcRfPdaGuest.lua")
+
     print("[NPC Favor] All files loaded successfully")
 else
     print("[NPC Favor] ERROR - Could not find mod directory!")
@@ -323,7 +330,11 @@ if FSBaseMission and FSBaseMission.draw then
             -- Stand down when MasterHUD owns the draw loop (it calls NPCSystem:draw via
             -- the subscribe registration); otherwise draw ourselves, exactly as before.
             if not (NPCMasterHUDBridge ~= nil and NPCMasterHUDBridge.active) then
-                npcSystem:draw()
+                if NPCMasterHUDBridge ~= nil then
+                    NPCMasterHUDBridge.drawStack()
+                else
+                    npcSystem:draw()
+                end
             end
         end
     end)
@@ -478,14 +489,12 @@ local function hookNPCInteractInput()
         return
     end
 
-    npcInteractOriginalFunc = true -- sentinel: already hooked
+    npcInteractOriginalFunc = PlayerInputComponent.registerActionEvents
 
-    PlayerInputComponent.registerActionEvents = Utils.overwrittenFunction(
-        PlayerInputComponent.registerActionEvents,
-        function(inputComponent, superFunc, ...)
-            superFunc(inputComponent, ...)
+    PlayerInputComponent.registerActionEvents = function(inputComponent, ...)
+        npcInteractOriginalFunc(inputComponent, ...)
 
-            if inputComponent.player ~= nil and inputComponent.player.isOwner then
+        if inputComponent.player ~= nil and inputComponent.player.isOwner then
             g_inputBinding:beginActionEventsModification(PlayerInputComponent.INPUT_CONTEXT_NAME)
 
             -- Register E: NPC Interact
@@ -577,7 +586,7 @@ local function hookNPCInteractInput()
 
             g_inputBinding:endActionEventsModification()
         end
-    end)
+    end
 
 end
 
@@ -760,7 +769,6 @@ addModEventListener({
         end
     end,
     mouseEvent = function(self, posX, posY, isDown, isUp, button, eventUsed)
-        if not npcSystem then return false end
         if eventUsed then return eventUsed end
 
         -- Guard helper: any GUI overlay or dialog is open
@@ -791,3 +799,30 @@ addModEventListener({
 })
 
 print("[NPC Favor] Mod initialization complete")
+
+
+local function _rfEscTryRegister()
+    if NpcRfPdaGuest ~= nil and type(NpcRfPdaGuest.tryRegister) == "function" then
+        pcall(NpcRfPdaGuest.tryRegister)
+    end
+end
+
+-- Esc RF PDA: register module after mission/door ready (retry-safe).
+if Mission00 ~= nil then
+    Mission00.loadMission00Finished = Utils.appendedFunction(Mission00.loadMission00Finished, function()
+        _rfEscTryRegister()
+    end)
+end
+if FSBaseMission ~= nil then
+    FSBaseMission.onStartMission = Utils.appendedFunction(FSBaseMission.onStartMission, function()
+        _rfEscTryRegister()
+    end)
+end
+
+if FSBaseMission ~= nil then
+    FSBaseMission.delete = Utils.appendedFunction(FSBaseMission.delete, function()
+        if NpcRfPdaGuest ~= nil and type(NpcRfPdaGuest.reset) == "function" then
+            NpcRfPdaGuest.reset()
+        end
+    end)
+end
