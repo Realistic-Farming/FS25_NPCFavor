@@ -24481,26 +24481,26 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-08-08T06:27:31Z",
+    "timestamp": "2026-08-08T12:18:04Z",
     "date": "2026-08-08",
     "views": {
-      "count": 313,
+      "count": 312,
       "uniques": 143
     },
     "clones": {
-      "count": 329,
+      "count": 333,
       "uniques": 83
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 130,
-        "uniques": 52
+        "count": 129,
+        "uniques": 56
       },
       {
         "referrer": "Google",
-        "count": 62,
-        "uniques": 44
+        "count": 60,
+        "uniques": 42
       },
       {
         "referrer": "kingmods.net",
@@ -24509,44 +24509,44 @@
       },
       {
         "referrer": "Bing",
-        "count": 9,
-        "uniques": 5
-      },
-      {
-        "referrer": "yandex.ru",
-        "count": 4,
+        "count": 7,
         "uniques": 4
       },
       {
         "referrer": "search.brave.com",
         "count": 4,
         "uniques": 2
+      },
+      {
+        "referrer": "yandex.ru",
+        "count": 3,
+        "uniques": 3
       }
     ],
     "popular_paths": [
       {
         "path": "/Realistic-Farming/FS25_NPCFavor",
         "title": "Overview",
-        "count": 219,
-        "uniques": 135
+        "count": 220,
+        "uniques": 136
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1",
         "title": "/releases/tag/v1.2.7.1",
-        "count": 25,
-        "uniques": 23
+        "count": 27,
+        "uniques": 24
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/issues",
         "title": "/issues",
-        "count": 13,
-        "uniques": 12
+        "count": 10,
+        "uniques": 10
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases",
         "title": "/releases",
-        "count": 8,
-        "uniques": 7
+        "count": 9,
+        "uniques": 8
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/tree/development",
@@ -24589,7 +24589,7 @@
       {
         "assets": [
           {
-            "downloads": 72,
+            "downloads": 73,
             "name": "FS25_NPCFavor.zip"
           }
         ],
@@ -24722,7 +24722,7 @@
       }
     ],
     "stars": 33,
-    "forks": 3,
+    "forks": 4,
     "watchers": 5
   }
 ]
