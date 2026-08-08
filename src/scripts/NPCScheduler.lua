@@ -1111,13 +1111,28 @@ end
 -- @return string  Formatted multi-line schedule text
 function NPCScheduler:getScheduleSummary(npc)
     local schedule = self:getScheduleForNPC(npc)
-    local title = g_i18n:getText("npc_schedule_title") or "My plans today:"
+    local title = "My plans today:"
+    local nowMarker = " ← NOW"
+    -- Prefer modEnv; reject Giants Missing banners (truthy on miss).
+    local modEnv = g_modEnvironments and g_modEnvironments[g_currentModName]
+    local i18n = (modEnv and modEnv.i18n) or g_i18n
+    if i18n ~= nil then
+        local okT, t = pcall(function() return i18n:getText("npc_schedule_title") end)
+        if okT and type(t) == "string" and t ~= "" and not t:lower():find("^missing") then
+            title = t
+        end
+        local okN, n = pcall(function() return i18n:getText("npc_schedule_now_marker") end)
+        if okN and type(n) == "string" and n ~= "" and not n:lower():find("^missing") then
+            nowMarker = " " .. n
+        else
+            nowMarker = " ← NOW"
+        end
+    end
     if not schedule then
         return title
     end
 
     local hour = self.currentHour
-    local nowMarker = " " .. (g_i18n:getText("npc_schedule_now_marker") or "← NOW")
 
     local function isCurrent(slot)
         local e = slot["end"]
