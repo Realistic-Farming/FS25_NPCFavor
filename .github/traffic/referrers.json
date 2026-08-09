@@ -4934,18 +4934,18 @@
   "2026-08-09": [
     {
       "referrer": "github.com",
-      "count": 129,
-      "uniques": 56
+      "count": 128,
+      "uniques": 53
     },
     {
       "referrer": "Google",
-      "count": 60,
-      "uniques": 42
+      "count": 58,
+      "uniques": 41
     },
     {
       "referrer": "kingmods.net",
-      "count": 27,
-      "uniques": 11
+      "count": 28,
+      "uniques": 12
     },
     {
       "referrer": "Bing",
@@ -4954,13 +4954,13 @@
     },
     {
       "referrer": "search.brave.com",
-      "count": 4,
+      "count": 3,
       "uniques": 2
     },
     {
       "referrer": "yandex.ru",
-      "count": 3,
-      "uniques": 3
+      "count": 2,
+      "uniques": 2
     }
   ]
 }
