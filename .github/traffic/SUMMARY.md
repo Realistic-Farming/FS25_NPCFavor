@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-08-10T00:40:43Z
-**Days tracked:** 118 | **Download snapshots:** 582 (hourly)
+**Last updated:** 2026-08-10T12:36:21Z
+**Days tracked:** 118 | **Download snapshots:** 583 (hourly)
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 311 | 144 |
-| Git Clones | 332 | 76 |
+| Page Views | 310 | 146 |
+| Git Clones | 349 | 81 |
 
 > **Engagement:** 2.1 pages per visitor (14-day avg)
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 933 of 144 visitors cloned or downloaded (**647.9%**)
+> **14-day conversion:** 938 of 146 visitors cloned or downloaded (**642.4%**)
 >
-> Unique cloners: 76 | Release downloads: 857
+> Unique cloners: 81 | Release downloads: 857
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 857 |
-| Git Clones (14-day) | 332 |
-| **Total Acquisitions** | **1189** |
+| Git Clones (14-day) | 349 |
+| **Total Acquisitions** | **1206** |
 
 ---
 
@@ -54,11 +54,10 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 128 | 53 |
-| Google | 58 | 41 |
-| kingmods.net | 28 | 12 |
+| github.com | 123 | 52 |
+| Google | 73 | 45 |
+| kingmods.net | 21 | 8 |
 | Bing | 7 | 4 |
-| search.brave.com | 3 | 2 |
 | yandex.ru | 2 | 2 |
 
 ---
@@ -79,16 +78,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/Realistic-Farming/FS25_NPCFavor` | 221 | 135 |
-| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 22 | 20 |
-| `/Realistic-Farming/FS25_NPCFavor/issues` | 8 | 8 |
+| `/Realistic-Farming/FS25_NPCFavor` | 222 | 137 |
+| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 25 | 23 |
+| `/Realistic-Farming/FS25_NPCFavor/issues` | 9 | 9 |
 | `/Realistic-Farming/FS25_NPCFavor/releases` | 8 | 7 |
-| `/Realistic-Farming/FS25_NPCFavor/tree/development` | 7 | 5 |
+| `/Realistic-Farming/FS25_NPCFavor/pulls` | 5 | 4 |
+| `/Realistic-Farming/FS25_NPCFavor/tree/development` | 5 | 4 |
 | `/Realistic-Farming/FS25_NPCFavor/blob/main/src/scripts/NPCAI.lua` | 5 | 1 |
-| `/Realistic-Farming/FS25_NPCFavor/wiki` | 4 | 4 |
-| `/Realistic-Farming/FS25_NPCFavor/pulls` | 3 | 3 |
+| `/Realistic-Farming/FS25_NPCFavor/issues/71` | 3 | 3 |
+| `/Realistic-Farming/FS25_NPCFavor/wiki` | 3 | 3 |
 | `/Realistic-Farming/FS25_NPCFavor/commits` | 3 | 2 |
-| `/Realistic-Farming/FS25_NPCFavor/pull/73` | 3 | 1 |
 
 ---
 
