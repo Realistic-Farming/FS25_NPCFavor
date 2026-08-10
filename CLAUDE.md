@@ -4,6 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Git Workflow — ONE FEATURE, ONE PR
+
+> **Tyson's ruling, 2026-08-10. BINDING on every human and every agent seat, including Bob, Fred and Sasha, because those seats are the ones opening PRs.**
+
+- **Every feature, fix or brief gets its OWN BRANCH**, cut fresh from `development`:
+  `feat/<ID>-<slug>`, `fix/<ID>-<slug>`, or `docs/<slug>` / `chore/<slug>` for non-code work
+  (e.g. `feat/SCS-037-caught-up-hour`).
+  Commit **only that one item** on it.
+- **The PR is `feat/...` → `development`.** One item per PR, always. Delete the branch on merge.
+- **NEVER open a feature PR from `development` itself.** `development` is the trunk: a PR based on it
+  silently absorbs every commit that lands while it is open, under a title that still describes the
+  first one. **This happened twice in two days**, the second time to the seat that had just reported it.
+- **`development` → `main` is a RELEASE PR only**, titled `Release vX.Y.Z`. It may carry many features
+  *by design* and its body lists them. It is never a feature PR.
+- **Never commit or push directly to `main`.** Check your branch at the start of every session.
+- If a PR does end up carrying more than its title says: **retitle, rebody with the full commit list,
+  and refresh every approval.** An old approval never covers code it did not see.
+
+```bash
+git checkout development && git pull
+git checkout -b feat/SCS-037-caught-up-hour
+#   ...commit the ONE feature...
+git push -u origin feat/SCS-037-caught-up-hour
+gh pr create --base development
+#   -> Sasha approves -> Tyson merges -> branch deleted
+```
+
+**Sasha approves, Tyson merges.** No seat both approves and lands the same PR.
+
 ## !! MANDATORY: Before Writing ANY FS25 API Code !!
 Before implementing any FS25 Lua API call, class usage, or game system interaction,
 ALWAYS check the following local reference folders first. These contain CORRECT,

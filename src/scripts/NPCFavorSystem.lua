@@ -859,9 +859,13 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
 
         for _, step in ipairs(favor.steps) do
             if not step.completed and not step.isDialogStep and not step.isLoanRepayStep and step.location then
-                local distance = VectorHelper.distance3D(
-                    playerPos.x, playerPos.y, playerPos.z,
-                    step.location.x or 0, step.location.y or 0, step.location.z or 0)
+                -- Ground distance (XZ) so completion matches what the player reads on the
+                -- HUD arrow, which is XZ only (NPCFavorHUD:getDistanceInfo). A 3D check
+                -- also counted the Y delta, so a bad step.location.y (reload, y=0 sell
+                -- point fallback) could hold a step open at HUD 0m and stall the favor.
+                local distance = VectorHelper.distance2D(
+                    playerPos.x, playerPos.z,
+                    step.location.x or 0, step.location.z or 0)
 
                 if distance < 30 then
                     if favor.type == "loan_money" and step.id == 1
@@ -1422,6 +1426,160 @@ function NPCFavorSystem:restoreFavor(savedFavor)
         end
     end
 
+    -- Resolve NPC (id first, then name) so generateFavorSteps can use homePosition.
+    -- Favors restore after NPCs on both XML and StateLedger load paths.
+    local npc = nil
+    if self.npcSystem and self.npcSystem.activeNPCs then
+        local npcId = savedFavor.npcId
+        if npcId ~= nil then
+            for _, candidate in ipairs(self.npcSystem.activeNPCs) do
+                if candidate.id == npcId then
+                    npc = candidate
+                    break
+                end
+            end
+        end
+        if not npc then
+            local npcName = savedFavor.npcName
+            if npcName and npcName ~= "" then
+                for _, candidate in ipairs(self.npcSystem.activeNPCs) do
+                    if candidate.name == npcName then
+                        npc = candidate
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    -- Regenerate steps (save does not persist the step list). Empty steps soft-locks
+    -- progress checks, HUD next-step arrow, and Complete dialog after reload.
+    local steps = {}
+    if favorType then
+        if not npc then
+            print(string.format(
+                "[NPC Favor] restoreFavor: NPC id=%s name=%s missing; regenerating steps with fallback",
+                tostring(savedFavor.npcId), tostring(savedFavor.npcName)))
+            npc = {
+                id = savedFavor.npcId or 0,
+                name = savedFavor.npcName or "",
+                homePosition = nil,
+                assignedField = nil,
+            }
+        end
+        steps = self:generateFavorSteps(favorType, npc)
+    else
+        print(string.format(
+            "[NPC Favor] restoreFavor: unknown favor type '%s'; using one-step fallback",
+            tostring(savedFavor.type)))
+        steps = {{id = 1, description = "Complete the task", completed = false, location = nil}}
+    end
+
+    -- Map saved progress percent onto completed step flags (same ratio as checkFavorProgress).
+    -- Do not call completeFavor here even at 100% — leave confirmation / dialog paths intact.
+    local n = #steps
+    local savedProgress = tonumber(savedFavor.progress) or 0
+    local done = 0
+    if n > 0 then
+        done = math.floor((savedProgress / 100) * n + 0.5)
+        if done < 0 then
+            done = 0
+        elseif done > n then
+            done = n
+        end
+        for i = 1, done do
+            steps[i].completed = true
+        end
+    end
+
+    local currentStep = 1
+    if n > 0 then
+        currentStep = steps[n].id or n
+        for i, step in ipairs(steps) do
+            if not step.completed then
+                currentStep = step.id or i
+                break
+            end
+        end
+    end
+
+    -- Resolve NPC (id first, then name) so generateFavorSteps can use homePosition.
+    -- Favors restore after NPCs on both XML and StateLedger load paths.
+    local npc = nil
+    if self.npcSystem and self.npcSystem.activeNPCs then
+        local npcId = savedFavor.npcId
+        if npcId ~= nil then
+            for _, candidate in ipairs(self.npcSystem.activeNPCs) do
+                if candidate.id == npcId then
+                    npc = candidate
+                    break
+                end
+            end
+        end
+        if not npc then
+            local npcName = savedFavor.npcName
+            if npcName and npcName ~= "" then
+                for _, candidate in ipairs(self.npcSystem.activeNPCs) do
+                    if candidate.name == npcName then
+                        npc = candidate
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    -- Regenerate steps (save does not persist the step list). Empty steps soft-locks
+    -- progress checks, HUD next-step arrow, and Complete dialog after reload.
+    local steps = {}
+    if favorType then
+        if not npc then
+            print(string.format(
+                "[NPC Favor] restoreFavor: NPC id=%s name=%s missing; regenerating steps with fallback",
+                tostring(savedFavor.npcId), tostring(savedFavor.npcName)))
+            npc = {
+                id = savedFavor.npcId or 0,
+                name = savedFavor.npcName or "",
+                homePosition = nil,
+                assignedField = nil,
+            }
+        end
+        steps = self:generateFavorSteps(favorType, npc)
+    else
+        print(string.format(
+            "[NPC Favor] restoreFavor: unknown favor type '%s'; using one-step fallback",
+            tostring(savedFavor.type)))
+        steps = {{id = 1, description = "Complete the task", completed = false, location = nil}}
+    end
+
+    -- Map saved progress percent onto completed step flags (same ratio as checkFavorProgress).
+    -- Do not call completeFavor here even at 100% — leave confirmation / dialog paths intact.
+    local n = #steps
+    local savedProgress = tonumber(savedFavor.progress) or 0
+    local done = 0
+    if n > 0 then
+        done = math.floor((savedProgress / 100) * n + 0.5)
+        if done < 0 then
+            done = 0
+        elseif done > n then
+            done = n
+        end
+        for i = 1, done do
+            steps[i].completed = true
+        end
+    end
+
+    local currentStep = 1
+    if n > 0 then
+        currentStep = steps[n].id or n
+        for i, step in ipairs(steps) do
+            if not step.completed then
+                currentStep = step.id or i
+                break
+            end
+        end
+    end
+
     local currentGameTime = TimeHelper.getGameTimeMs()
 
     local favor = {
@@ -1435,7 +1593,7 @@ function NPCFavorSystem:restoreFavor(savedFavor)
         category = favorType and favorType.category or "misc",
 
         status = "active",
-        progress = savedFavor.progress or 0,
+        progress = savedProgress,
         progressDetails = {},
 
         createdTime = currentGameTime,
@@ -1461,9 +1619,9 @@ function NPCFavorSystem:restoreFavor(savedFavor)
         completionDuration = nil,
         playerNotes = "",
         priority = 1,
-        currentStep = 1,
-        totalSteps = 1,
-        steps = {}
+        currentStep = currentStep,
+        totalSteps = n > 0 and n or 1,
+        steps = steps
     }
 
     -- Migrate legacy in-flight favors saved before farm-attribution: give them an

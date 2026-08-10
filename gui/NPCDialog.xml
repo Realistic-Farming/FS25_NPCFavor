@@ -29,7 +29,7 @@
     <GuiElement profile="newLayer" />
     <Bitmap profile="dialogFullscreenBg" id="dialogBg" />
 
-    <GuiElement profile="dialogBg" id="dialogElement" size="600px 530px">
+    <GuiElement profile="dialogBg" id="dialogElement" size="600px 600px">
         <ThreePartBitmap profile="fs25_dialogBgMiddle" />
         <ThreePartBitmap profile="fs25_dialogBgTop" />
         <ThreePartBitmap profile="fs25_dialogBgBottom" />
@@ -49,6 +49,7 @@
             <Text profile="npcRelationshipText" id="relationshipText" position="0px -95px" text=""/>
 
             <!-- ========== Response Area (hidden until action clicked) ========== -->
+            <!-- Tall enough for 4-6 lines; buttons start below this band (~-260). -->
             <Bitmap profile="npcResponseBg" id="responseBg" position="0px -120px"/>
             <Text profile="npcResponseText" id="responseText" position="0px -128px" text=""/>
 
@@ -56,49 +57,49 @@
             <!-- onFocus/onLeave on Button elements drive hover color changes on Bitmap bg -->
 
             <!-- Button 1: Talk (always enabled) -->
-            <Bitmap profile="npcActionBtnBg" id="btnTalkBg" position="0px -195px"/>
-            <Button profile="npcActionBtnHit" id="btnTalk" position="0px -195px" onClick="onClickTalk" onFocus="onBtnTalkFocus" onLeave="onBtnTalkLeave"/>
-            <Text profile="npcActionBtnText" id="btnTalkText" position="0px -200px" text="Talk"/>
+            <Bitmap profile="npcActionBtnBg" id="btnTalkBg" position="0px -260px"/>
+            <Button profile="npcActionBtnHit" id="btnTalk" position="0px -260px" onClick="onClickTalk" onFocus="onBtnTalkFocus" onLeave="onBtnTalkLeave"/>
+            <Text profile="npcActionBtnText" id="btnTalkText" position="0px -265px" text="Talk"/>
 
             <!-- Button 2: Ask about work (always enabled) -->
-            <Bitmap profile="npcActionBtnBg" id="btnWorkBg" position="0px -232px"/>
-            <Button profile="npcActionBtnHit" id="btnWork" position="0px -232px" onClick="onClickAskWork" onFocus="onBtnWorkFocus" onLeave="onBtnWorkLeave"/>
-            <Text profile="npcActionBtnText" id="btnWorkText" position="0px -237px" text="Ask about work"/>
+            <Bitmap profile="npcActionBtnBg" id="btnWorkBg" position="0px -297px"/>
+            <Button profile="npcActionBtnHit" id="btnWork" position="0px -297px" onClick="onClickAskWork" onFocus="onBtnWorkFocus" onLeave="onBtnWorkLeave"/>
+            <Text profile="npcActionBtnText" id="btnWorkText" position="0px -302px" text="Ask about work"/>
 
             <!-- Button 3: Ask for favor (disabled if rel < 20) -->
-            <Bitmap profile="npcActionBtnBg" id="btnFavorBg" position="0px -269px"/>
-            <Button profile="npcActionBtnHit" id="btnFavor" position="0px -269px" onClick="onClickFavor" onFocus="onBtnFavorFocus" onLeave="onBtnFavorLeave"/>
-            <Text profile="npcActionBtnText" id="btnFavorText" position="0px -274px" text="Ask for favor"/>
+            <Bitmap profile="npcActionBtnBg" id="btnFavorBg" position="0px -334px"/>
+            <Button profile="npcActionBtnHit" id="btnFavor" position="0px -334px" onClick="onClickFavor" onFocus="onBtnFavorFocus" onLeave="onBtnFavorLeave"/>
+            <Text profile="npcActionBtnText" id="btnFavorText" position="0px -339px" text="Ask for favor"/>
 
             <!-- Button 4: Give gift (disabled if rel < 30) -->
-            <Bitmap profile="npcActionBtnBg" id="btnGiftBg" position="0px -306px"/>
-            <Button profile="npcActionBtnHit" id="btnGift" position="0px -306px" onClick="onClickGift" onFocus="onBtnGiftFocus" onLeave="onBtnGiftLeave"/>
-            <Text profile="npcActionBtnText" id="btnGiftText" position="0px -311px" text="Give gift"/>
+            <Bitmap profile="npcActionBtnBg" id="btnGiftBg" position="0px -371px"/>
+            <Button profile="npcActionBtnHit" id="btnGift" position="0px -371px" onClick="onClickGift" onFocus="onBtnGiftFocus" onLeave="onBtnGiftLeave"/>
+            <Text profile="npcActionBtnText" id="btnGiftText" position="0px -376px" text="Give gift"/>
 
             <!-- Button 5: Relationship info (always enabled) -->
-            <Bitmap profile="npcActionBtnBg" id="btnRelBg" position="0px -343px"/>
-            <Button profile="npcActionBtnHit" id="btnRel" position="0px -343px" onClick="onClickRelationship" onFocus="onBtnRelFocus" onLeave="onBtnRelLeave"/>
-            <Text profile="npcActionBtnText" id="btnRelText" position="0px -348px" text="Relationship info"/>
+            <Bitmap profile="npcActionBtnBg" id="btnRelBg" position="0px -408px"/>
+            <Button profile="npcActionBtnHit" id="btnRel" position="0px -408px" onClick="onClickRelationship" onFocus="onBtnRelFocus" onLeave="onBtnRelLeave"/>
+            <Text profile="npcActionBtnText" id="btnRelText" position="0px -413px" text="Relationship info"/>
 
             <!-- ========== Gift Selection Panel (Lua: showGiftPanel/hideGiftPanel) ========== -->
             <!-- Occupies the same Y zone as action buttons; shown/hidden in alternation.     -->
-            <Text profile="npcGiftSelectTitle" id="giftSelectTitle" position="0px -191px" text="Choose a gift:"/>
+            <Text profile="npcGiftSelectTitle" id="giftSelectTitle" position="0px -256px" text="Choose a gift:"/>
 
-            <Bitmap profile="npcGiftBtnBg"     id="btnGiftSmallBg"       position="0px -217px"/>
-            <Button profile="npcGiftBtnHit"    id="btnGiftSmall"         position="0px -217px" onClick="onClickGiftSmall"    onFocus="onBtnGiftSmallFocus"    onLeave="onBtnGiftSmallLeave"/>
-            <Text   profile="npcGiftBtnText"   id="btnGiftSmallText"     position="0px -222px" text="Small Gift ($200)"/>
+            <Bitmap profile="npcGiftBtnBg"     id="btnGiftSmallBg"       position="0px -282px"/>
+            <Button profile="npcGiftBtnHit"    id="btnGiftSmall"         position="0px -282px" onClick="onClickGiftSmall"    onFocus="onBtnGiftSmallFocus"    onLeave="onBtnGiftSmallLeave"/>
+            <Text   profile="npcGiftBtnText"   id="btnGiftSmallText"     position="0px -287px" text="Small Gift ($200)"/>
 
-            <Bitmap profile="npcGiftBtnBg"     id="btnGiftStandardBg"    position="0px -253px"/>
-            <Button profile="npcGiftBtnHit"    id="btnGiftStandard"      position="0px -253px" onClick="onClickGiftStandard" onFocus="onBtnGiftStandardFocus" onLeave="onBtnGiftStandardLeave"/>
-            <Text   profile="npcGiftBtnText"   id="btnGiftStandardText"  position="0px -258px" text="Standard Gift ($500)"/>
+            <Bitmap profile="npcGiftBtnBg"     id="btnGiftStandardBg"    position="0px -318px"/>
+            <Button profile="npcGiftBtnHit"    id="btnGiftStandard"      position="0px -318px" onClick="onClickGiftStandard" onFocus="onBtnGiftStandardFocus" onLeave="onBtnGiftStandardLeave"/>
+            <Text   profile="npcGiftBtnText"   id="btnGiftStandardText"  position="0px -323px" text="Standard Gift ($500)"/>
 
-            <Bitmap profile="npcGiftBtnBg"     id="btnGiftGenerousBg"    position="0px -289px"/>
-            <Button profile="npcGiftBtnHit"    id="btnGiftGenerous"      position="0px -289px" onClick="onClickGiftGenerous" onFocus="onBtnGiftGenerousFocus" onLeave="onBtnGiftGenerousLeave"/>
-            <Text   profile="npcGiftBtnText"   id="btnGiftGenerousText"  position="0px -294px" text="Generous Gift ($1,000)"/>
+            <Bitmap profile="npcGiftBtnBg"     id="btnGiftGenerousBg"    position="0px -354px"/>
+            <Button profile="npcGiftBtnHit"    id="btnGiftGenerous"      position="0px -354px" onClick="onClickGiftGenerous" onFocus="onBtnGiftGenerousFocus" onLeave="onBtnGiftGenerousLeave"/>
+            <Text   profile="npcGiftBtnText"   id="btnGiftGenerousText"  position="0px -359px" text="Generous Gift ($1,000)"/>
 
-            <Bitmap profile="npcGiftCancelBg"  id="btnGiftCancelBg"      position="0px -325px"/>
-            <Button profile="npcGiftCancelHit" id="btnGiftCancel"        position="0px -325px" onClick="onClickGiftCancel"   onFocus="onBtnGiftCancelFocus"   onLeave="onBtnGiftCancelLeave"/>
-            <Text   profile="npcGiftCancelText" id="btnGiftCancelText"   position="0px -330px" text="Cancel"/>
+            <Bitmap profile="npcGiftCancelBg"  id="btnGiftCancelBg"      position="0px -390px"/>
+            <Button profile="npcGiftCancelHit" id="btnGiftCancel"        position="0px -390px" onClick="onClickGiftCancel"   onFocus="onBtnGiftCancelFocus"   onLeave="onBtnGiftCancelLeave"/>
+            <Text   profile="npcGiftCancelText" id="btnGiftCancelText"   position="0px -395px" text="Cancel"/>
 
         </GuiElement>
 
@@ -148,16 +149,18 @@
 
         <!-- ========== RESPONSE AREA BACKGROUND ========== -->
         <Profile name="npcResponseBg" extends="baseReference" with="anchorTopCenter">
-            <size value="540px 55px"/>
+            <size value="540px 130px"/>
             <imageColor value="0.08 0.08 0.12 0.9"/>
         </Profile>
 
         <!-- ========== RESPONSE TEXT ========== -->
         <Profile name="npcResponseText" extends="fs25_textDefault" with="anchorTopCenter">
-            <size value="520px 45px"/>
+            <size value="520px 118px"/>
             <textSize value="12px"/>
             <textColor value="0.9 0.95 1 1"/>
             <textAlignment value="center"/>
+            <textMaxNumLines value="6"/>
+            <textVerticalAlignment value="top"/>
         </Profile>
 
         <!-- ========== ACTION BUTTON BACKGROUND ========== -->

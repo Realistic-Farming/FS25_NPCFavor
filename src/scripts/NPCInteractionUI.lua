@@ -55,6 +55,36 @@
 NPCInteractionUI = {}
 NPCInteractionUI_mt = Class(NPCInteractionUI)
 
+-- Mod-scoped i18n with Missing-reject (same class as MDMUtil.getModText / NPCDialog).
+local NPC_UI_MOD_NAME = g_currentModName
+local function getModText(key, fallback)
+    if key == nil or key == "" then
+        return fallback
+    end
+    local text = nil
+    local modEnv = g_modEnvironments and g_modEnvironments[NPC_UI_MOD_NAME]
+    local i18n = (modEnv and modEnv.i18n) or g_i18n
+    if i18n ~= nil then
+        local ok, result = pcall(function() return i18n:getText(key) end)
+        if ok and type(result) == "string" and result ~= "" then
+            text = result
+        end
+    end
+    if type(text) ~= "string" or text == "" then
+        return fallback
+    end
+    local lower = text:lower()
+    if lower == tostring(key):lower()
+        or text == ("$l10n_" .. key)
+        or lower:find("^missing%s")
+        or lower:find("^missing_")
+        or lower:find("^missing '")
+    then
+        return fallback
+    end
+    return text
+end
+
 --- Create a new NPCInteractionUI instance.
 -- @param npcSystem  NPCSystem reference (provides settings, favorSystem, scheduler, etc.)
 -- @return NPCInteractionUI instance
@@ -522,11 +552,11 @@ function NPCInteractionUI:getGreetingForNPC(npc)
 
     local timeGreeting = ""
     if hour < 12 then
-        timeGreeting = g_i18n:getText("npc_greeting_morning") or "Good morning"
+        timeGreeting = getModText("npc_greeting_morning", "Good morning")
     elseif hour < 18 then
-        timeGreeting = g_i18n:getText("npc_greeting_afternoon") or "Good afternoon"
+        timeGreeting = getModText("npc_greeting_afternoon", "Good afternoon")
     else
-        timeGreeting = g_i18n:getText("npc_greeting_evening") or "Good evening"
+        timeGreeting = getModText("npc_greeting_evening", "Good evening")
     end
 
     -- Mood-aware greeting prefix
@@ -543,19 +573,19 @@ function NPCInteractionUI:getGreetingForNPC(npc)
     -- 0-9 Hostile, 10-24 Unfriendly, 25-39 Neutral, 40-59 Acquaintance,
     -- 60-74 Friend, 75-89 Close Friend, 90-100 Best Friend
     if relationship < 10 then
-        return moodPrefix .. string.format(g_i18n:getText("npc_greeting_hostile") or "%s. ...Do I know you?", timeGreeting)
+        return moodPrefix .. string.format(getModText("npc_greeting_hostile", "%s. ...Do I know you?"), timeGreeting)
     elseif relationship < 25 then
-        return moodPrefix .. string.format(g_i18n:getText("npc_greeting_unfriendly") or "%s. Need something?", timeGreeting)
+        return moodPrefix .. string.format(getModText("npc_greeting_unfriendly", "%s. Need something?"), timeGreeting)
     elseif relationship < 40 then
-        return moodPrefix .. string.format(g_i18n:getText("npc_greeting_neutral") or "%s. What can I do for you?", timeGreeting)
+        return moodPrefix .. string.format(getModText("npc_greeting_neutral", "%s. What can I do for you?"), timeGreeting)
     elseif relationship < 60 then
-        return moodPrefix .. (g_i18n:getText("npc_dialog_hello") or "Hello there, neighbor!")
+        return moodPrefix .. getModText("npc_dialog_hello", "Hello there, neighbor!")
     elseif relationship < 75 then
-        return moodPrefix .. string.format(g_i18n:getText("npc_greeting_friendly") or "%s, friend! How are you?", timeGreeting)
+        return moodPrefix .. string.format(getModText("npc_greeting_friendly", "%s, friend! How are you?"), timeGreeting)
     elseif relationship < 90 then
-        return moodPrefix .. string.format(g_i18n:getText("npc_greeting_close_friend") or "%s! Always great to see you!", timeGreeting)
+        return moodPrefix .. string.format(getModText("npc_greeting_close_friend", "%s! Always great to see you!"), timeGreeting)
     else
-        return moodPrefix .. string.format(g_i18n:getText("npc_greeting_best_friend") or "%s, my good friend! Great to see you!", timeGreeting)
+        return moodPrefix .. string.format(getModText("npc_greeting_best_friend", "%s, my good friend! Great to see you!"), timeGreeting)
     end
 end
 
@@ -657,31 +687,25 @@ end
 -- @return string  Work status message in NPC's voice
 function NPCInteractionUI:getWorkStatusMessage(npc)
     if not npc.currentAction then
-        return g_i18n:getText("npc_work_nothing") or "I'm not doing much right now."
+        return getModText("npc_work_nothing", "I'm not doing much right now.")
     end
 
     local messages = {
-        idle = g_i18n:getText("npc_work_idle") or "I'm taking a break at the moment.",
-        walking = g_i18n:getText("npc_work_walking") or "Just getting some exercise.",
-        working = g_i18n:getText("npc_work_working") or "Working on the field. It's hard work but someone's got to do it!",
-        driving = g_i18n:getText("npc_work_driving") or "Making some deliveries with my vehicle.",
-        resting = g_i18n:getText("npc_work_resting") or "Taking it easy for a while.",
-        socializing = g_i18n:getText("npc_work_socializing") or "Chatting with a neighbor.",
-        traveling = g_i18n:getText("npc_work_traveling") or "Heading somewhere important."
+        idle = getModText("npc_work_idle", "I'm taking a break at the moment."),
+        walking = getModText("npc_work_walking", "Just getting some exercise."),
+        working = getModText("npc_work_working", "Working on the field. It's hard work but someone's got to do it!"),
+        driving = getModText("npc_work_driving", "Making some deliveries with my vehicle."),
+        resting = getModText("npc_work_resting", "Taking it easy for a while."),
+        socializing = getModText("npc_work_socializing", "Chatting with a neighbor."),
+        traveling = getModText("npc_work_traveling", "Heading somewhere important.")
     }
 
-    local statusMsg = messages[npc.currentAction] or g_i18n:getText("npc_work_busy") or "I'm keeping busy."
-
-    -- 3i: Append upcoming schedule info
-    local scheduleInfo = self:getUpcomingSchedule(npc)
-    if scheduleInfo then
-        statusMsg = statusMsg .. "\n" .. scheduleInfo
-    end
-
-    return statusMsg
+    -- Status line only. AskWork appends scheduler:getScheduleSummary once (no double schedule).
+    return messages[npc.currentAction] or getModText("npc_work_busy", "I'm keeping busy.")
 end
 
 --- Get upcoming schedule entries for an NPC (next 3 activities).
+-- Prefer scheduler:getScheduleSummary for dialog AskWork; this helper remains for other callers.
 -- @param npc  NPC data table
 -- @return string  Formatted upcoming schedule, or nil
 function NPCInteractionUI:getUpcomingSchedule(npc)
@@ -702,18 +726,10 @@ function NPCInteractionUI:getUpcomingSchedule(npc)
 
     if #upcoming == 0 then return nil end
 
-    local parts = {g_i18n:getText("npc_schedule_plans") or "My plans:"}
+    local parts = {getModText("npc_schedule_plans", "My plans:")}
     for _, slot in ipairs(upcoming) do
         local activityName = slot.activity or "idle"
-        -- Humanize activity names
-        local friendlyNames = {
-            sleeping = "Sleep", field_preparation = "Field prep", harvesting = "Harvest",
-            livestock = "Livestock care", maintenance = "Maintenance", commute = "Travel",
-            break_time = "Break", socializing = "Socialize", lunch = "Lunch",
-            idle = "Free time", evening_walk = "Walk", rest = "Rest",
-            market_check = "Check market", morning_routine = "Morning routine",
-        }
-        local displayName = friendlyNames[activityName] or activityName
+        local displayName = scheduler:getActivityDisplayName(activityName) or activityName
         table.insert(parts, string.format("  %d:00 - %s", math.floor(slot.start), displayName))
     end
     return table.concat(parts, "\n")

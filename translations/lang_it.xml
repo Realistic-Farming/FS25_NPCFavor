@@ -45,6 +45,7 @@
 		<text name="npc_dialog_btn_talk" text="Parla" />
 		<text name="npc_dialog_btn_work" text="Chiedi del lavoro" />
 		<text name="npc_dialog_btn_favor" text="Chiedi un favore" />
+		<text name="npc_dialog_btn_offer_help" text="Offri aiuto" />
 		<text name="npc_dialog_btn_favor_progress" text="Controlla progresso favore" />
 		<text name="npc_dialog_btn_favor_locked" text="Chiedi favore (rel 20+ necessaria)" />
 		<text name="npc_dialog_btn_gift" text="Fai un regalo (500$)" />
@@ -91,7 +92,9 @@
 		<text name="npc_greeting_evening" text="Buonasera" />
 		<text name="npc_greeting_hostile" text="%s. Cosa vuoi?" />
 		<text name="npc_greeting_unfriendly" text="%s. Hai bisogno di qualcosa?" />
+		<text name="npc_greeting_neutral" text="%s. Cosa posso fare per te?" />
 		<text name="npc_greeting_friendly" text="%s, amico! Come stai?" />
+		<text name="npc_greeting_close_friend" text="%s! È sempre un piacere vederti!" />
 		<text name="npc_greeting_best_friend" text="%s, mio buon amico! Che bello vederti!" />
 		<text name="npc_topic_weather" text="Il tempo è stato bello ultimamente, vero?" />
 		<text name="npc_topic_farm" text="Come va la tua fattoria?" />
@@ -149,9 +152,9 @@
 		<text name="npc_hud_locked_short" text="Blocca HUD favori" />
 		<text name="npc_hud_locked_long" text="Quando bloccato, la lista favori non può essere spostata o ridimensionata" />
 		<text name="npc_hud_scale_short" text="Dimensione HUD favori" />
+		<text name="npc_panel_scale_short" text="[EN] Settings Panel Scale"/>
+		<text name="npc_panel_scale_long" text="[EN] Size of the F5 settings panel (independent of the favor HUD)"/>
 		<text name="npc_hud_scale_long" text="Dimensione della lista favori attivi sullo schermo" />
-		<text name="npc_panel_scale_short" text="[EN] Settings Panel Scale" />
-		<text name="npc_panel_scale_long" text="[EN] Size of the F5 settings panel on screen" />
 		<text name="npc_admin_title" text="Pannello Admin NPC" />
 		<text name="npc_admin_subtitle_fmt" text="%d NPC attivi  |  Clicca Modifica per regolare" />
 		<text name="npc_admin_no_npcs" text="Nessun NPC attivo. Gli NPC appariranno dopo l'inizializzazione." />
@@ -255,7 +258,7 @@
 		<text name="npc_desc_npcHelpPlayer"         text="NPCs may proactively offer to help the player" />
 		<text name="npc_desc_showFavorList"         text="Show active favors list on the HUD" />
 		<text name="npc_desc_favorHudScale"         text="Size of the favor list overlay" />
-		<text name="npc_desc_favorPanelScale"       text="[EN] Size of the F5 settings panel" />
+		<text name="npc_desc_favorPanelScale" text="[EN] Size of the settings panel (TV/4K friendly, independent of HUD)"/>
 		<text name="npc_desc_favorHudLocked"        text="Prevent accidental HUD repositioning" />
 		<text name="npc_desc_showNames"             text="Display NPC names above their heads" />
 		<text name="npc_desc_showRelationshipBars"  text="Show relationship bars in conversation" />
@@ -305,5 +308,28 @@
 		<!-- ===== Schedule board (v1.2.5.0) ===== -->
 		<text name="npc_schedule_title"      text="I miei piani di oggi:" />
 		<text name="npc_schedule_now_marker" text="&lt;- ORA" />
-	</texts>
+
+		<!-- Esc RF PDA NPC Favor densify 2026-08-05 -->
+		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. When a favor is waiting on you, the line above the table names who and how urgent it is. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
+		<text name="npc_rf_pda_module_title" text="[EN] NPC Favor" />
+		<text name="npc_rf_pda_blurb" text="[EN] Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only." />
+		<text name="npc_rf_pda_col_who" text="[EN] Who" />
+		<text name="npc_rf_pda_col_standing" text="[EN] Standing" />
+		<text name="npc_rf_pda_col_benefits" text="[EN] Benefits" />
+		<text name="npc_rf_pda_col_history" text="[EN] History" />
+		<text name="npc_rf_pda_empty" text="[EN] no neighbors yet" />
+		<text name="npc_rf_pda_history_none" text="[EN] no favors yet" />
+		<text name="npc_rf_pda_history_fmt" text="[EN] %d%% (%d/%d)" />
+		<text name="npc_rf_pda_active_none" text="[EN] Active favors: none" />
+		<text name="npc_rf_pda_active_one" text="[EN] Active: %s · %s · %s" />
+		<text name="npc_rf_pda_active_more" text="[EN] and %d more" />
+		<text name="npc_rf_pda_showing_of" text="[EN] showing %d of %d" />
+		<text name="npc_rf_pda_more" text="[EN] and %d more" />
+		<text name="npc_rf_pda_hint_sort" text="[EN] %d neighbors · sorted by standing (best first)" />
+		<text name="npc_rf_pda_trend_warming" text="[EN] warming" />
+		<text name="npc_rf_pda_trend_cooling" text="[EN] cooling" />
+		<text name="npc_rf_pda_urg_min" text="[EN] &lt;1h" />
+		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
+		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
+</texts>
 </l10n>
