@@ -2390,6 +2390,12 @@ function NPCSystem:onAIJobStopped(job, aiMessage)
                 npc.aiState = "idle"
                 npc.currentAction = "idle"
                 npc.workTimer = 0
+                -- [SF-10] NPC TREATMENT: on session completion, run the queued
+                -- treatment through SF's own public entry with charge = false
+                -- (the NO-MONEY law). Server-side only; neutral when no SF.
+                if g_server ~= nil and NPCTreatment and NPCTreatment.ENABLED then
+                    pcall(function() NPCTreatment:runPendingTreatment(npc) end)
+                end
                 if self.settings.debugMode then
                     local reason = "?"
                     pcall(function()
