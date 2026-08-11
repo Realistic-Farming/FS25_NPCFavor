@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-08-11T12:33:17Z
-**Days tracked:** 119 | **Download snapshots:** 589 (hourly)
+**Last updated:** 2026-08-11T18:41:11Z
+**Days tracked:** 119 | **Download snapshots:** 591 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 310 | 146 |
-| Git Clones | 349 | 81 |
+| Page Views | 333 | 149 |
+| Git Clones | 352 | 79 |
 
-> **Engagement:** 2.1 pages per visitor (14-day avg)
+> **Engagement:** 2.2 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 941 of 146 visitors cloned or downloaded (**644.5%**)
+> **14-day conversion:** 940 of 149 visitors cloned or downloaded (**630.8%**)
 >
-> Unique cloners: 81 | Release downloads: 860
+> Unique cloners: 79 | Release downloads: 861
 
 ---
 
@@ -42,9 +42,9 @@
 
 | Channel | Count |
 |---------|-------|
-| Zip Downloads | 860 |
-| Git Clones (14-day) | 349 |
-| **Total Acquisitions** | **1209** |
+| Zip Downloads | 861 |
+| Git Clones (14-day) | 352 |
+| **Total Acquisitions** | **1213** |
 
 ---
 
@@ -54,9 +54,9 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 123 | 52 |
-| Google | 73 | 45 |
-| kingmods.net | 21 | 8 |
+| github.com | 126 | 49 |
+| Google | 80 | 50 |
+| kingmods.net | 18 | 6 |
 | Bing | 7 | 4 |
 | yandex.ru | 2 | 2 |
 
@@ -78,14 +78,14 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/Realistic-Farming/FS25_NPCFavor` | 222 | 137 |
-| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 25 | 23 |
-| `/Realistic-Farming/FS25_NPCFavor/issues` | 9 | 9 |
+| `/Realistic-Farming/FS25_NPCFavor` | 229 | 140 |
+| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 26 | 24 |
+| `/Realistic-Farming/FS25_NPCFavor/issues` | 11 | 10 |
 | `/Realistic-Farming/FS25_NPCFavor/releases` | 8 | 7 |
-| `/Realistic-Farming/FS25_NPCFavor/pulls` | 5 | 4 |
+| `/Realistic-Farming/FS25_NPCFavor/pulls` | 6 | 5 |
 | `/Realistic-Farming/FS25_NPCFavor/tree/development` | 5 | 4 |
 | `/Realistic-Farming/FS25_NPCFavor/blob/main/src/scripts/NPCAI.lua` | 5 | 1 |
-| `/Realistic-Farming/FS25_NPCFavor/issues/71` | 3 | 3 |
+| `/Realistic-Farming/FS25_NPCFavor/issues/71` | 4 | 4 |
 | `/Realistic-Farming/FS25_NPCFavor/wiki` | 3 | 3 |
 | `/Realistic-Farming/FS25_NPCFavor/commits` | 3 | 2 |
 
