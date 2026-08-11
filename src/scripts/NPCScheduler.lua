@@ -246,6 +246,14 @@ function NPCScheduler:onNewDay(newDay, month, year)
             end
         end
     end
+
+    -- [SF-10] NPC TREATMENT: the breakfast roll. Each NPC decides once per
+    -- morning whether to treat their assigned field's trouble, weighted by their
+    -- work ethic, trouble severity, and the weather (rain vetoes). Server-side.
+    -- Neutral when SoilFertilizer is absent (no SF, no NPC ever treats).
+    if g_server ~= nil and NPCTreatment and NPCTreatment.ENABLED then
+        NPCTreatment:breakfastRoll(self.npcSystem)
+    end
     
     -- Clean up old scheduled interactions
     self:cleanupOldInteractions()

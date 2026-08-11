@@ -79,6 +79,10 @@ if modDirectory then
     source(modDirectory .. "src/scripts/NPCAI.lua")
     source(modDirectory .. "src/scripts/NPCFieldWork.lua")
     source(modDirectory .. "src/scripts/NPCScheduler.lua")
+    -- [SF-10] NPC treatment decisions: the breakfast roll + the diligence rule +
+    -- the no-money treatment invocation. Loaded after the scheduler (which calls
+    -- it from onNewDay). Neutral when SoilFertilizer is absent.
+    source(modDirectory .. "src/scripts/NPCTreatment.lua")
     source(modDirectory .. "src/scripts/NPCInteractionUI.lua")
     source(modDirectory .. "src/scripts/NPCFavorHUD.lua")
     source(modDirectory .. "src/scripts/NPCTeleport.lua")
