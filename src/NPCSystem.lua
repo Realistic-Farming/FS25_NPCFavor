@@ -2756,9 +2756,17 @@ function NPCSystem:startNPCFieldWorkOwned(npc)
     pcall(function() farmlandId = g_farmlandManager:getFarmlandIdAtWorldPosition(cx, cz) end)
     if not farmlandId then return false end
 
-    -- Temporarily own the field with the local player's farm (a guaranteed real farm).
-    local jobFarmId = (g_currentMission.getFarmId and g_currentMission:getFarmId())
-        or (FarmManager and FarmManager.SINGLEPLAYER_FARM_ID) or 1
+    -- Temporarily own the field with a GUARDED real farm id (a guaranteed real farm).
+    -- [SF-27] LANE B: the flip stays mechanically (the job needs a real farm id),
+    -- but it is DEFUSED against the dedicated-server flip bug: never read
+    -- getFarmId() on a dedicated server, and never or-fallback past a possible 0.
+    -- SF's designation filter handles the rest (NPC ground never churns SF
+    -- membership, never leaks into owned surfaces, never wipes GRLE).
+    local jobFarmId = FarmManager and FarmManager.SINGLEPLAYER_FARM_ID or 1
+    if g_server == nil then
+        local fid = g_currentMission and g_currentMission.getFarmId and g_currentMission:getFarmId()
+        if fid and fid > 0 then jobFarmId = fid end
+    end
     if not self:_flipFarmlandOwnership(farmlandId, jobFarmId) then return false end
     npc._ownedFarmland = farmlandId
 
