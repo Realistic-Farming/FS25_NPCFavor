@@ -340,6 +340,13 @@ function NPCRelationshipManager:updateRelationship(npcId, change, reason)
     newValue = math.max(0, math.min(100, newValue))
     
     npc.relationship = newValue
+
+    -- [SF-10] NPC TREATMENT (B3): a relationship change moves the work-ethic
+    -- OFFSET (helping raises diligence, damage lowers it), never the base
+    -- workEthic. Bounded and symmetric.
+    if NPCTreatment and NPCTreatment.adjustOffset then
+        pcall(NPCTreatment.adjustOffset, NPCTreatment, npc, effectiveChange)
+    end
     
     -- Store in history with full details
     local historyEntry = {

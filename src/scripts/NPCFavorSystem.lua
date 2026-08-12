@@ -1816,3 +1816,51 @@ function NPCFavorSystem:triggerContextualFavor(npc, context)
     return favor
 end
 
+
+-- =========================================================
+-- [SF-27] NPC SOIL DESIGNATION SURFACE
+-- The two read surfaces the soil bridge (SF) pulls through the mission handle.
+-- Pull-only, pcall-safe, neutral-absent (nil = not NPC-managed). Derived from
+-- each NPC's assignedFarmland. Never persisted; proximity re-derives at load.
+-- =========================================================
+
+--- Which NPC (if any) manages a farmland? Derived from the active NPCs' assigned
+--- farmland records.
+---@param farmlandId number
+---@return number|nil npcId
+function NPCFavorSystem:getNPCForFarmland(farmlandId)
+    local npcs = self.npcSystem and self.npcSystem.activeNPCs
+    if not npcs then return nil end
+    for _, npc in ipairs(npcs) do
+        local af = npc.assignedFarmland
+        if af and af.farmlandId == farmlandId then
+            return npc.id
+        end
+    end
+    return nil
+end
+
+--- Is this farmland designated NPC-managed?
+---@param farmlandId number
+---@return boolean managed
+---@return number|nil npcId
+function NPCFavorSystem:isNPCManaged(farmlandId)
+    local npcId = self:getNPCForFarmland(farmlandId)
+    if npcId then return true, npcId end
+    return false, nil
+end
+
+--- Who is working this farmland right now (the working-state window)?
+---@param farmlandId number
+---@return number|nil npcId
+function NPCFavorSystem:getWorkingState(farmlandId)
+    local npcs = self.npcSystem and self.npcSystem.activeNPCs
+    if not npcs then return nil end
+    for _, npc in ipairs(npcs) do
+        local af = npc.assignedFarmland
+        if af and af.farmlandId == farmlandId and npc.isWorking then
+            return npc.id
+        end
+    end
+    return nil
+end
