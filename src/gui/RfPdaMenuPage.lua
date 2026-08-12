@@ -656,7 +656,7 @@ function RfPdaMenuPage:initialize()
             end
         end
     }
-    -- SPACE (MENU_EXTRA_1): Crop Stress consultant is secondary only ÔÇö never default home.
+    -- SPACE (MENU_EXTRA_1): Crop Stress consultant is secondary only — never default home.
     -- EXTRA_1 free on CS (Help is Soil-only). SmoothList would swallow MENU_ACTIVATE.
     self.btnCsConsultant = {
         inputAction = InputAction.MENU_EXTRA_1,
@@ -1108,8 +1108,8 @@ function RfPdaMenuPage:refreshPanelSelector(forceRebuildDots)
         -- setTexts can re-apply profile single-text disable; always follow with force-enable.
         self.rfPanelSelector:setTexts(texts)
         if self.rfPanelSelector.setState then
-            -- Modules dual-fire FAIL-FIX (George): forceEvent=true re-enters onClick ÔåÆ
-            -- selectPanel ÔåÆ refreshPanelSelector ÔåÆ setState(true) loop with moduleList.
+            -- Modules dual-fire FAIL-FIX (George): forceEvent=true re-enters onClick →
+            -- selectPanel → refreshPanelSelector → setState(true) loop with moduleList.
             -- Always false while _refreshing so list/MTO sync never raises click.
             self.rfPanelSelector:setState(activeIndex, false)
         end
@@ -1125,9 +1125,6 @@ function RfPdaMenuPage:refreshPanelSelector(forceRebuildDots)
         -- Module SmoothList: only when panel set actually changes or forced open.
         if (forceRebuildDots or setChanged) and self.moduleList then
             self.moduleList:reloadData()
-        elseif self.moduleList then
-            -- Quiet radio paint (lit iconBg + name) without thrash reload.
-            self:_paintModuleListSelection()
         end
     end)
     self._refreshing = false
@@ -1147,11 +1144,11 @@ function RfPdaMenuPage:_refreshDotLegend(panels, activeIndex)
         end
         table.insert(shorts, title)
     end
-    local joined = table.concat(shorts, " ├é┬À ")
+    local joined = table.concat(shorts, " Â· ")
     if joined == "" then
         joined = tr("rf_pda_module_soil_short", "Soil")
     end
-    self.rfDotLegend:setText(string.format("%d/%d ├é┬À %s", activeIndex or 1, n, joined))
+    self.rfDotLegend:setText(string.format("%d/%d Â· %s", activeIndex or 1, n, joined))
 end
 
 --- Match SoilMapHooks / Map: grow/shrink from first seed RoundCorner in the BoxLayout.
@@ -1212,7 +1209,7 @@ function RfPdaMenuPage:onClickRfPanelSelector()
     self:_applySelectorState()
 end
 
---- Debounce duplicate module id selects (MTO Ôåö moduleList bounce ~200ms in logs).
+--- Debounce duplicate module id selects (MTO ↔ moduleList bounce ~200ms in logs).
 --- @return boolean true when the select should proceed
 function RfPdaMenuPage:_allowModuleSelect(panelId)
     if panelId == nil then
@@ -1306,7 +1303,7 @@ function RfPdaMenuPage:cyclePanel(delta)
         return
     end
 
-    -- selectPanel notifies ÔåÆ quiet refreshPanelSelector + refreshContent(false)
+    -- selectPanel notifies → quiet refreshPanelSelector + refreshContent(false)
     host:selectPanel(nextPanel.id)
     SoilLogger.info("RfPdaMenuPage: cyclePanel -> %s", tostring(nextPanel.id))
 end
@@ -2394,7 +2391,7 @@ function RfPdaMenuPage:onClickCsSchedule()
     end
 end
 
---- Esc PIVOT remote clicks ÔåÆ guest ÔåÆ CropStressPivotRemoteEvent (server authority).
+--- Esc PIVOT remote clicks → guest → CropStressPivotRemoteEvent (server authority).
 local function _csPivotRemote(self, action)
     local host = self:_getHost()
     local active = host and host:getActivePanel()
@@ -2735,19 +2732,14 @@ end
 function RfPdaMenuPage:_populateModuleRow(index, cell)
     local panel = self._panelCache[index]
     if panel == nil then return end
-    -- BUILD 22:25 Map-family rows: name = title; iconBg = radio lit plate.
-    local titleEl = cell:getDescendantByName("name")
-            or cell:getDescendantByName("moduleRowTitle")
-    local iconBg = cell:getDescendantByName("iconBg")
-    local icon = cell:getDescendantByName("icon")
+    local titleEl = cell:getDescendantByName("moduleRowTitle")
     local tagEl = cell:getDescendantByName("moduleRowTag")
     local short = safePanelTitle(panel)
     if panel.id == "soilFertilizer" then
         short = tr("rf_pda_module_soil_short", "Soil")
     end
     if titleEl then titleEl:setText(short) end
-    if tagEl and tagEl.setText then
-        -- Legacy compact-row tag (retired Map anatomy); keep nil-safe if old XML binds.
+    if tagEl then
         if panel.id == "soilFertilizer" then
             tagEl:setText(tr("rf_pda_module_tag_host", "open"))
         else
@@ -2758,40 +2750,6 @@ function RfPdaMenuPage:_populateModuleRow(index, cell)
     local selected = host and host.activeModuleId == panel.id
     if titleEl and titleEl.setTextColor then
         titleEl:setTextColor(unpack(selected and COLOR_LIME_BRIGHT or COLOR_DIM))
-    end
-    -- Radio plate: Map iconBg lit = white overlay; unlit = black (one lit at a time).
-    if iconBg ~= nil and iconBg.setImageColor then
-        if selected then
-            iconBg:setImageColor(1, 1, 1, 1)
-        else
-            iconBg:setImageColor(0, 0, 0, 1)
-        end
-    end
-    -- Icon slot stays blank.png (never nil ÔåÆ purple); no per-module art this pass.
-    if icon ~= nil then
-        if (icon.filename == nil or icon.filename == "") and icon.setImageFilename then
-            pcall(function()
-                icon:setImageFilename("$dataS/menu/blank.png")
-            end)
-        end
-        if icon.setImageColor then
-            icon:setImageColor(0, 0, 0, 0)
-        end
-    end
-end
-
---- Light-only: re-paint visible module cells for radio lit/dim without reloadData.
-function RfPdaMenuPage:_paintModuleListSelection()
-    local list = self.moduleList
-    if list == nil then return end
-    local elements = list.elements
-    if type(elements) ~= "table" then return end
-    for i = 1, #elements do
-        local cell = elements[i]
-        local idx = cell and cell.rowDataIndex
-        if type(idx) == "number" and idx > 0 then
-            self:_populateModuleRow(idx, cell)
-        end
     end
 end
 
@@ -2835,7 +2793,7 @@ function RfPdaMenuPage:onListSelectionChanged(list, section, index)
             end
         end
     elseif list == self.moduleList then
-        -- Highlight-only: SmoothList ÔåæÔåô must NOT switch modules.
+        -- Highlight-only: SmoothList ↑↓ must NOT switch modules.
         -- Module switch = onClickModuleRow + Modules MTO (_applySelectorState / cyclePanel).
         return
     end
@@ -2910,7 +2868,7 @@ function RfPdaMenuPage:_selectModuleIndex(index)
         if not self:_allowModuleSelect(panel.id) then
             return
         end
-        -- Host notify ÔåÆ refreshPanelSelector with forceEvent=false inside _refreshing
+        -- Host notify → refreshPanelSelector with forceEvent=false inside _refreshing
         -- (no MTO onClick bounce back into this path).
         host:selectPanel(panel.id)
         SoilLogger.info("RfPdaMenuPage: moduleList -> %s", tostring(panel.id))
