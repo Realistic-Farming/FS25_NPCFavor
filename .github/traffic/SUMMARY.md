@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-08-12T00:46:07Z
-**Days tracked:** 120 | **Download snapshots:** 593 (hourly)
+**Last updated:** 2026-08-12T12:36:03Z
+**Days tracked:** 120 | **Download snapshots:** 595 (hourly)
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 333 | 149 |
-| Git Clones | 352 | 79 |
+| Page Views | 345 | 155 |
+| Git Clones | 374 | 86 |
 
 > **Engagement:** 2.2 pages per visitor (14-day avg)
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 941 of 149 visitors cloned or downloaded (**631.5%**)
+> **14-day conversion:** 949 of 155 visitors cloned or downloaded (**612.2%**)
 >
-> Unique cloners: 79 | Release downloads: 862
+> Unique cloners: 86 | Release downloads: 863
 
 ---
 
@@ -42,9 +42,9 @@
 
 | Channel | Count |
 |---------|-------|
-| Zip Downloads | 862 |
-| Git Clones (14-day) | 352 |
-| **Total Acquisitions** | **1214** |
+| Zip Downloads | 863 |
+| Git Clones (14-day) | 374 |
+| **Total Acquisitions** | **1237** |
 
 ---
 
@@ -54,11 +54,11 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 126 | 49 |
-| Google | 80 | 50 |
+| github.com | 125 | 48 |
+| Google | 86 | 55 |
 | kingmods.net | 18 | 6 |
 | Bing | 7 | 4 |
-| yandex.ru | 2 | 2 |
+| yandex.ru | 4 | 3 |
 
 ---
 
@@ -78,10 +78,10 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/Realistic-Farming/FS25_NPCFavor` | 229 | 140 |
-| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 26 | 24 |
-| `/Realistic-Farming/FS25_NPCFavor/issues` | 11 | 10 |
-| `/Realistic-Farming/FS25_NPCFavor/releases` | 8 | 7 |
+| `/Realistic-Farming/FS25_NPCFavor` | 239 | 150 |
+| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 27 | 25 |
+| `/Realistic-Farming/FS25_NPCFavor/issues` | 10 | 9 |
+| `/Realistic-Farming/FS25_NPCFavor/releases` | 10 | 9 |
 | `/Realistic-Farming/FS25_NPCFavor/pulls` | 6 | 5 |
 | `/Realistic-Farming/FS25_NPCFavor/tree/development` | 5 | 4 |
 | `/Realistic-Farming/FS25_NPCFavor/blob/main/src/scripts/NPCAI.lua` | 5 | 1 |
