@@ -656,7 +656,7 @@ function RfPdaMenuPage:initialize()
             end
         end
     }
-    -- SPACE (MENU_EXTRA_1): Crop Stress consultant is secondary only — never default home.
+    -- SPACE (MENU_EXTRA_1): Crop Stress consultant is secondary only ÔÇö never default home.
     -- EXTRA_1 free on CS (Help is Soil-only). SmoothList would swallow MENU_ACTIVATE.
     self.btnCsConsultant = {
         inputAction = InputAction.MENU_EXTRA_1,
@@ -1108,8 +1108,8 @@ function RfPdaMenuPage:refreshPanelSelector(forceRebuildDots)
         -- setTexts can re-apply profile single-text disable; always follow with force-enable.
         self.rfPanelSelector:setTexts(texts)
         if self.rfPanelSelector.setState then
-            -- Modules dual-fire FAIL-FIX (George): forceEvent=true re-enters onClick →
-            -- selectPanel → refreshPanelSelector → setState(true) loop with moduleList.
+            -- Modules dual-fire FAIL-FIX (George): forceEvent=true re-enters onClick ÔåÆ
+            -- selectPanel ÔåÆ refreshPanelSelector ÔåÆ setState(true) loop with moduleList.
             -- Always false while _refreshing so list/MTO sync never raises click.
             self.rfPanelSelector:setState(activeIndex, false)
         end
@@ -1147,11 +1147,11 @@ function RfPdaMenuPage:_refreshDotLegend(panels, activeIndex)
         end
         table.insert(shorts, title)
     end
-    local joined = table.concat(shorts, " Â· ")
+    local joined = table.concat(shorts, " ├é┬À ")
     if joined == "" then
         joined = tr("rf_pda_module_soil_short", "Soil")
     end
-    self.rfDotLegend:setText(string.format("%d/%d Â· %s", activeIndex or 1, n, joined))
+    self.rfDotLegend:setText(string.format("%d/%d ├é┬À %s", activeIndex or 1, n, joined))
 end
 
 --- Match SoilMapHooks / Map: grow/shrink from first seed RoundCorner in the BoxLayout.
@@ -1212,7 +1212,7 @@ function RfPdaMenuPage:onClickRfPanelSelector()
     self:_applySelectorState()
 end
 
---- Debounce duplicate module id selects (MTO ↔ moduleList bounce ~200ms in logs).
+--- Debounce duplicate module id selects (MTO Ôåö moduleList bounce ~200ms in logs).
 --- @return boolean true when the select should proceed
 function RfPdaMenuPage:_allowModuleSelect(panelId)
     if panelId == nil then
@@ -1306,7 +1306,7 @@ function RfPdaMenuPage:cyclePanel(delta)
         return
     end
 
-    -- selectPanel notifies → quiet refreshPanelSelector + refreshContent(false)
+    -- selectPanel notifies ÔåÆ quiet refreshPanelSelector + refreshContent(false)
     host:selectPanel(nextPanel.id)
     SoilLogger.info("RfPdaMenuPage: cyclePanel -> %s", tostring(nextPanel.id))
 end
@@ -2394,7 +2394,7 @@ function RfPdaMenuPage:onClickCsSchedule()
     end
 end
 
---- Esc PIVOT remote clicks → guest → CropStressPivotRemoteEvent (server authority).
+--- Esc PIVOT remote clicks ÔåÆ guest ÔåÆ CropStressPivotRemoteEvent (server authority).
 local function _csPivotRemote(self, action)
     local host = self:_getHost()
     local active = host and host:getActivePanel()
@@ -2767,7 +2767,7 @@ function RfPdaMenuPage:_populateModuleRow(index, cell)
             iconBg:setImageColor(0, 0, 0, 1)
         end
     end
-    -- Icon slot stays blank.png (never nil → purple); no per-module art this pass.
+    -- Icon slot stays blank.png (never nil ÔåÆ purple); no per-module art this pass.
     if icon ~= nil then
         if (icon.filename == nil or icon.filename == "") and icon.setImageFilename then
             pcall(function()
@@ -2835,7 +2835,7 @@ function RfPdaMenuPage:onListSelectionChanged(list, section, index)
             end
         end
     elseif list == self.moduleList then
-        -- Highlight-only: SmoothList ↑↓ must NOT switch modules.
+        -- Highlight-only: SmoothList ÔåæÔåô must NOT switch modules.
         -- Module switch = onClickModuleRow + Modules MTO (_applySelectorState / cyclePanel).
         return
     end
@@ -2910,7 +2910,7 @@ function RfPdaMenuPage:_selectModuleIndex(index)
         if not self:_allowModuleSelect(panel.id) then
             return
         end
-        -- Host notify → refreshPanelSelector with forceEvent=false inside _refreshing
+        -- Host notify ÔåÆ refreshPanelSelector with forceEvent=false inside _refreshing
         -- (no MTO onClick bounce back into this path).
         host:selectPanel(panel.id)
         SoilLogger.info("RfPdaMenuPage: moduleList -> %s", tostring(panel.id))

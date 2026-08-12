@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <!--
-    RF Esc greenfield 2026-08-02 — vanilla InGameMenu chrome (Contracts/Animals).
+    RF Esc greenfield 2026-08-02 ÔÇö vanilla InGameMenu chrome (Contracts/Animals).
     Left nest: fs25_subCategoryContainerBg + fs25_subCategoryContainer +
     fs25_subCategorySelector + dots + list. Right: fs25_menuContentContainer.
     Modules MTO vs page MTO are separate bands (page shell is NOT inside filter box).
@@ -59,7 +59,7 @@
                 </GuiElement>
             </Bitmap>
 
-            <!-- WC page chrome: sibling under Modules (NOT inside rfFilterBox — hit hygiene).
+            <!-- WC page chrome: sibling under Modules (NOT inside rfFilterBox ÔÇö hit hygiene).
                  Must use RF_WcSubnavShell (top-left); profile-less GuiElement defaults bottom-left and falls off-screen. -->
             <GuiElement profile="RF_WcSubnavShell" id="wcSubnavShell" visible="false">
                 <MultiTextOption profile="RF_WcSubnavSelector" id="wcSubnavSelector"
@@ -117,7 +117,7 @@
                 </GuiElement>
             </GuiElement>
 
-            <!-- RIGHT: suite content plane (RF_MainColShell flushes X˜406 to side-info right). -->
+            <!-- RIGHT: suite content plane (RF_MainColShell flushes X╦£406 to side-info right). -->
             <GuiElement profile="RF_MainColShell" id="rfMainCol">
                 <GuiElement profile="fs25_menuHeaderPanel" position="0px 74px">
                     <Bitmap profile="fs25_menuHeaderIconBg">
@@ -135,7 +135,7 @@
                                      onClick="onClickWcTitlePageSelector"/>
                 </GuiElement>
 
-                <!-- SOIL panel content — RF_PanelContentShell is top-anchored (inline position bottoms off-screen). -->
+                <!-- SOIL panel content ÔÇö RF_PanelContentShell is top-anchored (inline position bottoms off-screen). -->
                 <GuiElement profile="RF_PanelContentShell" id="rfPanelContent">
 
                     <!-- F10: fields table spreads full main width -->
@@ -313,7 +313,7 @@
                             <Text profile="RF_ProductCell" id="soilRotationIf3Effect" position="170px -206px" size="110px 18px"/>
                         </GuiElement>
 
-                        <!-- Col 3: sampling — shifted right so widened PRODUCTS does not overlap -->
+                        <!-- Col 3: sampling ÔÇö shifted right so widened PRODUCTS does not overlap -->
                         <GuiElement id="samplingInfoBox" position="850px -24px" width="180px" height="220px" visible="false">
                             <Bitmap profile="RF_InfoBoxBg"/>
                             <Text profile="RF_HintText" id="samplingInfoText" position="8px -8px" size="164px 200px"
@@ -558,7 +558,7 @@
                     </GuiElement>
 
                     <!-- CS bottom band pivot full-width (2026-08-09): FD|Agro top; Pivot full width bottom.
-                         Abs: Field 10/-16/600×236; Agro 630/-16/510×236; Pivot 10/-264/1130×240.
+                         Abs: Field 10/-16/600├ù236; Agro 630/-16/510├ù236; Pivot 10/-264/1130├ù240.
                          CS-only strip H=520; Soil stays 384. No SmoothList under cards. -->
                     <GuiElement profile="RF_CsDetailStrip" id="csDetailStrip">
                         <Bitmap profile="RF_TreatmentBoxBg"/>
@@ -601,7 +601,7 @@
                         </GuiElement>
 
                         <!-- Pivot (red): full-width bottom band. Dial+status left; remotes across width.
-                             Children stay inside 1130×240 (strip clipChildren=true). Prefer 80×32. -->
+                             Children stay inside 1130├ù240 (strip clipChildren=true). Prefer 80├ù32. -->
                         <GuiElement profile="RF_EscCardFrame" id="csPivotCard" position="10px -264px" size="1130px 240px">
                             <Text profile="RF_ProductsTitle" id="csPivotTitle" position="10px -4px" size="1110px 18px" text=""/>
                             <!-- Left band: dial + status. -->
@@ -706,7 +706,7 @@
                     <GuiElement profile="RF_TreatmentStrip" id="mdPageBand" visible="false">
                         <Bitmap profile="RF_TreatmentBoxBg"/>
 
-                        <!-- Page A — Prices -->
+                        <!-- Page A ÔÇö Prices -->
                         <GuiElement id="mdPricesBand" visible="true" position="0px 0px" size="100% 100%">
                             <Text profile="RF_SectionTitle" id="mdGraphTitle" position="10px -6px" size="700px 22px" text=""/>
                             <GuiElement profile="RF_MdGraphArea" id="mdGraphArea"/>
@@ -722,7 +722,7 @@
                     onClick="onClickMdOpenMarket"/>
                         </GuiElement>
 
-                        <!-- Page B — Events (fixed Text rows; no SmoothList thrash). -->
+                        <!-- Page B ÔÇö Events (fixed Text rows; no SmoothList thrash). -->
                         <GuiElement id="mdEventsBand" visible="false" position="0px 0px" size="100% 100%">
                             <Text profile="RF_SectionTitle" id="mdEventsTitle" position="10px -6px" size="700px 22px" text=""/>
                             <Text profile="RF_ColHeader" id="mdEvColName" position="10px -36px" size="420px 20px" text=""/>
@@ -753,7 +753,7 @@
                     onClick="onClickMdOpenMarket"/>
                         </GuiElement>
 
-                        <!-- Page C — Contracts (read-only fixed rows). -->
+                        <!-- Page C ÔÇö Contracts (read-only fixed rows). -->
                         <GuiElement id="mdContractsBand" visible="false" position="0px 0px" size="100% 100%">
                             <Text profile="RF_SectionTitle" id="mdContractsTitle" position="10px -6px" size="900px 22px" text=""/>
                             <Text profile="RF_ColHeader" id="mdCtColCrop" position="10px -36px" size="280px 20px" text=""/>
