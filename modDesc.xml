@@ -1,33 +1,33 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="105">
     <author>TisonK</author>
-    <version>1.2.7.63</version>
+    <version>1.2.7.64</version>
     <modName>FS25_NPCFavor</modName>
     <title>
         <en>NPC Favor - Living Neighborhood</en>
         <de>NPC Gefallen - Lebendige Nachbarschaft</de>
         <fr>Faveur PNJ - Voisinage Vivant</fr>
-        <pl>Przys├àÔÇÜuga NPC - ├à┬╗ywe S├äÔÇªsiedztwo</pl>
+        <pl>Przysâ”œÃ Ã”Ã‡Ãœuga NPC - â”œÃ â”¬â•—ywe Sâ”œÃ¤Ã”Ã‡Âªsiedztwo</pl>
         <es>Favor NPC - Vecindario Vivo</es>
         <it>Favore NPC - Quartiere Vivente</it>
-        <cz>NPC Laskavost - ├à┬¢iv├â┬® sousedstv├â┬¡</cz>
-        <br>Favor NPC - Vizinhan├â┬ºa Viva</br>
-        <uk>├É┼©├É┬¥├æ┬ü├É┬╗├æãÆ├É┬│├É┬░ NPC - ├ÉÔÇô├É┬©├É┬▓├É┬Á ├æ┬ü├æãÆ├æ┬ü├æÔÇô├É┬┤├æ┬ü├æÔÇÜ├É┬▓├É┬¥</uk>
-        <ru>├É┬ú├æ┬ü├É┬╗├æãÆ├É┬│├É┬░ NPC - ├ÉÔÇô├É┬©├É┬▓├É┬¥├É┬╣ ├æÔé¼├É┬░├É┬╣├É┬¥├É┬¢</ru>
+        <cz>NPC Laskavost - â”œÃ â”¬Â¢ivâ”œÃ¢â”¬Â® sousedstvâ”œÃ¢â”¬Â¡</cz>
+        <br>Favor NPC - Vizinhanâ”œÃ¢â”¬Âºa Viva</br>
+        <uk>â”œÃ‰â”¼Â©â”œÃ‰â”¬Â¥â”œÃ¦â”¬Ã¼â”œÃ‰â”¬â•—â”œÃ¦Ã£Ã†â”œÃ‰â”¬â”‚â”œÃ‰â”¬â–‘ NPC - â”œÃ‰Ã”Ã‡Ã´â”œÃ‰â”¬Â©â”œÃ‰â”¬â–“â”œÃ‰â”¬Ã â”œÃ¦â”¬Ã¼â”œÃ¦Ã£Ã†â”œÃ¦â”¬Ã¼â”œÃ¦Ã”Ã‡Ã´â”œÃ‰â”¬â”¤â”œÃ¦â”¬Ã¼â”œÃ¦Ã”Ã‡Ãœâ”œÃ‰â”¬â–“â”œÃ‰â”¬Â¥</uk>
+        <ru>â”œÃ‰â”¬Ãºâ”œÃ¦â”¬Ã¼â”œÃ‰â”¬â•—â”œÃ¦Ã£Ã†â”œÃ‰â”¬â”‚â”œÃ‰â”¬â–‘ NPC - â”œÃ‰Ã”Ã‡Ã´â”œÃ‰â”¬Â©â”œÃ‰â”¬â–“â”œÃ‰â”¬Â¥â”œÃ‰â”¬â•£ â”œÃ¦Ã”Ã©Â¼â”œÃ‰â”¬â–‘â”œÃ‰â”¬â•£â”œÃ‰â”¬Â¥â”œÃ‰â”¬Â¢</ru>
         <da>NPC-Tjeneste - Levende nabolag</da>
     </title>
     <description>
         <en>Adds living NPC neighbors who work their fields and ask for favors. Realistic neighborhood simulation.</en>
-        <de>F├â┬╝gt lebendige NPC-Nachbarn hinzu, die ihre Felder bearbeiten und um Gefallen bitten. Realistische Nachbarschaftssimulation.</de>
-        <fr>Ajoute des voisins PNJ vivants qui travaillent leurs champs et demandent des faveurs. Simulation de quartier r├â┬®aliste.</fr>
-        <pl>Dodaje ├à┬╝ywych s├äÔÇªsiad├â┬│w NPC, kt├â┬│rzy pracuj├äÔÇª na polach i prosz├äÔÇª o przys├àÔÇÜugi. Realistyczna symulacja s├äÔÇªsiedztwa.</pl>
-        <es>A├â┬▒ade vecinos NPC vivos que trabajan sus campos y piden favores. Simulaci├â┬│n de vecindario realista.</es>
+        <de>Fâ”œÃ¢â”¬â•gt lebendige NPC-Nachbarn hinzu, die ihre Felder bearbeiten und um Gefallen bitten. Realistische Nachbarschaftssimulation.</de>
+        <fr>Ajoute des voisins PNJ vivants qui travaillent leurs champs et demandent des faveurs. Simulation de quartier râ”œÃ¢â”¬Â®aliste.</fr>
+        <pl>Dodaje â”œÃ â”¬â•ywych sâ”œÃ¤Ã”Ã‡Âªsiadâ”œÃ¢â”¬â”‚w NPC, ktâ”œÃ¢â”¬â”‚rzy pracujâ”œÃ¤Ã”Ã‡Âª na polach i proszâ”œÃ¤Ã”Ã‡Âª o przysâ”œÃ Ã”Ã‡Ãœugi. Realistyczna symulacja sâ”œÃ¤Ã”Ã‡Âªsiedztwa.</pl>
+        <es>Aâ”œÃ¢â”¬â–’ade vecinos NPC vivos que trabajan sus campos y piden favores. Simulaciâ”œÃ¢â”¬â”‚n de vecindario realista.</es>
         <it>Aggiunge vicini NPC viventi che lavorano i loro campi e chiedono favori. Simulazione realistica del quartiere.</it>
-        <cz>P├àÔäóid├â┬ív├â┬í ├à┬¥iv├â┬® sousedy NPC, kte├àÔäó├â┬¡ pracuj├â┬¡ na sv├â┬¢ch pol├â┬¡ch a ├à┬¥├â┬ídaj├â┬¡ o laskavosti. Realistick├â┬í simulace sousedstv├â┬¡.</cz>
-        <br>Adiciona vizinhos NPC vivos que trabalham seus campos e pedem favores. Simula├â┬º├â┬úo realista de vizinhan├â┬ºa.</br>
-        <uk>├ÉÔÇØ├É┬¥├É┬┤├É┬░├æÔÇØ ├É┬Â├É┬©├É┬▓├É┬©├æÔÇª ├æ┬ü├æãÆ├æ┬ü├æÔÇô├É┬┤├æÔÇô├É┬▓ NPC, ├æ┬Å├É┬║├æÔÇô ├É┬┐├æÔé¼├É┬░├æÔÇá├æ┼¢├æ┼¢├æÔÇÜ├æ┼Æ ├É┬¢├É┬░ ├æ┬ü├É┬▓├É┬¥├æÔÇö├æÔÇª ├É┬┐├É┬¥├É┬╗├æ┬Å├æÔÇª ├æÔÇô ├É┬┐├æÔé¼├É┬¥├æ┬ü├æ┬Å├æÔÇÜ├æ┼Æ ├É┬┐├É┬¥├æ┬ü├É┬╗├æãÆ├É┬│. ├É┬á├É┬Á├É┬░├É┬╗├æÔÇô├æ┬ü├æÔÇÜ├É┬©├æÔÇí├É┬¢├É┬░ ├æ┬ü├É┬©├É┬╝├æãÆ├É┬╗├æ┬Å├æÔÇá├æÔÇô├æ┬Å ├æ┬ü├æãÆ├æ┬ü├æÔÇô├É┬┤├æ┬ü├æÔÇÜ├É┬▓├É┬░.</uk>
-        <ru>├ÉÔÇØ├É┬¥├É┬▒├É┬░├É┬▓├É┬╗├æ┬Å├É┬Á├æÔÇÜ ├É┬Â├É┬©├É┬▓├æÔÇ╣├æÔÇª ├æ┬ü├É┬¥├æ┬ü├É┬Á├É┬┤├É┬Á├É┬╣ NPC, ├É┬║├É┬¥├æÔÇÜ├É┬¥├æÔé¼├æÔÇ╣├É┬Á ├æÔé¼├É┬░├É┬▒├É┬¥├æÔÇÜ├É┬░├æ┼¢├æÔÇÜ ├É┬¢├É┬░ ├æ┬ü├É┬▓├É┬¥├É┬©├æÔÇª ├É┬┐├É┬¥├É┬╗├æ┬Å├æÔÇª ├É┬© ├É┬┐├æÔé¼├É┬¥├æ┬ü├æ┬Å├æÔÇÜ ├É┬¥├É┬▒ ├æãÆ├æ┬ü├É┬╗├æãÆ├É┬│├É┬░├æÔÇª. ├É┬á├É┬Á├É┬░├É┬╗├É┬©├æ┬ü├æÔÇÜ├É┬©├æÔÇí├É┬¢├É┬░├æ┬Å ├æ┬ü├É┬©├É┬╝├æãÆ├É┬╗├æ┬Å├æÔÇá├É┬©├æ┬Å ├æÔé¼├É┬░├É┬╣├É┬¥├É┬¢├É┬░.</ru>
-        <da>Tilf├â┬©jer levende NPC-naboer, der arbejder p├â┬Ñ deres marker og beder om tjenester. Realistisk nabolagssimulering.</da>
+        <cz>Pâ”œÃ Ã”Ã¤Ã³idâ”œÃ¢â”¬Ã­vâ”œÃ¢â”¬Ã­ â”œÃ â”¬Â¥ivâ”œÃ¢â”¬Â® sousedy NPC, kteâ”œÃ Ã”Ã¤Ã³â”œÃ¢â”¬Â¡ pracujâ”œÃ¢â”¬Â¡ na svâ”œÃ¢â”¬Â¢ch polâ”œÃ¢â”¬Â¡ch a â”œÃ â”¬Â¥â”œÃ¢â”¬Ã­dajâ”œÃ¢â”¬Â¡ o laskavosti. Realistickâ”œÃ¢â”¬Ã­ simulace sousedstvâ”œÃ¢â”¬Â¡.</cz>
+        <br>Adiciona vizinhos NPC vivos que trabalham seus campos e pedem favores. Simulaâ”œÃ¢â”¬Âºâ”œÃ¢â”¬Ãºo realista de vizinhanâ”œÃ¢â”¬Âºa.</br>
+        <uk>â”œÃ‰Ã”Ã‡Ã˜â”œÃ‰â”¬Â¥â”œÃ‰â”¬â”¤â”œÃ‰â”¬â–‘â”œÃ¦Ã”Ã‡Ã˜ â”œÃ‰â”¬Ã‚â”œÃ‰â”¬Â©â”œÃ‰â”¬â–“â”œÃ‰â”¬Â©â”œÃ¦Ã”Ã‡Âª â”œÃ¦â”¬Ã¼â”œÃ¦Ã£Ã†â”œÃ¦â”¬Ã¼â”œÃ¦Ã”Ã‡Ã´â”œÃ‰â”¬â”¤â”œÃ¦Ã”Ã‡Ã´â”œÃ‰â”¬â–“ NPC, â”œÃ¦â”¬Ã…â”œÃ‰â”¬â•‘â”œÃ¦Ã”Ã‡Ã´ â”œÃ‰â”¬â”â”œÃ¦Ã”Ã©Â¼â”œÃ‰â”¬â–‘â”œÃ¦Ã”Ã‡Ã¡â”œÃ¦â”¼Â¢â”œÃ¦â”¼Â¢â”œÃ¦Ã”Ã‡Ãœâ”œÃ¦â”¼Ã† â”œÃ‰â”¬Â¢â”œÃ‰â”¬â–‘ â”œÃ¦â”¬Ã¼â”œÃ‰â”¬â–“â”œÃ‰â”¬Â¥â”œÃ¦Ã”Ã‡Ã¶â”œÃ¦Ã”Ã‡Âª â”œÃ‰â”¬â”â”œÃ‰â”¬Â¥â”œÃ‰â”¬â•—â”œÃ¦â”¬Ã…â”œÃ¦Ã”Ã‡Âª â”œÃ¦Ã”Ã‡Ã´ â”œÃ‰â”¬â”â”œÃ¦Ã”Ã©Â¼â”œÃ‰â”¬Â¥â”œÃ¦â”¬Ã¼â”œÃ¦â”¬Ã…â”œÃ¦Ã”Ã‡Ãœâ”œÃ¦â”¼Ã† â”œÃ‰â”¬â”â”œÃ‰â”¬Â¥â”œÃ¦â”¬Ã¼â”œÃ‰â”¬â•—â”œÃ¦Ã£Ã†â”œÃ‰â”¬â”‚. â”œÃ‰â”¬Ã¡â”œÃ‰â”¬Ãâ”œÃ‰â”¬â–‘â”œÃ‰â”¬â•—â”œÃ¦Ã”Ã‡Ã´â”œÃ¦â”¬Ã¼â”œÃ¦Ã”Ã‡Ãœâ”œÃ‰â”¬Â©â”œÃ¦Ã”Ã‡Ã­â”œÃ‰â”¬Â¢â”œÃ‰â”¬â–‘ â”œÃ¦â”¬Ã¼â”œÃ‰â”¬Â©â”œÃ‰â”¬â•â”œÃ¦Ã£Ã†â”œÃ‰â”¬â•—â”œÃ¦â”¬Ã…â”œÃ¦Ã”Ã‡Ã¡â”œÃ¦Ã”Ã‡Ã´â”œÃ¦â”¬Ã… â”œÃ¦â”¬Ã¼â”œÃ¦Ã£Ã†â”œÃ¦â”¬Ã¼â”œÃ¦Ã”Ã‡Ã´â”œÃ‰â”¬â”¤â”œÃ¦â”¬Ã¼â”œÃ¦Ã”Ã‡Ãœâ”œÃ‰â”¬â–“â”œÃ‰â”¬â–‘.</uk>
+        <ru>â”œÃ‰Ã”Ã‡Ã˜â”œÃ‰â”¬Â¥â”œÃ‰â”¬â–’â”œÃ‰â”¬â–‘â”œÃ‰â”¬â–“â”œÃ‰â”¬â•—â”œÃ¦â”¬Ã…â”œÃ‰â”¬Ãâ”œÃ¦Ã”Ã‡Ãœ â”œÃ‰â”¬Ã‚â”œÃ‰â”¬Â©â”œÃ‰â”¬â–“â”œÃ¦Ã”Ã‡â•£â”œÃ¦Ã”Ã‡Âª â”œÃ¦â”¬Ã¼â”œÃ‰â”¬Â¥â”œÃ¦â”¬Ã¼â”œÃ‰â”¬Ãâ”œÃ‰â”¬â”¤â”œÃ‰â”¬Ãâ”œÃ‰â”¬â•£ NPC, â”œÃ‰â”¬â•‘â”œÃ‰â”¬Â¥â”œÃ¦Ã”Ã‡Ãœâ”œÃ‰â”¬Â¥â”œÃ¦Ã”Ã©Â¼â”œÃ¦Ã”Ã‡â•£â”œÃ‰â”¬Ã â”œÃ¦Ã”Ã©Â¼â”œÃ‰â”¬â–‘â”œÃ‰â”¬â–’â”œÃ‰â”¬Â¥â”œÃ¦Ã”Ã‡Ãœâ”œÃ‰â”¬â–‘â”œÃ¦â”¼Â¢â”œÃ¦Ã”Ã‡Ãœ â”œÃ‰â”¬Â¢â”œÃ‰â”¬â–‘ â”œÃ¦â”¬Ã¼â”œÃ‰â”¬â–“â”œÃ‰â”¬Â¥â”œÃ‰â”¬Â©â”œÃ¦Ã”Ã‡Âª â”œÃ‰â”¬â”â”œÃ‰â”¬Â¥â”œÃ‰â”¬â•—â”œÃ¦â”¬Ã…â”œÃ¦Ã”Ã‡Âª â”œÃ‰â”¬Â© â”œÃ‰â”¬â”â”œÃ¦Ã”Ã©Â¼â”œÃ‰â”¬Â¥â”œÃ¦â”¬Ã¼â”œÃ¦â”¬Ã…â”œÃ¦Ã”Ã‡Ãœ â”œÃ‰â”¬Â¥â”œÃ‰â”¬â–’ â”œÃ¦Ã£Ã†â”œÃ¦â”¬Ã¼â”œÃ‰â”¬â•—â”œÃ¦Ã£Ã†â”œÃ‰â”¬â”‚â”œÃ‰â”¬â–‘â”œÃ¦Ã”Ã‡Âª. â”œÃ‰â”¬Ã¡â”œÃ‰â”¬Ãâ”œÃ‰â”¬â–‘â”œÃ‰â”¬â•—â”œÃ‰â”¬Â©â”œÃ¦â”¬Ã¼â”œÃ¦Ã”Ã‡Ãœâ”œÃ‰â”¬Â©â”œÃ¦Ã”Ã‡Ã­â”œÃ‰â”¬Â¢â”œÃ‰â”¬â–‘â”œÃ¦â”¬Ã… â”œÃ¦â”¬Ã¼â”œÃ‰â”¬Â©â”œÃ‰â”¬â•â”œÃ¦Ã£Ã†â”œÃ‰â”¬â•—â”œÃ¦â”¬Ã…â”œÃ¦Ã”Ã‡Ã¡â”œÃ‰â”¬Â©â”œÃ¦â”¬Ã… â”œÃ¦Ã”Ã©Â¼â”œÃ‰â”¬â–‘â”œÃ‰â”¬â•£â”œÃ‰â”¬Â¥â”œÃ‰â”¬Â¢â”œÃ‰â”¬â–‘.</ru>
+        <da>Tilfâ”œÃ¢â”¬Â©jer levende NPC-naboer, der arbejder pâ”œÃ¢â”¬Ã‘ deres marker og beder om tjenester. Realistisk nabolagssimulering.</da>
     </description>
     <iconFilename>icon.dds</iconFilename>
 
