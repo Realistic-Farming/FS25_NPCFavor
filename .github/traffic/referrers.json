@@ -5106,13 +5106,13 @@
   "2026-08-15": [
     {
       "referrer": "github.com",
-      "count": 121,
+      "count": 124,
       "uniques": 48
     },
     {
       "referrer": "Google",
-      "count": 85,
-      "uniques": 54
+      "count": 92,
+      "uniques": 57
     },
     {
       "referrer": "kingmods.net",
@@ -5121,8 +5121,8 @@
     },
     {
       "referrer": "Bing",
-      "count": 8,
-      "uniques": 5
+      "count": 11,
+      "uniques": 6
     },
     {
       "referrer": "yandex.ru",
@@ -5131,7 +5131,12 @@
     },
     {
       "referrer": "chatgpt.com",
-      "count": 1,
+      "count": 6,
+      "uniques": 2
+    },
+    {
+      "referrer": "DuckDuckGo",
+      "count": 3,
       "uniques": 1
     }
   ]
