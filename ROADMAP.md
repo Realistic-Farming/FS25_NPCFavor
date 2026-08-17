@@ -1,9 +1,15 @@
 # NPC Favor Roadmap
 
-**Current version:** 1.2.7.1
-**Last updated:** 2026-07-25
+**Current version:** 1.2.7.66
+**Last updated:** 2026-08-15
 
 > *"These NPCs notice me. They remember what I do. I'm part of this world, not just passing through it."*
+
+---
+
+## Recently merged
+
+- **2026-08-15** Esc framework table freeze (NPC Favor guest, #87): the shared 4-bay column grid is restated on every show so the guest does not inherit the previous module's geometry in the shared Esc door; the table title reset is corrected to the current 10/-8 XML baseline and the empty-hint box is restored before text is set. Merged; 1.2.7.66.
 
 ---
 

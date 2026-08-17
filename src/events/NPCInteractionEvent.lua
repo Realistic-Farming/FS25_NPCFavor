@@ -182,14 +182,20 @@ function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data)
     end
 
     -- OWASP Layer 4: Interaction distance validation
-    -- Reject if the NPC is too far from any player on the requesting farm
+    -- Reject if the NPC is too far from any player on the requesting farm.
+    -- FS25 PlayerSystem has getPlayerCount/getPlayerByIndex (no getPlayers).
     if npc.position and g_currentMission and g_currentMission.playerSystem then
         local maxInteractionDist = 15  -- meters
         local closestDist = math.huge
-        local players = g_currentMission.playerSystem:getPlayers()
-        if players then
-            for _, player in pairs(players) do
-                if player.farmId == farmId and player.rootNode then
+        local playerSystem = g_currentMission.playerSystem
+        local playerCount = 0
+        if type(playerSystem.getPlayerCount) == "function" then
+            playerCount = playerSystem:getPlayerCount() or 0
+        end
+        if playerCount > 0 and type(playerSystem.getPlayerByIndex) == "function" then
+            for i = 1, playerCount do
+                local player = playerSystem:getPlayerByIndex(i)
+                if player ~= nil and player.farmId == farmId and player.rootNode then
                     local px, py, pz = getWorldTranslation(player.rootNode)
                     local dx = px - npc.position.x
                     local dz = pz - npc.position.z
@@ -199,8 +205,23 @@ function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data)
                     end
                 end
             end
+        else
+            -- Fail-open fallback for SP/host: local player only (never crash on odd APIs)
+            local localPlayer = g_localPlayer
+            if localPlayer == nil and type(playerSystem.getLocalPlayer) == "function" then
+                localPlayer = playerSystem:getLocalPlayer()
+            end
+            if localPlayer ~= nil and localPlayer.rootNode then
+                if localPlayer.farmId == nil or localPlayer.farmId == farmId then
+                    local px, py, pz = getWorldTranslation(localPlayer.rootNode)
+                    local dx = px - npc.position.x
+                    local dz = pz - npc.position.z
+                    closestDist = math.sqrt(dx * dx + dz * dz)
+                end
+            end
         end
-        if closestDist > maxInteractionDist then
+        -- If we still have no distance reading, fail open so Complete/Abandon work
+        if closestDist < math.huge and closestDist > maxInteractionDist then
             print(string.format("[NPCFavor SECURITY] Rejected interaction: player too far from NPC %d (%.1fm)", npcId, closestDist))
             return false
         end

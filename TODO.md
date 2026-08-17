@@ -1,9 +1,15 @@
 # NPC Favor -- TODO / Roadmap
 
-**Current version:** 1.2.7.1
-**Last updated:** 2026-07-25
+**Current version:** 1.2.7.66
+**Last updated:** 2026-08-15
 
 This TODO reflects the **honest current state** of the mod. The "Done" block below is the original v1.2.2.4 baseline and still holds; the fuller current-state picture (field work, player-offered favors, the bedrock migration) lives in ROADMAP.md and the section below. Items are grouped by status: what works, what's partially working, what's broken, and what's planned.
+
+---
+
+## Recently merged
+
+- **2026-08-15** Esc framework table freeze (NPC Favor guest, #87): shared grid restated per show; 1.2.7.66. In-game owed: the table keeps its columns after visiting another Esc guest in the same session.
 
 ---
 
