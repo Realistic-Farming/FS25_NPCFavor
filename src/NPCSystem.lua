@@ -353,14 +353,43 @@ function NPCSystem:onMissionLoaded()
                     self:loadFromXMLFile(missionInfo)
                 end
 
-                -- Show notification
+                -- BUILD 15:39 (PB-14). This used to be a red blinking warning
+                -- that advertised the `npcHelp` developer console command. Two
+                -- things wrong with that: the blinking warning is the alarm
+                -- channel, not the "a mod finished loading" channel, and a
+                -- console command is not player language. It also competed with
+                -- the Soil changelog for the same first-load attention because
+                -- every mod was shouting at the HUD directly.
+                --
+                -- It now goes through MasterHUD's shared notice queue, which
+                -- paces and folds the whole suite's first-load lines. When
+                -- MasterHUD is absent NPC Favor still ships standalone, so it
+                -- falls back to the game's own non-blocking notification list -
+                -- never back to the blinking warning.
                 if self.settings.showNotifications then
-                    if g_currentMission and g_currentMission.hud then
-                        local ver = (g_NPCFavorMod and g_NPCFavorMod.version) or "?"
-                        g_currentMission.hud:showBlinkingWarning(
-                            "NPC Favor v" .. ver .. " loaded - Type 'npcHelp' for commands",
-                            8000
-                        )
+                    local ver  = (g_NPCFavorMod and g_NPCFavorMod.version) or "?"
+                    local text = string.format(
+                        g_i18n:hasText("npc_notice_loaded")
+                            and g_i18n:getText("npc_notice_loaded")
+                            or "NPC Favor v%s ready. Your neighbours are settling in.",
+                        ver)
+
+                    local hud = (g_currentMission and g_currentMission.masterHUD) or g_masterHUD
+                    local posted = false
+                    if hud ~= nil and type(hud.postNotice) == "function" then
+                        local ok, r = pcall(hud.postNotice, hud, {
+                            topic = "npcfavor_loaded",
+                            text  = text,
+                        })
+                        posted = ok and r == true
+                    end
+
+                    if not posted and g_currentMission ~= nil
+                        and g_currentMission.addIngameNotification ~= nil then
+                        local typ = (FSBaseMission and FSBaseMission.INGAME_NOTIFICATION_INFO) or 1
+                        pcall(function()
+                            g_currentMission:addIngameNotification(typ, text)
+                        end)
                     end
                 end
                 
