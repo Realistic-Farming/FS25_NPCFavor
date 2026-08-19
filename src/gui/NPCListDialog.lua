@@ -271,14 +271,24 @@ end
 
 --- Teleport the player to an NPC by row number.
 function NPCListDialog:teleportToRow(rowNum)
+    print(string.format("[NPC Favor] teleportToRow called: row=%d", rowNum))
     local npcIndex = self.rowNPCIndex[rowNum]
-    if not npcIndex then return end
+    if not npcIndex then
+        print(string.format("[NPC Favor] teleportToRow: no NPC index for row %d (mapping empty?)", rowNum))
+        return
+    end
 
     local sys = self.npcSystem or g_NPCSystem
     if not sys or not sys.activeNPCs then return end
 
     local npc = sys.activeNPCs[npcIndex]
-    if not npc or not npc.position then return end
+    if not npc or not npc.position then
+        print(string.format("[NPC Favor] teleportToRow: NPC at index %d not found or has no position", npcIndex))
+        return
+    end
+
+    print(string.format("[NPC Favor] teleportToRow: row=%d -> index=%d -> %s at (%.0f, %.0f)",
+        rowNum, npcIndex, npc.name or "?", npc.position.x, npc.position.z))
 
     -- Close dialog first so the player can see where they land
     self:close()

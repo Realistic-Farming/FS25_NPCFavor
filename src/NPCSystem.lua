@@ -3377,11 +3377,14 @@ function NPCSystem:update(dt)
     -- Both server and client need player position for proximity checks / UI
     self:updatePlayerPosition()
 
-    -- Periodically relocate far-away NPCs near the player
-    self.relocateTimer = self.relocateTimer + dt
-    if self.relocateTimer >= self.RELOCATE_INTERVAL then
-        self.relocateTimer = 0
-        self:relocateFarNPCs()
+    -- Periodically relocate far-away NPCs near the player (server only —
+    -- clients receive authoritative positions via sync events)
+    if self.isServer then
+        self.relocateTimer = self.relocateTimer + dt
+        if self.relocateTimer >= self.RELOCATE_INTERVAL then
+            self.relocateTimer = 0
+            self:relocateFarNPCs()
+        end
     end
 
     if self.isServer then
@@ -3570,8 +3573,11 @@ function NPCSystem:update(dt)
             self.favorHUD:update(dt)           -- HUD edit mode auto-exit checks
         end
 
-        -- NPC proximity checks use synced positions
+        -- Sync entity visuals + map hotspot positions from server-synced NPC data.
+        -- Without this, entities stay at their client-local init positions and
+        -- map Visit teleport targets are never refreshed.
         for _, npc in ipairs(self.activeNPCs) do
+            self.entityManager:updateNPCEntity(npc, dt)
             self:checkPlayerProximity(npc)
         end
     end
@@ -4378,7 +4384,11 @@ function NPCSystem:applyNetworkState(npcDataArray)
         -- Find existing NPC or create placeholder
         local npc = self:getNPCById(entry.id)
         if npc then
-            -- Update existing NPC
+            -- Update existing NPC (sync ALL server-authoritative fields,
+            -- including name/personality — clients create their own random
+            -- names during initializeNPCs that must be overwritten)
+            npc.name = entry.name
+            npc.personality = entry.personality
             npc.position.x = entry.x
             npc.position.y = entry.y
             npc.position.z = entry.z
