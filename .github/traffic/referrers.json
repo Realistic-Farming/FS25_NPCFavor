@@ -5291,13 +5291,13 @@
   "2026-08-20": [
     {
       "referrer": "github.com",
-      "count": 132,
-      "uniques": 55
+      "count": 143,
+      "uniques": 60
     },
     {
       "referrer": "Google",
-      "count": 100,
-      "uniques": 59
+      "count": 94,
+      "uniques": 53
     },
     {
       "referrer": "chatgpt.com",
@@ -5305,9 +5305,14 @@
       "uniques": 5
     },
     {
-      "referrer": "Bing",
+      "referrer": "kingmods.net",
       "count": 7,
-      "uniques": 5
+      "uniques": 4
+    },
+    {
+      "referrer": "Bing",
+      "count": 6,
+      "uniques": 4
     },
     {
       "referrer": "yandex.ru",
@@ -5315,13 +5320,18 @@
       "uniques": 3
     },
     {
-      "referrer": "kingmods.net",
-      "count": 4,
-      "uniques": 2
-    },
-    {
       "referrer": "DuckDuckGo",
       "count": 3,
+      "uniques": 1
+    },
+    {
+      "referrer": "realisticfarming.com",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "search.brave.com",
+      "count": 1,
       "uniques": 1
     }
   ]
