@@ -13,6 +13,30 @@ local PANEL_ORDER = 80
 local MAX_ROWS = 8
 local _registered = false
 
+-- BUILD 09:19 (PB-07). The roster is painted into rfFwTableBlock, a STATIC eight-row table
+-- shared with Income, Dairy and Depot. With 11 neighbours the footer said "showing 8 of 11"
+-- and the last three were unreachable: the block is not a SmoothList, so there was nothing
+-- to scroll and no control to press.
+--
+-- This is a window over the sorted roster, not a new list. _pageIndex is which slice of
+-- eight is on screen; the host's two rfFwPage* Buttons step it and repaint. A SmoothList
+-- was rejected on George's standing hang lesson for this page (the same NO-GO that keeps
+-- csConsultPanel on fixed Texts), and a window needs none of that machinery.
+--
+-- _lastRosterCount is what onPageStep clamps against. The host calls onPageStep BEFORE the
+-- repaint, so at that moment the only honest roster size available is the one the last paint
+-- actually put on screen; re-reading the system there could clamp against a count the player
+-- has not been shown yet.
+local _pageIndex = 1
+local _lastRosterCount = 0
+
+local function pageCountFor(n)
+    if n == nil or n <= 0 then
+        return 1
+    end
+    return math.max(1, math.ceil(n / MAX_ROWS))
+end
+
 local TIER_KEYS = {
     ["Hostile"] = "npc_rel_hostile",
     ["Unfriendly"] = "npc_rel_unfriendly",
@@ -389,7 +413,7 @@ local function favorWho(favor, sys)
     return tostring(favor.npcId or "?")
 end
 
-local function paintActiveBridge(moreEl, sys, rosterN)
+local function paintActiveBridge(moreEl, sys, rosterN, firstRow, lastRow)
     local favors = collectActiveFavors(sys)
     local parts = {}
     if #favors == 0 then
@@ -410,10 +434,13 @@ local function paintActiveBridge(moreEl, sys, rosterN)
             )
         end
     end
+    -- BUILD 09:19 (PB-07): the range now describes the window that is actually on screen and
+    -- moves with it. "showing 8 of 11" was both unreachable and, once paging exists, wrong on
+    -- every page but the first.
     if rosterN > MAX_ROWS then
         parts[#parts + 1] = string.format(
-            tr("npc_rf_pda_showing_of", "showing %d of %d"),
-            MAX_ROWS, rosterN
+            tr("npc_rf_pda_showing_range", "showing %d-%d of %d"),
+            firstRow, lastRow, rosterN
         )
     end
     setText(moreEl, table.concat(parts, " · "))
@@ -550,6 +577,40 @@ local function restoreFwEmptyHintBox(container)
     end
 end
 
+--- BUILD 09:19 (PB-07): show and label the two shared row-pager Buttons.
+---
+--- The host hides both on every refresh before the guest paints (see _syncHostGuestChrome),
+--- so this is the only thing that turns them on and the other three Table guests are
+--- untouched. One page means no pager at all rather than two dead buttons - Sam's single-page
+--- feel lock on the module pager reads the same here: a control that cannot act should not
+--- look like one that can.
+---
+--- The Next button carries the page position rather than a bare arrow, so the player can see
+--- there is a page 2 without counting rows.
+local function paintPager(container, rosterN, pages)
+    local prevEl = findDescendant(container, "rfFwPagePrev")
+    local nextEl = findDescendant(container, "rfFwPageNext")
+    local multi = rosterN > MAX_ROWS and pages > 1
+
+    for _, el in ipairs({ prevEl, nextEl }) do
+        if el ~= nil then
+            if type(el.setVisible) == "function" then el:setVisible(multi) end
+            if type(el.setDisabled) == "function" then el:setDisabled(not multi) end
+        end
+    end
+    if not multi then
+        return
+    end
+
+    if prevEl ~= nil and type(prevEl.setText) == "function" then
+        prevEl:setText(tr("npc_rf_pda_page_prev", "< Back"))
+    end
+    if nextEl ~= nil and type(nextEl.setText) == "function" then
+        nextEl:setText(string.format(
+            tr("npc_rf_pda_page_next", "More (%d/%d) >"), _pageIndex, pages))
+    end
+end
+
 function NpcRfPdaGuest.onShow(container, lightOnly)
     applyFwGrid(container)
     restoreFwEmptyHintBox(container)
@@ -572,9 +633,20 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
     local moreEl = findDescendant(container, "rfFwMore")
     local hintEl = findDescendant(container, "rfFwHintTable")
 
-    paintActiveBridge(moreEl, sys, #roster)
+    -- BUILD 09:19 (PB-07): resolve the window before anything is painted, so the rows, the
+    -- footer range and the two buttons all describe the same slice.
+    local rosterN = #roster
+    _lastRosterCount = rosterN
+    local pages = pageCountFor(rosterN)
+    if _pageIndex > pages then _pageIndex = pages end
+    if _pageIndex < 1 then _pageIndex = 1 end
+    local firstRow = (_pageIndex - 1) * MAX_ROWS + 1
+    local lastRow = math.min(rosterN, _pageIndex * MAX_ROWS)
 
-    if #roster == 0 then
+    paintActiveBridge(moreEl, sys, rosterN, firstRow, lastRow)
+    paintPager(container, rosterN, pages)
+
+    if rosterN == 0 then
         setVis(emptyEl, true)
         setText(emptyEl, tr("npc_rf_pda_empty", "no neighbors yet"))
         for i = 1, MAX_ROWS do
@@ -588,14 +660,16 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
 
     setVis(emptyEl, false)
     setText(emptyEl, "")
-    local show = math.min(#roster, MAX_ROWS)
+    -- How many of the eight slots this page fills. A short last page (11 neighbours = 8 + 3)
+    -- hides the slots it does not use rather than leaving the previous page's names in them.
+    local show = lastRow - firstRow + 1
     for i = 1, MAX_ROWS do
         local a = findDescendant(container, "rfFwRow" .. i .. "A")
         local b = findDescendant(container, "rfFwRow" .. i .. "B")
         local c = findDescendant(container, "rfFwRow" .. i .. "C")
         local d = findDescendant(container, "rfFwRow" .. i .. "D")
         if i <= show then
-            local row = roster[i]
+            local row = roster[firstRow + i - 1]
             setVis(a, true); setVis(b, true); setVis(c, true); setVis(d, true)
             setText(a, row.who)
             setText(b, row.standing)
@@ -607,19 +681,67 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
     end
 
     -- Hint only when More is not already dense (no overflow clause).
-    if #roster > MAX_ROWS then
+    if rosterN > MAX_ROWS then
         setText(hintEl, "")
     else
         setText(hintEl, string.format(
             tr("npc_rf_pda_hint_sort", "%d neighbors · sorted by standing (best first)"),
-            #roster
+            rosterN
         ))
     end
 end
 
-function NpcRfPdaGuest.onHide() end
+--- BUILD 09:19 (PB-07): one page step from the host's rfFwPage* Buttons.
+--- Wraps at both ends, the same way the module pager beside it does, so neither button is
+--- ever a dead click. Returns false when nothing moved so the host can skip a repaint.
+---@param delta number -1 previous page, +1 next page
+---@return boolean moved
+function NpcRfPdaGuest.onPageStep(delta)
+    local pages = pageCountFor(_lastRosterCount)
+    if pages <= 1 then
+        return false
+    end
+    local step = tonumber(delta) or 0
+    if step == 0 then
+        return false
+    end
+    local target = _pageIndex + (step > 0 and 1 or -1)
+    if target > pages then target = 1 end
+    if target < 1 then target = pages end
+    if target == _pageIndex then
+        return false
+    end
+    _pageIndex = target
+    return true
+end
+
+function NpcRfPdaGuest.onHide()
+    -- BUILD 14:04: leaving the module puts the roster back on page 1. The 09:19 build kept
+    -- the index across hide so a returning player landed on the slice they left; the 14:04
+    -- brief pins it the other way (module _currentPage, reset on hide), and the brief wins:
+    -- a re-entered roster always opens on its best-standing head, which is also the only
+    -- state whose MORE label needs no memory to be true.
+    _pageIndex = 1
+end
+
+--- BUILD 14:04: publish the guest handle the same way MdRfPdaGuest publishes its classes
+--- (mdPublishHandles, BUILD 11:43/12:59) - sandbox root plus mission handle, re-published
+--- on every register attempt so a reload cannot leave it stale. Vera's live gates have
+--- shown the mission handle is the one cross-env channel that actually resolves on the
+--- live engine (via=mission), and the host's _rfFwPageStep belt reaches this guest through
+--- exactly that channel when a stale registry copy has eaten the registered onPageStep.
+local function npcPublishHandles()
+    local okEnv, root = pcall(getfenv, 0)
+    if okEnv and type(root) == "table" then
+        root.NpcRfPdaGuest = NpcRfPdaGuest
+    end
+    if g_currentMission ~= nil then
+        g_currentMission.NpcRfPdaGuest = NpcRfPdaGuest
+    end
+end
 
 function NpcRfPdaGuest.tryRegister()
+    npcPublishHandles()
     if RfEscBootstrap ~= nil then
         if MOD_DIR == nil then
             print("[NPCFavor] NpcRfPdaGuest: WARNING MOD_DIR nil - cannot ensureDoor")
@@ -643,6 +765,15 @@ function NpcRfPdaGuest.tryRegister()
             isAvailable = function() return getSys() ~= nil end,
             onShow = NpcRfPdaGuest.onShow,
             onHide = NpcRfPdaGuest.onHide,
+            -- BUILD 09:19 (PB-07): the host reads onPageStep off the REGISTERED descriptor,
+            -- not off the guest table, so the pager only exists for a module that opts in
+            -- here. Leaving it out is what keeps Income / Dairy / Depot unpaged and
+            -- unchanged. BUILD 14:04: this registration is only real once
+            -- RfEscModules:registerModule carries onPageStep in its whitelist - it did not,
+            -- the field was silently dropped, and the live MORE was a painted no-op. The
+            -- page index resets to 1 in onHide (14:04 brief), and onShow still re-clamps it
+            -- against the live roster so a shrunk roster cannot strand anyone.
+            onPageStep = NpcRfPdaGuest.onPageStep,
         })
         if ok then
             _registered = true
@@ -655,4 +786,10 @@ function NpcRfPdaGuest.tryRegister()
 end
 
 function NpcRfPdaGuest.isRegistered() return _registered end
-function NpcRfPdaGuest.reset() _registered = false end
+function NpcRfPdaGuest.reset()
+    _registered = false
+    -- A reset is a re-register, i.e. a new session or a re-entered save. The remembered
+    -- page belongs to the roster that is going away with it.
+    _pageIndex = 1
+    _lastRosterCount = 0
+end
