@@ -19,6 +19,11 @@
 NPCFavorHUD = NPCFavorHUD or {}
 NPCFavorHUD_mt = Class(NPCFavorHUD)
 
+local function getBaseGameRenderer()
+    local hud = (g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD
+    return hud ~= nil and hud.renderer or nil
+end
+
 -- =========================================================
 -- Constructor
 -- =========================================================
@@ -31,11 +36,13 @@ function NPCFavorHUD.new(npcSystem)
     -- Position (normalized 0–1, top-left anchor of the HUD box)
     -- BUILD 12:25 (Sam DESIGN 12:23): Active Favors factory default is
     -- Middle-Left-Top in the suite's non-overlap layout. Saved drag XML wins.
-    self.posX = 0.02
-    self.posY = 0.62
+    -- Wizard 2026-08-21: factory home is the suite layout Wizard arranged
+    -- in-game (left column). Saved settings still win on load.
+    self.posX = 0.023125
+    self.posY = 0.714444
 
     -- Scale multiplier applied to all dimensions and text
-    self.scale = 1.0
+    self.scale = 1.178089   -- factory suite layout (Wizard 2026-08-21)
 
     -- Edit/drag state (runtime only, never persisted)
     self.editMode = false
@@ -131,9 +138,9 @@ end
 
 function NPCFavorHUD:loadFromSettings(settings)
     if not settings then return end
-    self.posX = settings.favorHudPosX or 0.02
-    self.posY = settings.favorHudPosY or 0.62
-    self.scale = settings.favorHudScale or 1.0
+    self.posX = settings.favorHudPosX or 0.023125
+    self.posY = settings.favorHudPosY or 0.714444
+    self.scale = settings.favorHudScale or 1.178089
     self.widthMult = settings.favorHudWidthMult or 1.0
     self:clampPosition()
 end
@@ -687,22 +694,25 @@ function NPCFavorHUD:draw()
     local bgY = self.posY - bgH + pad
     local bgW = w + pad * 2
 
-    -- Drop shadow (offset slightly down-right for depth)
-    local shadowOff = 0.002 * s
-    setOverlayColor(self.bgOverlay, self.COLORS.SHADOW[1], self.COLORS.SHADOW[2], self.COLORS.SHADOW[3], self.COLORS.SHADOW[4])
-    renderOverlay(self.bgOverlay, bgX + shadowOff, bgY - shadowOff, bgW, bgH)
+    local renderer = getBaseGameRenderer()
+    local usedNativePanel = renderer ~= nil and renderer.renderPanel ~= nil
+        and renderer:renderPanel(bgX, bgY, bgW, bgH, self.COLORS.BG[4])
+    if not usedNativePanel then
+        -- Standalone fallback: retain the original graph_pixel shadow, fill and border.
+        local shadowOff = 0.002 * s
+        setOverlayColor(self.bgOverlay, self.COLORS.SHADOW[1], self.COLORS.SHADOW[2], self.COLORS.SHADOW[3], self.COLORS.SHADOW[4])
+        renderOverlay(self.bgOverlay, bgX + shadowOff, bgY - shadowOff, bgW, bgH)
 
-    -- Main background fill
-    setOverlayColor(self.bgOverlay, self.COLORS.BG[1], self.COLORS.BG[2], self.COLORS.BG[3], self.COLORS.BG[4])
-    renderOverlay(self.bgOverlay, bgX, bgY, bgW, bgH)
+        setOverlayColor(self.bgOverlay, self.COLORS.BG[1], self.COLORS.BG[2], self.COLORS.BG[3], self.COLORS.BG[4])
+        renderOverlay(self.bgOverlay, bgX, bgY, bgW, bgH)
 
-    -- Permanent subtle border (always visible)
-    local bwNormal = 0.001
-    setOverlayColor(self.bgOverlay, self.COLORS.BORDER_NORMAL[1], self.COLORS.BORDER_NORMAL[2], self.COLORS.BORDER_NORMAL[3], self.COLORS.BORDER_NORMAL[4])
-    renderOverlay(self.bgOverlay, bgX, bgY + bgH - bwNormal, bgW, bwNormal)       -- top
-    renderOverlay(self.bgOverlay, bgX, bgY, bgW, bwNormal)                         -- bottom
-    renderOverlay(self.bgOverlay, bgX, bgY, bwNormal, bgH)                         -- left
-    renderOverlay(self.bgOverlay, bgX + bgW - bwNormal, bgY, bwNormal, bgH)        -- right
+        local bwNormal = 0.001
+        setOverlayColor(self.bgOverlay, self.COLORS.BORDER_NORMAL[1], self.COLORS.BORDER_NORMAL[2], self.COLORS.BORDER_NORMAL[3], self.COLORS.BORDER_NORMAL[4])
+        renderOverlay(self.bgOverlay, bgX, bgY + bgH - bwNormal, bgW, bwNormal)       -- top
+        renderOverlay(self.bgOverlay, bgX, bgY, bgW, bwNormal)                         -- bottom
+        renderOverlay(self.bgOverlay, bgX, bgY, bwNormal, bgH)                         -- left
+        renderOverlay(self.bgOverlay, bgX + bgW - bwNormal, bgY, bwNormal, bgH)        -- right
+    end
 
     -- Edit mode: pulsing border + resize handles
     if self.editMode then
@@ -887,15 +897,21 @@ function NPCFavorHUD:draw()
             -- Progress bar (below line 2, only when progress > 0)
             if favor.progress and favor.progress > 0 then
                 local barWidth = w * 0.6
-                local barHeight = 0.004 * s
+                local barHeight = (6 / 1080) * s
                 local barY = line2Y - 0.007 * s
 
-                setOverlayColor(self.bgOverlay, self.COLORS.BAR_BG[1], self.COLORS.BAR_BG[2], self.COLORS.BAR_BG[3], self.COLORS.BAR_BG[4])
-                renderOverlay(self.bgOverlay, self.posX, barY, barWidth, barHeight)
+                local barColor = {textColor[1], textColor[2], textColor[3], 0.8}
+                local usedNativeBar = renderer ~= nil and renderer.renderProgressBar ~= nil
+                    and renderer:renderProgressBar(self.posX, barY, barWidth, barHeight,
+                        favor.progress / 100, barColor)
+                if not usedNativeBar then
+                    setOverlayColor(self.bgOverlay, self.COLORS.BAR_BG[1], self.COLORS.BAR_BG[2], self.COLORS.BAR_BG[3], self.COLORS.BAR_BG[4])
+                    renderOverlay(self.bgOverlay, self.posX, barY, barWidth, barHeight)
 
-                local progressWidth = barWidth * (favor.progress / 100)
-                setOverlayColor(self.bgOverlay, textColor[1], textColor[2], textColor[3], 0.8)
-                renderOverlay(self.bgOverlay, self.posX, barY, progressWidth, barHeight)
+                    local progressWidth = barWidth * (favor.progress / 100)
+                    setOverlayColor(self.bgOverlay, textColor[1], textColor[2], textColor[3], 0.8)
+                    renderOverlay(self.bgOverlay, self.posX, barY, progressWidth, barHeight)
+                end
 
                 setTextAlignment(RenderText.ALIGN_LEFT)
                 setTextColor(self.COLORS.TEXT_DIM[1], self.COLORS.TEXT_DIM[2], self.COLORS.TEXT_DIM[3], self.COLORS.TEXT_DIM[4])
