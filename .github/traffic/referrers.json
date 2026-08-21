@@ -5338,13 +5338,13 @@
   "2026-08-21": [
     {
       "referrer": "github.com",
-      "count": 143,
+      "count": 150,
       "uniques": 60
     },
     {
       "referrer": "Google",
-      "count": 94,
-      "uniques": 53
+      "count": 97,
+      "uniques": 54
     },
     {
       "referrer": "chatgpt.com",
@@ -5363,7 +5363,7 @@
     },
     {
       "referrer": "yandex.ru",
-      "count": 6,
+      "count": 5,
       "uniques": 3
     },
     {
