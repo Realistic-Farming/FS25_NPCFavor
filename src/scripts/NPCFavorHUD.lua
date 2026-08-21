@@ -13,7 +13,10 @@
 -- Drag/resize state is runtime-only — never persisted.
 -- =========================================================
 
-NPCFavorHUD = {}
+-- BUILD 17:57 + ATTN 18:02 (Wizard hot-reload law, FS25-HotReload-Guide.md Part 1):
+-- reuse the existing class table on Ctrl+R reload so updated methods land on the
+-- table live metatables already reference, instead of orphaning it.
+NPCFavorHUD = NPCFavorHUD or {}
 NPCFavorHUD_mt = Class(NPCFavorHUD)
 
 -- =========================================================
@@ -26,8 +29,10 @@ function NPCFavorHUD.new(npcSystem)
     self.npcSystem = npcSystem
 
     -- Position (normalized 0–1, top-left anchor of the HUD box)
+    -- BUILD 12:25 (Sam DESIGN 12:23): Active Favors factory default is
+    -- Middle-Left-Top in the suite's non-overlap layout. Saved drag XML wins.
     self.posX = 0.02
-    self.posY = 0.7
+    self.posY = 0.62
 
     -- Scale multiplier applied to all dimensions and text
     self.scale = 1.0
@@ -127,7 +132,7 @@ end
 function NPCFavorHUD:loadFromSettings(settings)
     if not settings then return end
     self.posX = settings.favorHudPosX or 0.02
-    self.posY = settings.favorHudPosY or 0.7
+    self.posY = settings.favorHudPosY or 0.62
     self.scale = settings.favorHudScale or 1.0
     self.widthMult = settings.favorHudWidthMult or 1.0
     self:clampPosition()
@@ -1018,4 +1023,16 @@ function NPCFavorHUD:delete()
         self.bgOverlay = nil
     end
 
+end
+
+-- =========================================================
+-- BUILD 17:57 + ATTN 18:02 (hot-reload guide Part 2): force-patch the live
+-- instance after a Ctrl+R reload - mission.npcFavorSystem published in main.lua; holds .favorHUD.
+if g_currentMission ~= nil and g_currentMission.npcFavorSystem ~= nil and g_currentMission.npcFavorSystem.favorHUD ~= nil then
+    local inst = g_currentMission.npcFavorSystem.favorHUD
+    for k, v in pairs(NPCFavorHUD) do
+        if type(v) == "function" then
+            inst[k] = v
+        end
+    end
 end

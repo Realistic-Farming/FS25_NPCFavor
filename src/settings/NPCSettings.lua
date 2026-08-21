@@ -58,7 +58,10 @@ function NPCSettings:resetToDefaults()
     self.nameDisplayDistance = 50
     self.notificationDuration = 4000
     self.favorHudPosX = 0.02
-    self.favorHudPosY = 0.7
+    -- BUILD 12:52 (Vera F2): the settings seed must agree with the NPCFavorHUD
+    -- constructor and Sam DESIGN 12:23 - a fresh settings XML seeds 0.62, so the
+    -- missing-sidecar path lands on the suite non-overlap home, not the old 0.7.
+    self.favorHudPosY = 0.62
     self.favorHudScale = 1.0
     self.favorHudLocked = false
     self.favorPanelScale = 1.0
