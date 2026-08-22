@@ -30,7 +30,7 @@
 local SETTINGS_SCHEMA_VERSION = "1.2.4"
 
 ---@class NPCSettings
-NPCSettings = {}
+NPCSettings = NPCSettings or {}
 local NPCSettings_mt = Class(NPCSettings)
 
 function NPCSettings.new()

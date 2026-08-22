@@ -31,7 +31,7 @@
 -- Math utilities for vector operations
 -- =========================================================
 
-VectorHelper = {}
+VectorHelper = VectorHelper or {}
 
 function VectorHelper.distance2D(x1, z1, x2, z2)
     local dx = x2 - x1

@@ -38,11 +38,11 @@ function NPCFavorHUD.new(npcSystem)
     -- Middle-Left-Top in the suite's non-overlap layout. Saved drag XML wins.
     -- Wizard 2026-08-21: factory home is the suite layout Wizard arranged
     -- in-game (left column). Saved settings still win on load.
-    self.posX = 0.023125
-    self.posY = 0.714444
+    self.posX = 0.024167
+    self.posY = 0.712592
 
     -- Scale multiplier applied to all dimensions and text
-    self.scale = 1.178089   -- factory suite layout (Wizard 2026-08-21)
+    self.scale = 1.200786   -- factory suite layout (Wizard 2026-08-22)
 
     -- Edit/drag state (runtime only, never persisted)
     self.editMode = false
@@ -62,7 +62,7 @@ function NPCFavorHUD.new(npcSystem)
     self.MAX_SCALE = 2.0
 
     -- Width multiplier (adjusted by edge-drag, independent of scale)
-    self.widthMult = 1.0
+    self.widthMult = 0.517187   -- factory suite layout (Wizard 2026-08-22)
     self.MIN_WIDTH_MULT = 0.5
     self.MAX_WIDTH_MULT = 2.0
     self.edgeDragging = nil  -- nil, "left", or "right"
@@ -138,10 +138,10 @@ end
 
 function NPCFavorHUD:loadFromSettings(settings)
     if not settings then return end
-    self.posX = settings.favorHudPosX or 0.023125
-    self.posY = settings.favorHudPosY or 0.714444
-    self.scale = settings.favorHudScale or 1.178089
-    self.widthMult = settings.favorHudWidthMult or 1.0
+    self.posX = settings.favorHudPosX or 0.024167
+    self.posY = settings.favorHudPosY or 0.712592
+    self.scale = settings.favorHudScale or 1.200786
+    self.widthMult = settings.favorHudWidthMult or 0.517187
     self:clampPosition()
 end
 
@@ -185,6 +185,14 @@ function NPCFavorHUD:enterEditMode()
 end
 
 function NPCFavorHUD:exitEditMode()
+    -- 2026-08-22 (Wizard): while MasterHUD suite edit is ON, the suite owns this
+    -- session - only the suite exit (bridge sets _suiteExiting) may end it. The
+    -- in-vehicle auto-exit in main.lua used to kill the favor HUD's edit one frame
+    -- after the suite entered it (log 18:45:07.588 enabled -> .599 disabled).
+    local mh = (g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD
+    if mh ~= nil and mh.isLayoutEditMode ~= nil and mh:isLayoutEditMode() and not self._suiteExiting then
+        return
+    end
     self.editMode = false
     self.dragging = false
     self.resizing = false

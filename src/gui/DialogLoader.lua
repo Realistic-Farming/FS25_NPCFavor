@@ -10,7 +10,7 @@
 --   DialogLoader.close("MyDialog")
 -- =========================================================
 
-DialogLoader = {}
+DialogLoader = DialogLoader or {}
 
 -- Registry: name -> { class, xmlPath, instance, loaded }
 DialogLoader.dialogs = {}

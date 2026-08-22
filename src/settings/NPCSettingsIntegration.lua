@@ -2,12 +2,12 @@
 -- FS25 NPC Favor Mod - Settings Integration
 -- =========================================================
 -- ESC menu injection removed in v1.2.5.0.
--- Settings are now managed by NPCSettingsPanel (F5).
+-- Settings are now managed by NPCSettingsPanel (NPC_SETTINGS action, player-assigned key).
 -- This file is kept as a subsystem stub — NPCSystem holds
 -- a reference to the instance and calls lifecycle methods.
 -- =========================================================
 
-NPCSettingsIntegration = {}
+NPCSettingsIntegration = NPCSettingsIntegration or {}
 NPCSettingsIntegration_mt = Class(NPCSettingsIntegration)
 
 function NPCSettingsIntegration.new(npcSystem)

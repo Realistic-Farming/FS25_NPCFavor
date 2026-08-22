@@ -52,11 +52,11 @@
 -- FS25 project() API: project(worldX, worldY, worldZ) → screenX, screenY, screenZ (0-1 normalized)
 -- =========================================================
 
-NPCInteractionUI = {}
+NPCInteractionUI = NPCInteractionUI or {}
 NPCInteractionUI_mt = Class(NPCInteractionUI)
 
 -- Mod-scoped i18n with Missing-reject (same class as MDMUtil.getModText / NPCDialog).
-local NPC_UI_MOD_NAME = g_currentModName
+local NPC_UI_MOD_NAME = (NPCFavorModName or g_currentModName)
 local function getModText(key, fallback)
     if key == nil or key == "" then
         return fallback

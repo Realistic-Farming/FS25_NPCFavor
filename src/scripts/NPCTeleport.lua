@@ -13,7 +13,7 @@
 --   - Favor Management dialog "Goto" buttons (NPCFavorManagementDialog.lua)
 -- =========================================================
 
-NPCTeleport = {}
+NPCTeleport = NPCTeleport or {}
 
 --- Compute a safe approach position near an NPC: in front of them if standing,
 -- behind them (facing the same way) if moving, snapped to terrain, and nudged

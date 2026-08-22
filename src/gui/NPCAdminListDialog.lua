@@ -9,7 +9,7 @@
 -- 12 data rows with 3-layer Edit buttons and hover effects.
 -- =========================================================
 
-NPCAdminListDialog = {}
+NPCAdminListDialog = NPCAdminListDialog or {}
 local NPCAdminListDialog_mt = Class(NPCAdminListDialog, MessageDialog)
 
 NPCAdminListDialog.MAX_ROWS = 12

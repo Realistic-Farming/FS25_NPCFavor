@@ -46,8 +46,15 @@
 -- =========================================================
 
 -- Add version tracking
-local modDirectory = g_currentModDirectory
-local modName = g_currentModName
+-- Hot-reload latch (FuelCosts reference): g_currentModDirectory and
+-- g_currentModName are nil on a live re-source, so they are latched into
+-- module globals on first load, with a g_modsDirectory loose-folder fallback.
+NPCFavorModDirectory = NPCFavorModDirectory
+    or g_currentModDirectory
+    or (g_modsDirectory ~= nil and (g_modsDirectory .. "FS25_NPCFavor/") or nil)
+NPCFavorModName = NPCFavorModName or g_currentModName or "FS25_NPCFavor"
+local modDirectory = NPCFavorModDirectory
+local modName = NPCFavorModName
 
 local modItem = g_modManager:getModByName(modName)
 local modVersion = modItem.version
@@ -110,11 +117,11 @@ if modDirectory then
     source(modDirectory .. "src/integrations/NPCSettingsHubBridge.lua")
 
 -- Esc RF PDA framework joiner (NO-HOST).
-source(g_currentModDirectory .. "src/gui/RfEscModules.lua")
-source(g_currentModDirectory .. "src/gui/RfPdaMenuPage.lua")
-source(g_currentModDirectory .. "src/gui/RfEscBootstrap.lua")
-source(g_currentModDirectory .. "src/gui/RfEscUiDebugger.lua")
-source(g_currentModDirectory .. "src/gui/NpcRfPdaGuest.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscModules.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfPdaMenuPage.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscBootstrap.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscUiDebugger.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/NpcRfPdaGuest.lua")
 
     print("[NPC Favor] All files loaded successfully")
 else
@@ -634,12 +641,10 @@ if FSBaseMission and FSBaseMission.update then
             end
         end
 
-        -- Auto-exit HUD edit mode if player enters a vehicle
-        if npcSystem.favorHUD and npcSystem.favorHUD.editMode then
-            if g_localPlayer and g_localPlayer.getIsInVehicle and g_localPlayer:getIsInVehicle() then
-                npcSystem.favorHUD:exitEditMode()
-            end
-        end
+        -- 2026-08-22 (Wizard): the old "auto-exit HUD edit when the player is in a
+        -- vehicle" rule is GONE. HUD edit must work in and out of a cab, and with
+        -- MasterHUD suite edit it killed the favor HUD's edit one frame after the
+        -- suite entered it (log: enabled 18:45:07.588, disabled .599).
     end)
 end
 

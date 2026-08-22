@@ -6,7 +6,7 @@
 -- Modeled after NPCListDialog for FS25 compatibility
 -- =========================================================
 
-NPCFavorManagementDialog = {}
+NPCFavorManagementDialog = NPCFavorManagementDialog or {}
 local NPCFavorManagementDialog_mt = Class(NPCFavorManagementDialog, MessageDialog)
 
 NPCFavorManagementDialog.MAX_FAVORS = 5  -- Max visible favors

@@ -51,7 +51,7 @@ The mod supports singleplayer and multiplayer (not yet tested) , saves all NPC d
 ## 🎮 Quick Start
 
 1. **NPCs spawn automatically.** After the map loads, NPCs appear near buildings around the map. You'll see a console message confirming initialization.
-2. **Look for the [E] prompt.** Walk near an NPC and a contextual prompt appears: "Talk to [NPC Name]". Press **E** to open the dialog.
+2. **Look for the talk prompt.** Walk near an NPC and a contextual prompt appears: "Talk to [NPC Name]" with the key the game has assigned to *Talk to NPC* (assign your own under Options > Controls > Mods). Press it to open the dialog.
 3. **Start a conversation.** The dialog shows the NPC's name, your relationship level, and a greeting that reflects how well they know you.
 4. **Choose an action.** Talk, Ask About Work, Ask for Favor, Give Gift, or view Relationship Info.
 5. **Build the relationship.** Chat regularly, complete favors when available (at relationship 25+), and give gifts (at relationship 30+).

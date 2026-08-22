@@ -8,7 +8,7 @@
 -- Shown via: DialogLoader.show("NPCListDialog", "setNPCSystem", g_NPCSystem)
 -- =========================================================
 
-NPCListDialog = {}
+NPCListDialog = NPCListDialog or {}
 local NPCListDialog_mt = Class(NPCListDialog, MessageDialog)
 
 NPCListDialog.MAX_ROWS = 16

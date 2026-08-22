@@ -153,7 +153,7 @@
 		<text name="npc_hud_locked_long" text="Quando bloccato, la lista favori non può essere spostata o ridimensionata" />
 		<text name="npc_hud_scale_short" text="Dimensione HUD favori" />
 		<text name="npc_panel_scale_short" text="[EN] Settings Panel Scale"/>
-		<text name="npc_panel_scale_long" text="[EN] Size of the F5 settings panel (independent of the favor HUD)"/>
+		<text name="npc_panel_scale_long" text="[EN] Size of the NPC Settings settings panel (independent of the favor HUD)"/>
 		<text name="npc_hud_scale_long" text="Dimensione della lista favori attivi sullo schermo" />
 		<text name="npc_admin_title" text="Pannello Admin NPC" />
 		<text name="npc_admin_subtitle_fmt" text="%d NPC attivi  |  Clicca Modifica per regolare" />
@@ -209,7 +209,7 @@
 		<text name="npc_panel_hdr_admin_actions"    text="Admin Actions" />
 		<!-- UI strings -->
 		<text name="npc_panel_btn_back"             text="Back" />
-		<text name="npc_panel_btn_close_hint"       text="F5 to close" />
+		<text name="npc_panel_btn_close_hint"       text="NPC Settings to close" />
 		<text name="npc_panel_btn_open"             text="Open" />
 		<text name="npc_panel_btn_configure"        text="Configure" />
 		<text name="npc_panel_btn_reset"            text="Reset Category" />

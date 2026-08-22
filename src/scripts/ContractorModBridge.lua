@@ -15,7 +15,7 @@
 --             add the favor/relationship layer, no entity spawn.
 -- ============================================================
 
-ContractorModBridge = {}
+ContractorModBridge = ContractorModBridge or {}
 ContractorModBridge.__index = ContractorModBridge
 
 local LOG_PREFIX = "[NPC Favor][ContractorBridge]"

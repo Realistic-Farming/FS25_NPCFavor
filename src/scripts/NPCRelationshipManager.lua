@@ -31,7 +31,7 @@
 -- Manages relationships between player and NPCs
 -- =========================================================
 
-NPCRelationshipManager = {}
+NPCRelationshipManager = NPCRelationshipManager or {}
 NPCRelationshipManager_mt = Class(NPCRelationshipManager)
 
 function NPCRelationshipManager.new(npcSystem)

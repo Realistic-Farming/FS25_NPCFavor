@@ -38,7 +38,7 @@
            NaN/infinity checks, rate limiting via cooldown.
 ]]
 
-NPCInteractionEvent = {}
+NPCInteractionEvent = NPCInteractionEvent or {}
 local NPCInteractionEvent_mt = Class(NPCInteractionEvent, Event)
 
 InitEventClass(NPCInteractionEvent, "NPCInteractionEvent")
