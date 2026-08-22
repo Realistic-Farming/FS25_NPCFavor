@@ -145,7 +145,7 @@
 --   converts to seconds (dt = dt / 1000) before passing to subsystems.
 -- =========================================================
 
-NPCSystem = {}
+NPCSystem = NPCSystem or {}
 NPCSystem_mt = Class(NPCSystem)
 
 --- Create a new NPCSystem coordinator.

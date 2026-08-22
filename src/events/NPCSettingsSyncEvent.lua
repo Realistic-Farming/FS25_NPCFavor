@@ -42,7 +42,7 @@
            string truncation, fail-secure rejection.
 ]]
 
-NPCSettingsSyncEvent = {}
+NPCSettingsSyncEvent = NPCSettingsSyncEvent or {}
 local NPCSettingsSyncEvent_mt = Class(NPCSettingsSyncEvent, Event)
 
 InitEventClass(NPCSettingsSyncEvent, "NPCSettingsSyncEvent")

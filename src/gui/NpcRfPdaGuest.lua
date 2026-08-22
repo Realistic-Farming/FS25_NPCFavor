@@ -4,10 +4,10 @@
 -- Active favors → rfFwMore bridge. Read-only glance; spoiler ban held.
 -- =========================================================
 
-NpcRfPdaGuest = {}
+NpcRfPdaGuest = NpcRfPdaGuest or {}
 
-local MOD_DIR = g_currentModDirectory
-local MOD_NAME = g_currentModName
+local MOD_DIR = (NPCFavorModDirectory or g_currentModDirectory)
+local MOD_NAME = (NPCFavorModName or g_currentModName)
 local PANEL_ID = "npcFavor"
 local PANEL_ORDER = 80
 local MAX_ROWS = 8
@@ -577,6 +577,20 @@ local function restoreFwEmptyHintBox(container)
     end
 end
 
+local function stripButtonGlyph(btn)
+    if btn == nil then return end
+    btn.inputActionName = nil
+    btn.keyDisplayText = nil
+    btn.keyOverlay = nil
+    btn.hideKeyboardGlyph = true
+    btn.hasLoadedInputGlyph = false
+    btn.isKeyboardMode = false
+    btn.keyGlyphOffsetX = 0
+    btn.keyGlyphSize = { 0, 0 }
+    btn.iconSize = { 0, 0 }
+    btn.icon = {}
+end
+
 --- BUILD 09:19 (PB-07): show and label the two shared row-pager Buttons.
 ---
 --- The host hides both on every refresh before the guest paints (see _syncHostGuestChrome),
@@ -592,6 +606,9 @@ local function paintPager(container, rosterN, pages)
     local nextEl = findDescendant(container, "rfFwPageNext")
     local multi = rosterN > MAX_ROWS and pages > 1
 
+    stripButtonGlyph(prevEl)
+    stripButtonGlyph(nextEl)
+
     for _, el in ipairs({ prevEl, nextEl }) do
         if el ~= nil then
             if type(el.setVisible) == "function" then el:setVisible(multi) end
@@ -604,10 +621,12 @@ local function paintPager(container, rosterN, pages)
 
     if prevEl ~= nil and type(prevEl.setText) == "function" then
         prevEl:setText(tr("npc_rf_pda_page_prev", "< Back"))
+        stripButtonGlyph(prevEl)
     end
     if nextEl ~= nil and type(nextEl.setText) == "function" then
         nextEl:setText(string.format(
             tr("npc_rf_pda_page_next", "More (%d/%d) >"), _pageIndex, pages))
+        stripButtonGlyph(nextEl)
     end
 end
 

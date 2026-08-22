@@ -51,12 +51,12 @@
 -- Opened via NPCFavorGUI → DialogLoader pattern.
 -- =========================================================
 
-NPCDialog = {}
+NPCDialog = NPCDialog or {}
 local NPCDialog_mt = Class(NPCDialog, MessageDialog)
 
 -- Mod-scoped i18n with Missing-reject (same class as MDMUtil.getModText).
 -- Giants g_i18n:getText returns a truthy "Missing '…'" banner on miss; never paint that.
-local NPC_DIALOG_MOD_NAME = g_currentModName
+local NPC_DIALOG_MOD_NAME = (NPCFavorModName or g_currentModName)
 local function getModText(key, fallback)
     if key == nil or key == "" then
         return fallback

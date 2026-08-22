@@ -32,7 +32,7 @@
 -- The cross-mod handle is g_currentMission.networkSync. Registration is order independent.
 -- =========================================================
 
-NPCNetworkSyncBridge = {}
+NPCNetworkSyncBridge = NPCNetworkSyncBridge or {}
 
 -- Locked network channel / module id. Never renamed (a later rename desyncs a mixed lobby).
 NPCNetworkSyncBridge.MODULE_ID = "NPCFavor_Sync"

@@ -26,7 +26,7 @@
 -- Contains NPC definitions, names, and configuration data
 -- =========================================================
 
-NPCConfig = {}
+NPCConfig = NPCConfig or {}
 local NPCConfig_mt = Class(NPCConfig)
 
 function NPCConfig.new()

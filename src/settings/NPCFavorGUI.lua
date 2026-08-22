@@ -28,7 +28,7 @@
 -- Handles console commands and GUI integration
 -- =========================================================
 
-NPCFavorGUI = {}
+NPCFavorGUI = NPCFavorGUI or {}
 NPCFavorGUI_mt = Class(NPCFavorGUI)
 
 function NPCFavorGUI.new(npcSystem)

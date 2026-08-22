@@ -33,7 +33,7 @@
 -- Manages favor requests, tracking, and completion
 -- =========================================================
 
-NPCFavorSystem = {}
+NPCFavorSystem = NPCFavorSystem or {}
 NPCFavorSystem_mt = Class(NPCFavorSystem)
 
 -- Per-personality category weight multipliers for favor type selection.

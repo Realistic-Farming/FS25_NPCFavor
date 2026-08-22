@@ -88,7 +88,7 @@
 --            → removeNPCEntity() on despawn → cleanupStaleEntities() periodically
 -- =========================================================
 
-NPCEntity = {}
+NPCEntity = NPCEntity or {}
 NPCEntity_mt = Class(NPCEntity)
 
 -- Y offset to align model feet with terrain surface.

@@ -11,7 +11,7 @@
 -- endpoints (~3m apart) for clean, realistic movement.
 -- =========================================================
 
-NPCFieldWork = {}
+NPCFieldWork = NPCFieldWork or {}
 local NPCFieldWork_mt = {__index = NPCFieldWork}
 
 --- Constructor

@@ -73,7 +73,7 @@
 -- Movement recovery: x += sin(yaw) * speed, z += cos(yaw) * speed.
 -- =========================================================
 
-NPCAI = {}
+NPCAI = NPCAI or {}
 NPCAI_mt = Class(NPCAI)
 
 --- Create a new NPCAI instance.
@@ -3569,7 +3569,7 @@ end
 -- (removes waypoints with < 30° direction change).
 -- =========================================================
 
-NPCPathfinder = {}
+NPCPathfinder = NPCPathfinder or {}
 NPCPathfinder_mt = Class(NPCPathfinder)
 
 --- Create a new NPCPathfinder.

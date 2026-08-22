@@ -8,7 +8,7 @@
 -- Opened from NPCAdminListDialog when user clicks "Edit".
 -- =========================================================
 
-NPCAdminEditDialog = {}
+NPCAdminEditDialog = NPCAdminEditDialog or {}
 local NPCAdminEditDialog_mt = Class(NPCAdminEditDialog, MessageDialog)
 
 -- Hover color constants

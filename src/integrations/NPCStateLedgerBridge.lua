@@ -27,7 +27,7 @@
 -- happens later, in the first-frame init), rather than letting hook order decide.
 -- =========================================================
 
-NPCStateLedgerBridge = {}
+NPCStateLedgerBridge = NPCStateLedgerBridge or {}
 
 -- Locked persistence key inside the master file. Never renamed after first persist (a
 -- later rename orphans saved NPC state). Matches StateLedger's <Mod>_<Thing> convention.

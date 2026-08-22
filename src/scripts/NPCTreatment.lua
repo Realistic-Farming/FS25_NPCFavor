@@ -32,7 +32,7 @@
 -- Author: TisonK
 -- =========================================================
 
-NPCTreatment = {}
+NPCTreatment = NPCTreatment or {}
 
 NPCTreatment.ENABLED = true
 

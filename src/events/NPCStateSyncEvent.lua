@@ -34,7 +34,7 @@
            client-only execution gate, string truncation.
 ]]
 
-NPCStateSyncEvent = {}
+NPCStateSyncEvent = NPCStateSyncEvent or {}
 local NPCStateSyncEvent_mt = Class(NPCStateSyncEvent, Event)
 
 InitEventClass(NPCStateSyncEvent, "NPCStateSyncEvent")
