@@ -1,3 +1,12 @@
+-- 2026-08-22 (Wizard): with MasterHUD installed this mod's own HUD hide/move keys must not
+-- merely be inert, they must not REGISTER at all - that is what removes their rows from the
+-- F1 legend and the Controls list. Probed on TaxMod first: skipping registration does remove
+-- the row, so the pattern is used suite-wide. Only HUD hide/move actions are gated; every
+-- other action this mod registers is untouched.
+local function __rfMhOwnsHudKeys()
+    return ((g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD) ~= nil
+end
+
 -- =========================================================
 -- TODO / FUTURE VISION
 -- =========================================================
@@ -471,6 +480,13 @@ end
 
 -- Toggle HUD Edit Mode via key binding (works on foot and in vehicle)
 local function hudEditModeActionCallback(self, actionName, inputValue, callbackState, isAnalog)
+    -- 2026-08-22 (Wizard): MasterHUD takeover. When MasterHUD is installed it owns the
+    -- suite-wide hide/move binds, so this mod's own per-mod key is deliberately inert:
+    -- one surface, one way to reach it. Standalone (no MasterHUD) this runs normally.
+    -- Canonical presence check, the same expression the suite's MasterHUD bridges use.
+    if ((g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD) ~= nil then
+        return
+    end
     if inputValue <= 0 then return end
     print("[NPC Favor] HUD edit callback fired — action=" .. tostring(actionName) .. " inputValue=" .. tostring(inputValue))
     if not npcSystem or not npcSystem.favorHUD then
@@ -579,7 +595,8 @@ local function hookNPCInteractInput()
             end
 
             -- Register Right-click: HUD Edit Mode
-            local hudEditActionId = InputAction.HUD_EDIT_MODE
+            local hudEditActionId = InputAction.NPC_HUD_EDIT
+            if __rfMhOwnsHudKeys() then hudEditActionId = nil end
             if hudEditActionId ~= nil then
                 local success, eventId = g_inputBinding:registerActionEvent(
                     hudEditActionId,
@@ -591,7 +608,7 @@ local function hookNPCInteractInput()
                     hudEditModeActionEventId = eventId
                     g_inputBinding:setActionEventActive(eventId, true)
                     g_inputBinding:setActionEventTextPriority(eventId, GS_PRIO_NORMAL)
-                    g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_HUD_EDIT_MODE") or "Toggle HUD Edit")
+                    g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_NPC_HUD_EDIT") or "Toggle HUD Edit")
                 end
             end
 
@@ -784,7 +801,7 @@ addModEventListener({
         local isGuiOpen = g_gui and (g_gui:getIsGuiVisible() or g_gui:getIsDialogVisible())
 
         -- RMB: exit edit mode only. Edit mode is entered exclusively via the
-        -- HUD_EDIT_MODE key binding — never via right-click — so RMB is never
+        -- NPC_HUD_EDIT key binding — never via right-click — so RMB is never
         -- consumed during normal play, preserving CoursePlay, AutoDrive, etc.
         -- FS25 mouseEvent button numbers: 1=left, 3=right, 2=middle
         if isDown and button == 3 then
@@ -835,3 +852,53 @@ if FSBaseMission ~= nil then
         end
     end)
 end
+
+-- ---------------------------------------------------------
+-- Realistic Farming Control Center: publish runnable delegates.
+--
+-- The delegates repeat the work the key callbacks do rather than calling those
+-- callbacks. Each one starts with "if inputValue <= 0 then return end", so
+-- invoking them with no arguments would compare nil and error. npcSettings also
+-- refuses outright while any GUI or dialog is visible, which is why every entry
+-- here closes the Control Center first.
+--
+-- NPC_INTERACT is deliberately absent: it acts on whichever NPC the player is
+-- standing in front of and has no meaning from a menu. NPC_HUD_EDIT is absent
+-- because MasterHUD owns the suite HUD keys. Both keep their directory row.
+-- ---------------------------------------------------------
+local function registerControlCenterActions()
+    local registry = g_currentMission ~= nil and g_currentMission.rfActionRegistry or nil
+    if registry == nil then return end
+
+    registry.registerAction({
+        action = "FAVOR_MENU", button = "Open", order = 1, closeFirst = true,
+        run = function()
+            if npcSystem ~= nil and npcSystem.isInitialized
+                and DialogLoader ~= nil and DialogLoader.show ~= nil then
+                DialogLoader.show("NPCFavorManagementDialog", "setNPCSystem", npcSystem)
+            end
+        end,
+    })
+
+    registry.registerAction({
+        action = "NPC_LIST", button = "Open", order = 2, closeFirst = true,
+        run = function()
+            if npcSystem ~= nil and npcSystem.isInitialized
+                and DialogLoader ~= nil and DialogLoader.show ~= nil then
+                DialogLoader.show("NPCListDialog", "setNPCSystem", npcSystem)
+            end
+        end,
+    })
+
+    registry.registerAction({
+        action = "NPC_SETTINGS", button = "Open", order = 3, closeFirst = true,
+        run = function()
+            if npcSystem ~= nil and npcSystem.settingsPanel ~= nil then
+                npcSystem.settingsPanel:toggle()
+            end
+        end,
+    })
+end
+
+Mission00.loadMission00Finished = Utils.appendedFunction(
+    Mission00.loadMission00Finished, registerControlCenterActions)
