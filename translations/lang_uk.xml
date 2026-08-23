@@ -147,7 +147,8 @@
 		<text name="input_FAVOR_MENU" text="Меню послуг" />
 		<text name="input_NPC_LIST" text="Список NPC" />
 			<text name="npc_schedule_plans" text="Мої плани:" />
-		<text name="input_HUD_EDIT_MODE" text="Перемкнути редагування HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Перемкнути редагування HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Перетягніть для переміщення | Кути для масштабування" />
 		<text name="npc_hud_locked_short" text="Заблокувати HUD послуг" />
 		<text name="npc_hud_locked_long" text="Коли заблоковано, список послуг не можна переміщувати або масштабувати" />

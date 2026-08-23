@@ -44,14 +44,16 @@
         <action name="NPC_INTERACT" />
         <action name="FAVOR_MENU" />
         <action name="NPC_LIST" />
-        <action name="HUD_EDIT_MODE" />
         <action name="NPC_SETTINGS" />
+        <action name="NPC_HUD_EDIT" category="ONFOOT VEHICLE" />
     </actions>
     <inputBinding>
         <actionBinding action="NPC_INTERACT" />
         <actionBinding action="FAVOR_MENU" />
         <actionBinding action="NPC_LIST" />
-        <actionBinding action="HUD_EDIT_MODE" />
         <actionBinding action="NPC_SETTINGS" />
+        <actionBinding action="NPC_HUD_EDIT">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_z" />
+        </actionBinding>
     </inputBinding>
 </modDesc>

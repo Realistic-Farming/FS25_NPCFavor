@@ -147,7 +147,8 @@
 		<text name="input_FAVOR_MENU" text="Menu przysług" />
 		<text name="input_NPC_LIST" text="Lista NPC" />
 			<text name="npc_schedule_plans" text="Moje plany:" />
-		<text name="input_HUD_EDIT_MODE" text="Przełącz edycję HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Przełącz edycję HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Przeciągnij, aby przesunąć | Rogi, aby skalować" />
 		<text name="npc_hud_locked_short" text="Zablokuj HUD przysług" />
 		<text name="npc_hud_locked_long" text="Gdy zablokowany, lista przysług nie może być przesuwana ani skalowana" />
