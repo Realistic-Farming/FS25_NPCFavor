@@ -4,6 +4,14 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 
 ---
 
+## Unreleased
+
+### Added
+- **Control Center actions** (suite Control Center, requires SettingsHub): `FAVOR_MENU`, `NPC_LIST`, `NPC_SETTINGS`.
+- **Playtest fixes:** NpcRfPdaGuest (Esc neighbor-table pager), NPCFavorHUD, NPC_HUD_EDIT (RShift+Z), translation sync.
+
+---
+
 ## v1.2.7.1 -- Favor completion fix, money authority, core-service bridges, and a companion read API
 
 ### Favors
