@@ -147,7 +147,8 @@
 		<text name="input_FAVOR_MENU" text="Menu des faveurs" />
 		<text name="input_NPC_LIST" text="Liste PNJ" />
 			<text name="npc_schedule_plans" text="Mes projets :" />
-		<text name="input_HUD_EDIT_MODE" text="Basculer édition HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Basculer édition HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Glisser pour déplacer | Coins pour redimensionner" />
 		<text name="npc_hud_locked_short" text="Verrouiller le HUD" />
 		<text name="npc_hud_locked_long" text="Quand verrouillé, la liste des faveurs ne peut pas être déplacée ou redimensionnée" />

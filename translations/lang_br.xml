@@ -147,7 +147,8 @@
 		<text name="input_FAVOR_MENU" text="Menu de favores" />
 		<text name="input_NPC_LIST" text="Lista NPC" />
 			<text name="npc_schedule_plans" text="Meus planos:" />
-		<text name="input_HUD_EDIT_MODE" text="Alternar edição do HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Alternar edição do HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Arraste para mover | Cantos para redimensionar" />
 		<text name="npc_hud_locked_short" text="Bloquear HUD de favores" />
 		<text name="npc_hud_locked_long" text="Quando bloqueado, a lista de favores não pode ser movida ou redimensionada" />

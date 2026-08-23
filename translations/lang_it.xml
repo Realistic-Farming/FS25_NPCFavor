@@ -147,7 +147,8 @@
 		<text name="input_FAVOR_MENU" text="Menu favori" />
 		<text name="input_NPC_LIST" text="Lista NPC" />
 			<text name="npc_schedule_plans" text="I miei piani:" />
-		<text name="input_HUD_EDIT_MODE" text="Attiva/disattiva modifica HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Attiva/disattiva modifica HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Trascina per spostare | Angoli per ridimensionare" />
 		<text name="npc_hud_locked_short" text="Blocca HUD favori" />
 		<text name="npc_hud_locked_long" text="Quando bloccato, la lista favori non può essere spostata o ridimensionata" />

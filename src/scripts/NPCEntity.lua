@@ -1425,6 +1425,10 @@ end
 -- @param npc  NPC data table
 -- @param dt   Delta time in seconds
 function NPCEntity:updateNPCEntity(npc, dt)
+    -- Procedural animation offsets. Function-scoped because BOTH the static-model
+    -- path and the debug-node fallback below read them; the static path assigns
+    -- real values, every other path leaves them at 0.
+    local yOffset, yawOffset = 0, 0
     local entity = self.npcEntities[npc.id]
     if not entity then return end
 
@@ -1540,10 +1544,14 @@ function NPCEntity:updateNPCEntity(npc, dt)
         -- Procedural animation timer (persistent per entity)
         entity.animTime = (entity.animTime or 0) + dt
 
-        -- Calculate procedural animation offsets
-        local yOffset = 0
+        -- Calculate procedural animation offsets.
+        -- 2026-08-23: yOffset/yawOffset are declared at FUNCTION scope above, not here.
+        -- They were locals of this else-branch, but the debug-node block further down sits
+        -- outside the branch and also reads them, so there they resolved to nil globals and
+        -- "entity.position.y + nil" threw inside a pcall - silently, which is why the debug
+        -- node never tracked the NPC. Assigning (not re-declaring) keeps both readers on the
+        -- same values.
         local scaleY = entity.scale or 1.0
-        local yawOffset = 0
         local aiState = npc.aiState or "idle"
         local t = entity.animTime
 

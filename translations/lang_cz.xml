@@ -147,7 +147,8 @@
 		<text name="input_FAVOR_MENU" text="Menu laskavostí" />
 		<text name="input_NPC_LIST" text="Seznam NPC" />
 			<text name="npc_schedule_plans" text="Moje plány:" />
-		<text name="input_HUD_EDIT_MODE" text="Přepnout úpravy HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Přepnout úpravy HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Přetáhněte pro přesun | Rohy pro změnu velikosti" />
 		<text name="npc_hud_locked_short" text="Zamknout HUD laskavostí" />
 		<text name="npc_hud_locked_long" text="Když je zamknutý, seznam laskavostí nelze přesunout ani změnit velikost" />

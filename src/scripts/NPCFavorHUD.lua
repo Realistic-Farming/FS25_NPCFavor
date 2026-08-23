@@ -38,11 +38,11 @@ function NPCFavorHUD.new(npcSystem)
     -- Middle-Left-Top in the suite's non-overlap layout. Saved drag XML wins.
     -- Wizard 2026-08-21: factory home is the suite layout Wizard arranged
     -- in-game (left column). Saved settings still win on load.
-    self.posX = 0.024167
-    self.posY = 0.712592
+    self.posX = 0.598125
+    self.posY = 0.303333
 
     -- Scale multiplier applied to all dimensions and text
-    self.scale = 1.200786   -- factory suite layout (Wizard 2026-08-22)
+    self.scale = 0.962974   -- factory suite layout (Wizard 2026-08-22 21:xx capture)
 
     -- Edit/drag state (runtime only, never persisted)
     self.editMode = false
@@ -138,9 +138,9 @@ end
 
 function NPCFavorHUD:loadFromSettings(settings)
     if not settings then return end
-    self.posX = settings.favorHudPosX or 0.024167
-    self.posY = settings.favorHudPosY or 0.712592
-    self.scale = settings.favorHudScale or 1.200786
+    self.posX = settings.favorHudPosX or 0.598125
+    self.posY = settings.favorHudPosY or 0.303333
+    self.scale = settings.favorHudScale or 0.962974
     self.widthMult = settings.favorHudWidthMult or 0.517187
     self:clampPosition()
 end

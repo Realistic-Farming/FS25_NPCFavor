@@ -147,7 +147,8 @@
 		<text name="input_FAVOR_MENU" text="Gefallen-Menü" />
 		<text name="input_NPC_LIST" text="NPC-Liste" />
 		<text name="npc_schedule_plans" text="Meine Pläne:" />
-		<text name="input_HUD_EDIT_MODE" text="HUD-Bearbeitung umschalten" />
+		<text name="input_NPC_HUD_EDIT" text="HUD-Bearbeitung umschalten" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Ziehen zum Verschieben | Ecken zum Skalieren" />
 		<text name="npc_hud_locked_short" text="Gefallen-HUD sperren" />
 		<text name="npc_hud_locked_long" text="Wenn gesperrt, kann die Gefallenliste nicht verschoben oder skaliert werden" />
