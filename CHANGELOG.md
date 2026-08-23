@@ -1,4 +1,4 @@
-# NPC Favor -- Changelog
+﻿# NPC Favor -- Changelog
 
 All notable changes to the FS25_NPCFavor mod are documented below, organized by version. This changelog is derived from the actual git history and issue tracker.
 
@@ -66,8 +66,8 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 
 ### HUD Edit Mode & Resize System (NEW)
 - **Right-click toggle** replaces F8 keybind for entering HUD edit mode
-- **Corner resize handles**: Drag any corner to uniformly scale the HUD (0.5x–2.0x)
-- **Edge resize handles**: Drag left/right edges to adjust width independently (0.5x–2.0x width multiplier)
+- **Corner resize handles**: Drag any corner to uniformly scale the HUD (0.5xâ€“2.0x)
+- **Edge resize handles**: Drag left/right edges to adjust width independently (0.5xâ€“2.0x width multiplier)
 - **Camera lock**: Camera rotation freezes during edit mode to prevent accidental camera spin while dragging
 - **Smart guards**: Edit mode blocked when player is in a vehicle, GUI/dialog is open, or HUD is locked in settings
 - **Auto-exit**: Exiting to vehicle or opening a dialog automatically closes edit mode
@@ -78,7 +78,7 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - **Pixel-art compass needle** on each favor row points toward the target NPC relative to camera facing
 - Arrow rotates smoothly via 2D rotation matrix on per-frame grid dots
 - Uses `localDirectionToWorld` camera forward vector for reliable camera-relative angles (avoids `getRotation` sign convention issues)
-- **Distance + cardinal direction text** (e.g., "NE 250m") with color coding: green (<100m), yellow (100–500m), gray (>500m)
+- **Distance + cardinal direction text** (e.g., "NE 250m") with color coding: green (<100m), yellow (100â€“500m), gray (>500m)
 - **Proximity dot**: When within 3m of NPC, arrow replaced with centered dot to avoid erratic `atan2` behavior at near-zero distance
 - 8-direction compass labels (N, NE, E, SE, S, SW, W, NW) localized in all 10 languages
 
@@ -147,16 +147,16 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 **Issues Fixed:** #15 (Settings reset when exiting savegame)
 
 ### Settings Persistence (fixes #15)
-- **Save path fix**: `NPCSettings:saveToXMLFile(missionInfo)` now writes to `missionInfo.savegameDirectory` (tempsavegame during save), matching the UsedPlus pattern. Previously wrote directly to `savegame5/` which got overwritten when the game swapped tempsavegame → savegame5.
+- **Save path fix**: `NPCSettings:saveToXMLFile(missionInfo)` now writes to `missionInfo.savegameDirectory` (tempsavegame during save), matching the UsedPlus pattern. Previously wrote directly to `savegame5/` which got overwritten when the game swapped tempsavegame â†’ savegame5.
 - **Load fix**: Replaced unreliable `g_fileIO:fileExists()` with `XMLFile.loadIfExists` (proven FS25 API). Previously silently fell back to defaults every load.
 - **No orphan writes**: ESC menu, console commands, and sync events now update settings in-memory only. Disk persistence happens exclusively via the `FSCareerMissionInfo.saveToXMLFile` hook (UsedPlus pattern).
 - **Diagnostic logging**: Settings load/save now prints messages to game log to help debug persistence issues.
 
-### Expanded ESC Menu Settings (6 → 13 controls)
+### Expanded ESC Menu Settings (6 â†’ 13 controls)
 - 7 new controls: Show Favor List, Show Relationship Bars, Show Map Markers, Enable Gifts, Allow Multiple Favors, Max Active Favors (dropdown: 1/2/3/5/8/10), Relationship Decay
 - All 13 controls grouped under single "NPC Favor System" section header for easy identification in multi-mod setups
 - New `showMapMarkers` setting with instant toggle via `NPCEntity:toggleAllMapHotspots()`
-- 170 new i18n strings (17 entries × 10 languages)
+- 170 new i18n strings (17 entries Ã— 10 languages)
 
 ### Dialog & Icon ZIP Fixes
 - Eagerly load all 3 dialogs (NPCDialog, NPCListDialog, NPCFavorManagementDialog) during `loadMission00Finished` while the mod's ZIP filesystem context is active. Previously lazy loading failed on second session with "Failed to open xml file".
@@ -172,8 +172,8 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 
 ### HUD Overlay & Name Tags
 - Suppress NPC HUD rendering during pause, full-screen map, ESC menu, and dialogs
-- Dynamic name tag Y scaling based on distance (1.8m close → 2.6m at 15m)
-- Lower speech bubble Y offset (2.8 → 2.3) and interaction hint (2.5 → 2.0)
+- Dynamic name tag Y scaling based on distance (1.8m close â†’ 2.6m at 15m)
+- Lower speech bubble Y offset (2.8 â†’ 2.3) and interaction hint (2.5 â†’ 2.0)
 
 ### Female NPC Clothing & Camera Fix
 - Fix female NPCs getting male clothing by force-loading `playerF` XML config
@@ -192,23 +192,23 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 
 ### Map Hotspots & NPC Name Labels (fixes #12)
 - Convert map hotspots from abstract `MapHotspot` (invisible) to `PlaceableHotspot` with icon overlay and fallback icon type
-- Remove hotspot when NPC sleeps, recreate on wakeup — fixes icons persisting at night
+- Remove hotspot when NPC sleeps, recreate on wakeup â€” fixes icons persisting at night
 - Add `drawMapLabels()` method rendering NPC names above map icons via `IngameMap.drawFields` hook
 
 ### NPCFieldWork Module (new)
 - Realistic boustrophedon (serpentine) row traversal replacing simplistic rectangular patterns
 - Multi-worker coordination (max 2 per field with size-based caps)
 - Smooth Bezier headland turns
-- Personality-driven pattern selection (grumpy → perimeter, lazy → spot check)
+- Personality-driven pattern selection (grumpy â†’ perimeter, lazy â†’ spot check)
 - Legacy `initFieldWork` preserved as fallback
 
 ### NPC Clothing Overhaul
 - Curate PRESET_POOL: remove beekeeper, horsebackRider, longHaulTrucker, wetwork
 - Use clone-and-modify pattern for male presets (game's `applyCustomWorkStyle` approach)
 - Post-apply headgear sanitization (removes helmets, veils, motorcycle gear)
-- Fix property names: `selectedIndex` → `selectedItemIndex`, `selectedColor` → `selectedColorIndex`
+- Fix property names: `selectedIndex` â†’ `selectedItemIndex`, `selectedColor` â†’ `selectedColorIndex`
 - Use `getItemNameIndex()` API for proper item lookup
-- Expand outfit tables: 7 → 12 male, 6 → 12 female (all farm-appropriate)
+- Expand outfit tables: 7 â†’ 12 male, 6 â†’ 12 female (all farm-appropriate)
 - Add "working" to `isWalking` check to fix animation sliding during field work
 
 ### Favor Management Dialog
@@ -234,7 +234,7 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - Relocated `NPCFavorManagementDialog.lua` from `gui/` to `src/gui/` (consistent with other dialog files)
 - Rewrote dialog XML from custom `npc*` profiles to proper FS25 dialog patterns (`fs25_dialogBg`, `fs25_dialogContentContainer`, `buttonOK`, etc.)
 - Added defensive nil-checks on all GUI element access (`if elem and elem.setText then`)
-- Fixed relationship method name (`modifyRelationship` → `updateRelationship`)
+- Fixed relationship method name (`modifyRelationship` â†’ `updateRelationship`)
 - Added support for both scalar (`favor.reward = 500`) and table (`favor.reward = {amount=500}`) reward formats
 - Reduced max visible favors from 10 to 5 (matching the 5-row dialog layout)
 
@@ -258,7 +258,7 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - Both keybinds registered with full RVB pattern, localized in all 10 languages
 
 ### Teleport Improvements
-- **Face-NPC rotation** (fixes #5): After all teleports (npcGoto, NPC List, Favor dialog), player now rotates 180° to face the NPC instead of having NPC behind them
+- **Face-NPC rotation** (fixes #5): After all teleports (npcGoto, NPC List, Favor dialog), player now rotates 180Â° to face the NPC instead of having NPC behind them
 - **UI stabilization** (fixes #6): Added `lastTeleportTime` tracking with 0.5 game-minute cooldown to prevent HUD text jank after teleporting
 
 ### Documentation
@@ -505,20 +505,20 @@ The original upload establishing the mod's architecture and vision:
 | 1 | Not Showing Ingame | Tankieboy | Closed | Fixed in v1.0.0.1 (stub objects replaced with real constructors, descVersion corrected) |
 | 2 | No visual markers at the map | Dueesberch | Closed | Fixed in v1.2.2.2 (PlaceableHotspot with icon overlay, sleep/wake hotspot management) |
 | 4 | erreur lua (renderOverlay in update callback) | squall39 | Closed | Fixed in v1.0.1.0 commit `2f79a7a` (moved rendering to draw callback) |
-| 5 | NPC on player backside after teleport | Dueesberch | Closed | Fixed in v1.2.2.0 (player rotates 180° to face NPC after teleport) |
+| 5 | NPC on player backside after teleport | Dueesberch | Closed | Fixed in v1.2.2.0 (player rotates 180Â° to face NPC after teleport) |
 | 6 | Floating text after teleport | TisonK | Closed | Fixed in v1.2.2.0 (lastTeleportTime cooldown prevents HUD jank) |
 | 7 | Animations and Progress | | Open | Partially fixed in v1.2.2.2 (field work animation); walk animation sliding still occurs |
 | 8 | Won't load due to ZIP packaging | Wreyth | Closed | Fixed in v1.2.2.2 (build.sh creates properly structured ZIP) |
 | 9 | Interaction with active favor | TisonK | Closed | Fixed in v1.2.2.0 (Favor Management Dialog with view/cancel/goto/complete) |
 | 10 | Keybinding the npcList UI | TisonK | Closed | Fixed in v1.2.2.0 (F7 keybind opens NPC roster) |
-| 11 | Couple of issues and a suggestion | crisischrissy | Open | Partial — #14 split out and closed |
+| 11 | Couple of issues and a suggestion | crisischrissy | Open | Partial â€” #14 split out and closed |
 | 12 | NPC Map Hotspot Icons Not Appearing | | Closed | Fixed in v1.2.2.2 (PlaceableHotspot with icon overlay) |
 | 14 | Borrow tractor favor has no interaction | XelaNull | Closed | Split from #11; vehicle spawning not yet functional |
 | 15 | Settings reset when exiting savegame | XelaNull | Closed | Fixed in v1.2.2.4 (UsedPlus save pattern, XMLFile.loadIfExists) |
 | 18 | attempt to index nil with 'width' | TisonK | Closed | Mitigated in v1.2.2.5 (nil-guard on hotspot overlay); PlaceableHotspot init issue |
 | 19 | Favor UI bugged | TisonK | Closed | Caused by merge conflicts (#20); resolved by codebase restore |
 | 20 | Merge conflicted files committed | Dueesberch | Closed | Fixed in v1.2.2.5 (PR #24 restored clean codebase) |
-| 21 | Mod integration (ContractorMod) | skynyrd47 | Open | Feature request — hire/manage NPCs as workers |
+| 21 | Mod integration (ContractorMod) | skynyrd47 | Open | Feature request â€” hire/manage NPCs as workers |
 | 22 | Game freezes after a while | Siamajor | Closed | Related to PlaceableHotspot crash (#18); mitigated by nil-guard |
 | 25 | Keybind issue (F6/F7 not working) | TisonK | Open | F6 Favor Menu and F7 NPC List keybinds reported non-functional |
 | 26 | Error pile d'appel lua (map hotspot crash) | squall39 | Closed | Same root cause as #18; mitigated in v1.2.2.5 |
