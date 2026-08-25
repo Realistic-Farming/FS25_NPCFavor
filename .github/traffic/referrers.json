@@ -5526,13 +5526,13 @@
   "2026-08-25": [
     {
       "referrer": "github.com",
-      "count": 146,
+      "count": 141,
       "uniques": 56
     },
     {
       "referrer": "Google",
-      "count": 121,
-      "uniques": 61
+      "count": 119,
+      "uniques": 58
     },
     {
       "referrer": "Bing",
@@ -5546,8 +5546,8 @@
     },
     {
       "referrer": "yandex.ru",
-      "count": 6,
-      "uniques": 4
+      "count": 5,
+      "uniques": 3
     },
     {
       "referrer": "kingmods.net",
