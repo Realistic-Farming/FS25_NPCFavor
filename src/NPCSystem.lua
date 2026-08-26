@@ -1623,6 +1623,13 @@ NPCSystem.SEEDER_POOL = {
     "data/vehicles/vaderstad/nzExtreme1425/nzExtreme1425.xml",
 }
 
+--- Sprayers for TREAT jobs (tractor-drawn). Visual fluid only; the actual
+--- treatment fires via B4 applyNamedFungicide on session completion.
+NPCSystem.SPRAYER_POOL = {
+    "data/vehicles/hardi/mega1200L/mega1200L.xml",
+    "data/vehicles/amazone/ux5201Super/ux5201Super.xml",
+}
+
 --- Self-propelled combine + matching header pairs for HARVEST jobs. The combine
 -- is the work vehicle (npc.realTractor); the header attaches to it. Paired by
 -- brand so the header actually fits the combine.
@@ -1693,6 +1700,14 @@ function NPCSystem:validateVehiclePools()
     end
     self.SEEDER_POOL = validSeeders
 
+    -- Validate sprayer pool (TREAT role)
+    local validSprayers = {}
+    for _, path in ipairs(self.SPRAYER_POOL or {}) do
+        local ok, item = pcall(function() return g_storeManager:getItemByXMLFilename(path) end)
+        if ok and item then table.insert(validSprayers, path) end
+    end
+    self.SPRAYER_POOL = validSprayers
+
     -- Validate harvest combos (HARVEST role): keep only combos whose combine AND header both exist
     local validCombos = {}
     for _, combo in ipairs(self.HARVEST_COMBOS or {}) do
@@ -1716,8 +1731,8 @@ function NPCSystem:validateVehiclePools()
     -- spawned a real tractor that didn't get cleaned up reliably.
     self.COMMUTE_VEHICLE_POOL = foundCars
 
-    print(string.format("[NPC Favor] Vehicle pools validated: %d tractors, %d implements, %d seeders, %d harvest combos, %d commute",
-        #self.TRACTOR_POOL, #self.IMPLEMENT_POOL, #self.SEEDER_POOL, #self.HARVEST_COMBOS, #self.COMMUTE_VEHICLE_POOL))
+    print(string.format("[NPC Favor] Vehicle pools validated: %d tractors, %d implements, %d seeders, %d sprayers, %d harvest combos, %d commute",
+        #self.TRACTOR_POOL, #self.IMPLEMENT_POOL, #self.SEEDER_POOL, #self.SPRAYER_POOL, #self.HARVEST_COMBOS, #self.COMMUTE_VEHICLE_POOL))
 end
 
 --- Discover valid vehicles from the store by category keyword.
@@ -1746,6 +1761,12 @@ end
 -- @return string  role
 function NPCSystem:getNPCJobRole(npc)
     if npc.jobRole then return npc.jobRole end
+
+    -- B2: pending treatment overrides field need (treat on growing crops).
+    if npc._pendingTreat and self.SPRAYER_POOL and #self.SPRAYER_POOL > 0 then
+        npc.jobRole = "treat"
+        return "treat"
+    end
 
     -- Field-aware: match the role to the assigned field's CURRENT need so we never
     -- park a combine on a growing crop (or on bare ground). A harvester is only
@@ -1806,6 +1827,10 @@ function NPCSystem:getImplementFilename(npc)
     if role == "harvest" then
         local combo = self.HARVEST_COMBOS and self.HARVEST_COMBOS[npc._harvestComboIndex or 1]
         return combo and combo.header
+    elseif role == "treat" then
+        if not self.SPRAYER_POOL or #self.SPRAYER_POOL == 0 then return nil end
+        local index = (((npc.appearanceSeed or npc.id or 1) + 5) % #self.SPRAYER_POOL) + 1
+        return self.SPRAYER_POOL[index]
     elseif role == "sow" then
         if not self.SEEDER_POOL or #self.SEEDER_POOL == 0 then return nil end
         local index = (((npc.appearanceSeed or npc.id or 1) + 3) % #self.SEEDER_POOL) + 1
@@ -1831,6 +1856,26 @@ function NPCSystem:fillSeederWithSeed(implement)
                 local cap = (implement.getFillUnitCapacity and implement:getFillUnitCapacity(i)) or 1000
                 local tt = (ToolType and ToolType.UNDEFINED) or 0
                 implement:addFillUnitFillLevel(farmId, i, cap, seedsIndex, tt)
+            end
+        end)
+    end
+end
+
+--- Best-effort fill a sprayer with HERBICIDE for visual fluid (B2). The fluid
+--- is presentation only; the treatment fires via B4 applyNamedFungicide.
+function NPCSystem:fillSprayer(implement)
+    if not implement or not implement.getFillUnits or not g_fillTypeManager then return end
+    local herbIdx = g_fillTypeManager:getFillTypeIndexByName("HERBICIDE")
+    if not herbIdx then return end
+    local farmId = (implement.getOwnerFarmId and implement:getOwnerFarmId()) or 1
+    local units = implement:getFillUnits()
+    if not units then return end
+    for i = 1, #units do
+        pcall(function()
+            if implement.getFillUnitSupportsFillType and implement:getFillUnitSupportsFillType(i, herbIdx) then
+                local cap = (implement.getFillUnitCapacity and implement:getFillUnitCapacity(i)) or 1000
+                local tt = (ToolType and ToolType.UNDEFINED) or 0
+                implement:addFillUnitFillLevel(farmId, i, cap, herbIdx, tt)
             end
         end)
     end
@@ -2064,6 +2109,8 @@ function NPCSystem:spawnNPCImplement(npc, tractor, callback)
             -- Sowers need seed loaded to actually plant.
             if self:getNPCJobRole(npc) == "sow" then
                 pcall(function() self:fillSeederWithSeed(implement) end)
+            elseif self:getNPCJobRole(npc) == "treat" then
+                pcall(function() self:fillSprayer(implement) end)
             end
             print(string.format("[NPC Favor] Implement attached for %s — %s", npc.name or "?", implementFile))
             if callback then callback(true) end
@@ -3049,8 +3096,9 @@ function NPCSystem:spawnFieldWorkVehicle(npc)
 
     -- Growing crop -> nothing to work. Don't spawn equipment; the NPC just visits
     -- on foot. This structurally eliminates plow/combine-on-standing-crop.
+    -- B2 exception: treat role sprays a growing crop (visual only; B4 does the work).
     local need = self:getFieldJobType(field)
-    if need == "protect" then
+    if need == "protect" and not npc._pendingTreat then
         if self.settings.debugMode then
             print(string.format("[NPC Favor] %s: field has a growing crop — no equipment, visiting on foot", npc.name or "?"))
         end
@@ -4807,6 +4855,7 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
                 xmlFile:setFloat(npcKey .. ".personality#sociability", npc.aiPersonalityModifiers.sociability or 1.0)
                 xmlFile:setFloat(npcKey .. ".personality#generosity", npc.aiPersonalityModifiers.generosity or 1.0)
                 xmlFile:setFloat(npcKey .. ".personality#punctuality", npc.aiPersonalityModifiers.punctuality or 1.0)
+                xmlFile:setFloat(npcKey .. ".personality#workEthicOffset", npc._workEthicOffset or 0)
             end
 
             -- Visual
@@ -5029,6 +5078,7 @@ function NPCSystem:_doLoadFromXMLFile(missionInfo)
                 npc.aiPersonalityModifiers.sociability = xmlFile:getFloat(npcKey .. ".personality#sociability", npc.aiPersonalityModifiers.sociability)
                 npc.aiPersonalityModifiers.generosity = xmlFile:getFloat(npcKey .. ".personality#generosity", npc.aiPersonalityModifiers.generosity)
                 npc.aiPersonalityModifiers.punctuality = xmlFile:getFloat(npcKey .. ".personality#punctuality", npc.aiPersonalityModifiers.punctuality)
+                npc._workEthicOffset = xmlFile:getFloat(npcKey .. ".personality#workEthicOffset", 0)
             end
 
             -- Restore visual properties
@@ -5151,6 +5201,7 @@ function NPCSystem:serializeState()
                 currentAction = npc.currentAction or "idle",
                 workEthic = pm.workEthic or 1.0, sociability = pm.sociability or 1.0,
                 generosity = pm.generosity or 1.0, punctuality = pm.punctuality or 1.0,
+                workEthicOffset = npc._workEthicOffset or 0,
                 appearanceSeed = npc.appearanceSeed or 1,
                 isFemale = npc.isFemale or false,
                 movementSpeed = npc.movementSpeed or 1.0,
@@ -5252,6 +5303,7 @@ function NPCSystem:deserializeState(data)
                 npc.aiPersonalityModifiers.sociability = d.sociability or npc.aiPersonalityModifiers.sociability
                 npc.aiPersonalityModifiers.generosity = d.generosity or npc.aiPersonalityModifiers.generosity
                 npc.aiPersonalityModifiers.punctuality = d.punctuality or npc.aiPersonalityModifiers.punctuality
+                npc._workEthicOffset = d.workEthicOffset or npc._workEthicOffset or 0
             end
             npc.appearanceSeed = d.appearanceSeed or npc.appearanceSeed
             npc.isFemale = d.isFemale
