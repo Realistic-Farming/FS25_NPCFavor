@@ -5573,17 +5573,17 @@
   "2026-08-26": [
     {
       "referrer": "github.com",
-      "count": 141,
-      "uniques": 56
+      "count": 144,
+      "uniques": 55
     },
     {
       "referrer": "Google",
-      "count": 119,
-      "uniques": 58
+      "count": 118,
+      "uniques": 56
     },
     {
       "referrer": "Bing",
-      "count": 11,
+      "count": 12,
       "uniques": 7
     },
     {
@@ -5592,12 +5592,12 @@
       "uniques": 6
     },
     {
-      "referrer": "yandex.ru",
-      "count": 5,
-      "uniques": 3
+      "referrer": "kingmods.net",
+      "count": 3,
+      "uniques": 2
     },
     {
-      "referrer": "kingmods.net",
+      "referrer": "yandex.ru",
       "count": 3,
       "uniques": 2
     },
