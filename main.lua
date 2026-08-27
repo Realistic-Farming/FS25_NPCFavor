@@ -863,8 +863,10 @@ end
 -- here closes the Control Center first.
 --
 -- NPC_INTERACT is deliberately absent: it acts on whichever NPC the player is
--- standing in front of and has no meaning from a menu. NPC_HUD_EDIT is absent
--- because MasterHUD owns the suite HUD keys. Both keep their directory row.
+-- standing in front of and has no meaning from a menu. NPC_HUD_EDIT stays
+-- button-less (moving the panel needs the in-world drag). NPC_TOGGLE_HUD gets a
+-- hide/show button below: it flips settings.showFavorList, the favor HUD's own
+-- visibility truth (NPCFavorHUD:draw honours it). All keep their directory row.
 -- ---------------------------------------------------------
 local function registerControlCenterActions()
     local registry = g_currentMission ~= nil and g_currentMission.rfActionRegistry or nil
@@ -896,6 +898,21 @@ local function registerControlCenterActions()
             if npcSystem ~= nil and npcSystem.settingsPanel ~= nil then
                 npcSystem.settingsPanel:toggle()
             end
+        end,
+    })
+
+    -- Per-mod favor HUD hide/show. Flips settings.showFavorList, the visibility
+    -- truth NPCFavorHUD:draw already honours. Live "Hide"/"Show" caption.
+    registry.registerAction({
+        action = "NPC_TOGGLE_HUD", order = 4,
+        button = function()
+            local s = npcSystem ~= nil and npcSystem.settings or nil
+            return (s ~= nil and s.showFavorList) and "Hide" or "Show"
+        end,
+        run = function()
+            if npcSystem == nil or npcSystem.settings == nil then return end
+            npcSystem.settings.showFavorList = not npcSystem.settings.showFavorList
+            return npcSystem.settings.showFavorList and "Favors HUD shown" or "Favors HUD hidden"
         end,
     })
 end

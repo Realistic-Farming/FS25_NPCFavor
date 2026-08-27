@@ -46,6 +46,7 @@
         <action name="NPC_LIST" />
         <action name="NPC_SETTINGS" />
         <action name="NPC_HUD_EDIT" category="ONFOOT VEHICLE" />
+        <action name="NPC_TOGGLE_HUD" category="ONFOOT VEHICLE" />
     </actions>
     <inputBinding>
         <actionBinding action="NPC_INTERACT" />
