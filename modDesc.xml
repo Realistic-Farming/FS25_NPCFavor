@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="105">
     <author>TisonK</author>
-    <version>1.2.7.73</version>
+    <version>1.2.7.75</version>
     <modName>FS25_NPCFavor</modName>
     <title>
         <en>NPC Favor - Living Neighborhood</en>
@@ -49,12 +49,29 @@
         <action name="NPC_TOGGLE_HUD" category="ONFOOT VEHICLE" />
     </actions>
     <inputBinding>
-        <actionBinding action="NPC_INTERACT" />
-        <actionBinding action="FAVOR_MENU">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_quote" />
+        <!-- Right Shift suite modifier. KEY_grave, not KEY_0: George vetoed
+             RShift+0 for a DashboardLive clash.
+             NOTE (Bob, BUILD 10:21): this reserves the chord, but no
+             registerActionEvent exists for NPC_TOGGLE_HUD anywhere in this mod,
+             so the key does nothing yet. Its sibling NPC_HUD_EDIT registers at
+             main.lua:598; NPC_TOGGLE_HUD only has the Control Center button at
+             main.lua:907. Flagged on the desk rather than fixed here, because
+             adding the registration is Lua and this token fences to modDesc. -->
+        <actionBinding action="NPC_TOGGLE_HUD">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_grave" />
         </actionBinding>
-        <actionBinding action="NPC_LIST" />
-        <actionBinding action="NPC_SETTINGS" />
+        <actionBinding action="NPC_INTERACT">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_e" />
+        </actionBinding>
+        <actionBinding action="FAVOR_MENU">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_9" />
+        </actionBinding>
+        <actionBinding action="NPC_LIST">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_8" />
+        </actionBinding>
+        <actionBinding action="NPC_SETTINGS">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_7" />
+        </actionBinding>
         <actionBinding action="NPC_HUD_EDIT">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_z" />
         </actionBinding>

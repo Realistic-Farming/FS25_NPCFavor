@@ -379,6 +379,9 @@ local npcInteractOriginalFunc = nil
 local favorMenuActionEventId = nil
 local npcListActionEventId = nil
 local hudEditModeActionEventId = nil
+-- [BUILD 10:28] Sibling of the above for the show/hide key. Held so the event can
+-- be found again by the same code that manages hudEditModeActionEventId.
+local hudToggleActionEventId = nil
 local npcSettingsActionEventId = nil
 
 local function npcSettingsActionCallback(self, actionName, inputValue, callbackState, isAnalog)
@@ -479,6 +482,32 @@ local function npcListActionCallback(self, actionName, inputValue, callbackState
 end
 
 -- Toggle HUD Edit Mode via key binding (works on foot and in vehicle)
+--- [BUILD 10:28] Show/hide the favor HUD from the keyboard.
+---
+--- Flips settings.showFavorList, which is the favor HUD's own visibility truth:
+--- NPCFavorHUD:draw and NPCInteractionUI both already honour it, and the Control
+--- Center button flips the same field, so the key and the button cannot disagree.
+--- This deliberately does NOT touch edit mode: moving the panel is the sibling
+--- action's job, and conflating them is what made the two feel unpredictable.
+---
+--- The MasterHUD check repeats the one on the registration below on purpose. The
+--- registration is decided once at load, while MasterHUD presence is what the
+--- suite treats as authoritative at use time, so the callback refuses too rather
+--- than relying on an event that was correct when it was created.
+local function hudToggleActionCallback(self, actionName, inputValue, callbackState, isAnalog)
+    if ((g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD) ~= nil then
+        return
+    end
+    if inputValue <= 0 then return end
+    if npcSystem == nil or npcSystem.settings == nil then
+        print("[NPC Favor] HUD toggle blocked: npcSystem or settings is nil")
+        return
+    end
+    npcSystem.settings.showFavorList = not npcSystem.settings.showFavorList
+    print("[NPC Favor] Favors HUD " ..
+        (npcSystem.settings.showFavorList and "shown" or "hidden") .. " via key")
+end
+
 local function hudEditModeActionCallback(self, actionName, inputValue, callbackState, isAnalog)
     -- 2026-08-22 (Wizard): MasterHUD takeover. When MasterHUD is installed it owns the
     -- suite-wide hide/move binds, so this mod's own per-mod key is deliberately inert:
@@ -609,6 +638,27 @@ local function hookNPCInteractInput()
                     g_inputBinding:setActionEventActive(eventId, true)
                     g_inputBinding:setActionEventTextPriority(eventId, GS_PRIO_NORMAL)
                     g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_NPC_HUD_EDIT") or "Toggle HUD Edit")
+                end
+            end
+
+            -- [BUILD 10:28] Register the show/hide key (default Right Shift and
+            -- backtick). Same MasterHUD gate as the edit key above: with
+            -- MasterHUD installed the suite owns hide and move, so this mod's
+            -- own key stands down and there is still one way to reach it.
+            local hudToggleActionId = InputAction.NPC_TOGGLE_HUD
+            if __rfMhOwnsHudKeys() then hudToggleActionId = nil end
+            if hudToggleActionId ~= nil then
+                local success, eventId = g_inputBinding:registerActionEvent(
+                    hudToggleActionId,
+                    NPCSystem,
+                    hudToggleActionCallback,
+                    false, true, false, false, nil, true
+                )
+                if success and eventId ~= nil then
+                    hudToggleActionEventId = eventId
+                    g_inputBinding:setActionEventActive(eventId, true)
+                    g_inputBinding:setActionEventTextPriority(eventId, GS_PRIO_NORMAL)
+                    g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_NPC_TOGGLE_HUD") or "Toggle Favors HUD")
                 end
             end
 
