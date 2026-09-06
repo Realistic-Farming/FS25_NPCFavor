@@ -13,29 +13,20 @@ local PANEL_ORDER = 80
 local MAX_ROWS = 8
 local _registered = false
 
--- BUILD 09:19 (PB-07). The roster is painted into rfFwTableBlock, a STATIC eight-row table
--- shared with Income, Dairy and Depot. With 11 neighbours the footer said "showing 8 of 11"
--- and the last three were unreachable: the block is not a SmoothList, so there was nothing
--- to scroll and no control to press.
---
--- This is a window over the sorted roster, not a new list. _pageIndex is which slice of
--- eight is on screen; the host's two rfFwPage* Buttons step it and repaint. A SmoothList
--- was rejected on George's standing hang lesson for this page (the same NO-GO that keeps
--- csConsultPanel on fixed Texts), and a window needs none of that machinery.
---
--- _lastRosterCount is what onPageStep clamps against. The host calls onPageStep BEFORE the
--- repaint, so at that moment the only honest roster size available is the one the last paint
--- actually put on screen; re-reading the system there could clamp against a count the player
--- has not been shown yet.
-local _pageIndex = 1
-local _lastRosterCount = 0
-
-local function pageCountFor(n)
-    if n == nil or n <= 0 then
-        return 1
-    end
-    return math.max(1, math.ceil(n / MAX_ROWS))
-end
+-- BUILD 00:06 (George CLOSED DESIGN 23:12): the roster and the favors are two SmoothLists inside
+-- rfFwTableBlock (a GuiElement host, so the standing hang fence, SmoothList under a Map-style
+-- Bitmap, does not apply; the suite already runs mdCommodityList the same way). The eight-row
+-- window and its pager (BUILD 09:19 .. 22:42) are gone: the lists scroll. These are the rows
+-- behind the last FULL paint; the data source below reads them, the light tick never rebuilds.
+local _rosterRows = {}
+local _favorRows = {}
+-- The shared static sheet (rfFwRow*, rules, rfFwMore) is hidden while this page shows the lists
+-- and handed back on the registry change listener, the Dairy chrome pattern (no host calls onHide).
+local _sheetHidden = false
+local _sheetListenerHost = nil
+-- BUILD 12:05 (George CLOSED DESIGN 09:45): the container of the last show, so the list selection
+-- callback (which only gets the list) can find the detail cards.
+local _lastContainer = nil
 
 local TIER_KEYS = {
     ["Hostile"] = "npc_rel_hostile",
@@ -385,19 +376,6 @@ local function collectActiveFavors(sys)
     return favors
 end
 
-local function hottestFavor(favors)
-    local best, bestMs = nil, nil
-    for _, favor in ipairs(favors) do
-        local ms = tonumber(favor.timeRemaining)
-        if ms == nil then ms = math.huge end
-        if best == nil or ms < bestMs then
-            best = favor
-            bestMs = ms
-        end
-    end
-    return best
-end
-
 local function favorWho(favor, sys)
     if favor == nil then return "?" end
     if favor.npcName ~= nil and favor.npcName ~= "" then
@@ -413,37 +391,236 @@ local function favorWho(favor, sys)
     return tostring(favor.npcId or "?")
 end
 
-local function paintActiveBridge(moreEl, sys, rosterN, firstRow, lastRow)
-    local favors = collectActiveFavors(sys)
-    local parts = {}
-    if #favors == 0 then
-        parts[#parts + 1] = tr("npc_rf_pda_active_none", "Active favors: none")
-    else
-        local hot = hottestFavor(favors)
-        local who = favorWho(hot, sys)
-        local what = favorWhat(hot)
-        local urg = urgencyLabel(hot)
-        parts[#parts + 1] = string.format(
-            tr("npc_rf_pda_active_one", "Active: %s · %s · %s"),
-            who, what, urg
-        )
-        if #favors > 1 then
-            parts[#parts + 1] = string.format(
-                tr("npc_rf_pda_active_more", "and %d more"),
-                #favors - 1
-            )
+--- BUILD 17:24 (George CLOSED DESIGN 17:14): the three favor groups. Available = pending,
+--- Current = active / in_progress (both from getActiveFavors, farm-filtered like
+--- collectActiveFavors), Completed = getCompletedFavors count with the same farm rule
+--- (the farm slice when one exists, else the unowned favors).
+local function splitFavorGroups(sys)
+    local pending, current = {}, {}
+    for _, favor in ipairs(collectActiveFavors(sys)) do
+        local st = favor.status
+        if st == "pending" then
+            pending[#pending + 1] = favor
+        elseif st == "active" or st == "in_progress" then
+            current[#current + 1] = favor
         end
     end
-    -- BUILD 09:19 (PB-07): the range now describes the window that is actually on screen and
-    -- moves with it. "showing 8 of 11" was both unreachable and, once paging exists, wrong on
-    -- every page but the first.
-    if rosterN > MAX_ROWS then
-        parts[#parts + 1] = string.format(
-            tr("npc_rf_pda_showing_range", "showing %d-%d of %d"),
-            firstRow, lastRow, rosterN
-        )
+    -- BUILD 00:06: Completed comes back as the LIST (the favors table shows every row), same
+    -- farm rule: the farm slice when one exists, else the unowned favors.
+    local completed = {}
+    if sys ~= nil and sys.favorSystem ~= nil and type(sys.favorSystem.getCompletedFavors) == "function" then
+        local ok, list = pcall(function() return sys.favorSystem:getCompletedFavors() end)
+        if ok and type(list) == "table" then
+            local farmId = getLocalFarmId()
+            local mine, unowned = {}, {}
+            for _, favor in ipairs(list) do
+                if favor ~= nil then
+                    if farmId ~= nil and favor.ownerFarmId ~= nil then
+                        if favor.ownerFarmId == farmId then
+                            mine[#mine + 1] = favor
+                        end
+                    else
+                        unowned[#unowned + 1] = favor
+                    end
+                end
+            end
+            completed = (#mine > 0) and mine or unowned
+        end
     end
-    setText(moreEl, table.concat(parts, " · "))
+    return pending, current, completed
+end
+
+local function byUrgency(a, b)
+    local ma = tonumber(a and a.timeRemaining) or math.huge
+    local mb = tonumber(b and b.timeRemaining) or math.huge
+    if ma ~= mb then return ma < mb end
+    return tostring(a and a.npcId or "") < tostring(b and b.npcId or "")
+end
+
+--- BUILD 00:06 (George CLOSED DESIGN 23:12): the favors table rows. Current (active / in_progress)
+--- by urgency ascending, then Available (pending) by urgency ascending, then Completed; every row
+--- tagged with its group; urgency = urgencyLabel for Current / Available, "done" for Completed.
+local function buildFavorRows(sys)
+    local pending, current, completed = splitFavorGroups(sys)
+    table.sort(current, byUrgency)
+    table.sort(pending, byUrgency)
+    local rows = {}
+    local function add(list, groupText, done)
+        for _, favor in ipairs(list) do
+            local whoFull = favorWho(favor, sys)
+            local whatFull = favorWhat(favor)
+            rows[#rows + 1] = {
+                group = groupText,
+                who = clipCell(whoFull, 12),
+                what = clipCell(whatFull, 50),
+                urgency = done and tr("npc_rf_pda_urg_done", "done") or urgencyLabel(favor),
+                whoFull = whoFull,
+                whatFull = whatFull,
+            }
+        end
+    end
+    add(current, tr("npc_rf_pda_group_current", "Current"), false)
+    add(pending, tr("npc_rf_pda_group_available", "Available"), false)
+    add(completed, tr("npc_rf_pda_group_completed", "Completed"), true)
+    return rows
+end
+
+--- The one data source for both SmoothLists (engine contract, SmoothListElement.lua: one section by
+--- default, getNumberOfItemsInSection, populateCellForItemInSection; the single ListItem template is
+--- the singular cell). The list is told apart by its id. Cells are the engine's clones of the XML
+--- template: nothing is created here, only text set by name.
+local npcListSource = {}
+
+function npcListSource:getNumberOfItemsInSection(list, section)
+    if list ~= nil and list.id == "rfFwFavorList" then
+        return #_favorRows
+    end
+    return #_rosterRows
+end
+
+function npcListSource:populateCellForItemInSection(list, section, index, cell)
+    if cell == nil or type(cell.getDescendantByName) ~= "function" then return end
+    if list ~= nil and list.id == "rfFwFavorList" then
+        local r = _favorRows[index]
+        if r == nil then return end
+        setText(cell:getDescendantByName("rfFwFavorGroup"), r.group)
+        setText(cell:getDescendantByName("rfFwFavorWho"), r.who)
+        setText(cell:getDescendantByName("rfFwFavorWhat"), r.what)
+        setText(cell:getDescendantByName("rfFwFavorUrgency"), r.urgency)
+        return
+    end
+    local r = _rosterRows[index]
+    if r == nil then return end
+    setText(cell:getDescendantByName("rfFwRosterWho"), clipCell(r.who, 28))
+    setText(cell:getDescendantByName("rfFwRosterStanding"), r.standing)
+    setText(cell:getDescendantByName("rfFwRosterBenefits"), clipCell(r.benefits, 40))
+    setText(cell:getDescendantByName("rfFwRosterHistory"), clipCell(r.history, 46))
+end
+
+--- BUILD 12:05 (George CLOSED DESIGN 09:45): the detail cards. rfFwRosterDetailCard (300x420 at
+--- 820,-68) shows the picked neighbour unclipped: name, tier + score, the whole benefits list,
+--- the history line. rfFwFavorDetailCard (300x224 at 820,-528) shows the picked favor: group,
+--- who, the whole what, urgency. Nothing is created; every id is in the ten-door XML.
+local function hideDetailCards(root)
+    setVis(findDescendant(root, "rfFwRosterDetailCard"), false)
+    setVis(findDescendant(root, "rfFwFavorDetailCard"), false)
+end
+
+local function paintRosterCard(root, r)
+    local card = findDescendant(root, "rfFwRosterDetailCard")
+    if card == nil or r == nil then return end
+    setText(findDescendant(card, "rfFwCardWho"), r.who)
+    setText(findDescendant(card, "rfFwCardStanding"), r.standing)
+    setText(findDescendant(card, "rfFwCardBenefitsHead"), tr("npc_rf_pda_col_benefits", "Benefits"))
+    setText(findDescendant(card, "rfFwCardBenefits"), (r.benefits or ""):gsub(" %· ", "\n"))
+    setText(findDescendant(card, "rfFwCardHistoryHead"), tr("npc_rf_pda_col_history", "History"))
+    setText(findDescendant(card, "rfFwCardHistory"), r.history)
+    setVis(card, true)
+end
+
+local function paintFavorCard(root, r)
+    local card = findDescendant(root, "rfFwFavorDetailCard")
+    if card == nil or r == nil then return end
+    setText(findDescendant(card, "rfFwFavCardGroup"), r.group)
+    setText(findDescendant(card, "rfFwFavCardWho"), r.whoFull or r.who)
+    setText(findDescendant(card, "rfFwFavCardWhat"), r.whatFull or r.what)
+    setText(findDescendant(card, "rfFwFavCardUrgency"), r.urgency)
+    setVis(card, true)
+end
+
+--- Engine contract (SmoothListElement.lua setSelectedItem): a click on a row calls
+--- delegate:onListSelectionChanged(list, section, index) once the list is loaded. The data source
+--- is registered as the delegate too (syncList), so this is where a pick lands. An index past the
+--- rows (a shrunk roster after reload) hides the card instead of painting a stale row.
+function npcListSource:onListSelectionChanged(list, section, index)
+    local root = _lastContainer or getHostPage()
+    if root == nil or list == nil then return end
+    local i = tonumber(index) or 0
+    if list.id == "rfFwFavorList" then
+        local r = _favorRows[i]
+        if r == nil then
+            setVis(findDescendant(root, "rfFwFavorDetailCard"), false)
+        else
+            paintFavorCard(root, r)
+        end
+        return
+    end
+    local r = _rosterRows[i]
+    if r == nil then
+        setVis(findDescendant(root, "rfFwRosterDetailCard"), false)
+    else
+        paintRosterCard(root, r)
+    end
+end
+
+--- setDataSource once per list element (guard flag on the element), reloadData only when asked
+--- (a full show) and only once the engine has finished loading the list (list.isLoaded). The
+--- light tick never reloads: George's thrash fence.
+local function syncList(container, id, reload)
+    local list = findDescendant(container, id)
+    if list == nil then return nil end
+    if not list._rfNpcSourced and type(list.setDataSource) == "function" then
+        list:setDataSource(npcListSource)
+        -- BUILD 12:05: the XML loader already made the host page the delegate, so setDataSource
+        -- alone would leave the selection callback on the host; name the delegate explicitly.
+        if type(list.setDelegate) == "function" then
+            list:setDelegate(npcListSource)
+        end
+        list._rfNpcSourced = true
+    end
+    if reload and list.isLoaded and type(list.reloadData) == "function" then
+        pcall(list.reloadData, list)
+    end
+    return list
+end
+
+local SHEET_RULES = {
+    "rfFwRuleHead", "rfFwRuleRow1", "rfFwRuleRow2", "rfFwRuleRow3", "rfFwRuleRow4",
+    "rfFwRuleRow5", "rfFwRuleRow6", "rfFwRuleRow7", "rfFwRuleCol1", "rfFwRuleCol2", "rfFwRuleCol3",
+}
+local NPC_LIST_IDS = {
+    "rfFwRosterBox", "rfFwFavorBox", "rfFwFavEmpty",
+    "rfFwFavColGroup", "rfFwFavColWho", "rfFwFavColWhat", "rfFwFavColUrgency",
+    "rfFwRosterDetailCard", "rfFwFavorDetailCard",
+}
+
+--- The static sheet goes dark for the lists: the eight rows, the hairlines and rfFwMore. The
+--- column headers rfFwColA-D stay (they head the roster list). rfFwHintTable is host-hidden.
+local function hideStaticSheet(container)
+    for i = 1, MAX_ROWS do
+        for _, c in ipairs({ "A", "B", "C", "D" }) do
+            setVis(findDescendant(container, "rfFwRow" .. i .. c), false)
+        end
+    end
+    for _, id in ipairs(SHEET_RULES) do
+        setVis(findDescendant(container, id), false)
+    end
+    setText(findDescendant(container, "rfFwMore"), "")
+    setVis(findDescendant(container, "rfFwMore"), false)
+    _sheetHidden = true
+end
+
+--- Hands the hairlines and rfFwMore back and hides the lists. The rows are left to the guest
+--- that owns the next show (Income / Depot set their own row visibility every show).
+local function restoreStaticSheet(root)
+    if root == nil then return end
+    for _, id in ipairs(SHEET_RULES) do
+        setVis(findDescendant(root, id), true)
+    end
+    setVis(findDescendant(root, "rfFwMore"), true)
+    for _, id in ipairs(NPC_LIST_IDS) do
+        setVis(findDescendant(root, id), false)
+    end
+    _sheetHidden = false
+end
+
+--- Registry change listener (tryRegister) and availability-poll belt: the moment another module
+--- is active the sheet is handed back. No host calls onHide, so this is the only way out.
+local function restoreSheetIfLeft()
+    if not _sheetHidden then return end
+    local host = getHost()
+    if host ~= nil and host.activeModuleId == PANEL_ID then return end
+    pcall(restoreStaticSheet, getHostPage())
 end
 
 local _rfFwTitleBaselineWarned = false
@@ -483,13 +660,16 @@ end
 --
 -- Positions and sizes are NORMALISED in FS25, so everything goes through GuiUtils. A raw
 -- pixel integer here would throw the row off the screen.
+-- BUILD 20:36 / 00:06: the four column headers span the full 1120 (10..1130) and head the roster
+-- list (its cells sit at the same X). The static rows under them are hidden on this page now
+-- (hideStaticSheet), so only the headers and the column rules take these X values.
 local FW_GRID_COLS = {
-    { "A", "10px", "280px" },
-    { "B", "310px", "280px" },
-    { "C", "610px", "220px" },
+    { "A", "10px", "290px" },
+    { "B", "320px", "250px" },
+    { "C", "590px", "240px" },
     { "D", "850px", "280px" },
 }
-local FW_GRID_RULES = { "300px", "600px", "840px" }
+local FW_GRID_RULES = { "310px", "580px", "840px" }
 local _fwGridWarned = false
 
 local function applyFwGrid(container)
@@ -577,59 +757,6 @@ local function restoreFwEmptyHintBox(container)
     end
 end
 
-local function stripButtonGlyph(btn)
-    if btn == nil then return end
-    btn.inputActionName = nil
-    btn.keyDisplayText = nil
-    btn.keyOverlay = nil
-    btn.hideKeyboardGlyph = true
-    btn.hasLoadedInputGlyph = false
-    btn.isKeyboardMode = false
-    btn.keyGlyphOffsetX = 0
-    btn.keyGlyphSize = { 0, 0 }
-    btn.iconSize = { 0, 0 }
-    btn.icon = {}
-end
-
---- BUILD 09:19 (PB-07): show and label the two shared row-pager Buttons.
----
---- The host hides both on every refresh before the guest paints (see _syncHostGuestChrome),
---- so this is the only thing that turns them on and the other three Table guests are
---- untouched. One page means no pager at all rather than two dead buttons - Sam's single-page
---- feel lock on the module pager reads the same here: a control that cannot act should not
---- look like one that can.
----
---- The Next button carries the page position rather than a bare arrow, so the player can see
---- there is a page 2 without counting rows.
-local function paintPager(container, rosterN, pages)
-    local prevEl = findDescendant(container, "rfFwPagePrev")
-    local nextEl = findDescendant(container, "rfFwPageNext")
-    local multi = rosterN > MAX_ROWS and pages > 1
-
-    stripButtonGlyph(prevEl)
-    stripButtonGlyph(nextEl)
-
-    for _, el in ipairs({ prevEl, nextEl }) do
-        if el ~= nil then
-            if type(el.setVisible) == "function" then el:setVisible(multi) end
-            if type(el.setDisabled) == "function" then el:setDisabled(not multi) end
-        end
-    end
-    if not multi then
-        return
-    end
-
-    if prevEl ~= nil and type(prevEl.setText) == "function" then
-        prevEl:setText(tr("npc_rf_pda_page_prev", "< Back"))
-        stripButtonGlyph(prevEl)
-    end
-    if nextEl ~= nil and type(nextEl.setText) == "function" then
-        nextEl:setText(string.format(
-            tr("npc_rf_pda_page_next", "More (%d/%d) >"), _pageIndex, pages))
-        stripButtonGlyph(nextEl)
-    end
-end
-
 function NpcRfPdaGuest.onShow(container, lightOnly)
     applyFwGrid(container)
     restoreFwEmptyHintBox(container)
@@ -638,7 +765,7 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
     showTableMode(container)
     paintSide(container, "rf_pda_side_info_npc_favor",
         "Neighbor standing roster: who, standing, benefits, history.\n"
-        .. "Favor waits show above the table. Esc does not finish favors - use world NPC tools.")
+        .. "The favors table under it lists every current, available and completed favor. Both tables scroll (mouse wheel or the slider); click a row and its details open on the card to the right. Esc does not finish favors - use world NPC tools.")
     setText(findDescendant(container, "rfFwTableTitle"), "")
     setVis(findDescendant(container, "rfFwTableTitle"), false)
     setText(findDescendant(container, "rfFwColA"), tr("npc_rf_pda_col_who", "Who"))
@@ -646,109 +773,71 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
     setText(findDescendant(container, "rfFwColC"), tr("npc_rf_pda_col_benefits", "Benefits"))
     setText(findDescendant(container, "rfFwColD"), tr("npc_rf_pda_col_history", "History"))
 
+    -- BUILD 00:06 (George CLOSED DESIGN 23:12): the static sheet goes dark, the two lists show.
+    -- The host hides the list boxes, the favors header and the favors empty hint on every
+    -- refresh (thin-door safe), so this show is the only thing that turns them on.
+    hideStaticSheet(container)
+    setText(findDescendant(container, "rfFwFavColGroup"), tr("npc_rf_pda_fav_col_group", "Group"))
+    setText(findDescendant(container, "rfFwFavColWho"), tr("npc_rf_pda_fav_col_who", "Who"))
+    setText(findDescendant(container, "rfFwFavColWhat"), tr("npc_rf_pda_fav_col_what", "What"))
+    setText(findDescendant(container, "rfFwFavColUrgency"), tr("npc_rf_pda_fav_col_urgency", "Urgency"))
+    for _, id in ipairs({ "rfFwFavColGroup", "rfFwFavColWho", "rfFwFavColWhat", "rfFwFavColUrgency" }) do
+        setVis(findDescendant(container, id), true)
+    end
+
+    -- A full show rebuilds the rows and reloads both lists; the 500ms light tick only re-shows
+    -- what the host just hid (no reloadData: the thrash fence). Favor urgency is hour-granular,
+    -- so staying put until the next full show is honest enough.
+    local full = not lightOnly
     local sys = getSys()
-    local roster = buildRoster(sys)
+    _lastContainer = container
+    if full then
+        _rosterRows = buildRoster(sys)
+        _favorRows = buildFavorRows(sys)
+        -- BUILD 12:05: the cards start hidden on every full show; a row pick paints them.
+        hideDetailCards(container)
+    end
+    local rosterN = #_rosterRows
+    local favorN = #_favorRows
+
     local emptyEl = findDescendant(container, "rfFwEmptyHint")
-    local moreEl = findDescendant(container, "rfFwMore")
-    local hintEl = findDescendant(container, "rfFwHintTable")
-
-    -- BUILD 09:19 (PB-07): resolve the window before anything is painted, so the rows, the
-    -- footer range and the two buttons all describe the same slice.
-    local rosterN = #roster
-    _lastRosterCount = rosterN
-    local pages = pageCountFor(rosterN)
-    if _pageIndex > pages then _pageIndex = pages end
-    if _pageIndex < 1 then _pageIndex = 1 end
-    local firstRow = (_pageIndex - 1) * MAX_ROWS + 1
-    local lastRow = math.min(rosterN, _pageIndex * MAX_ROWS)
-
-    paintActiveBridge(moreEl, sys, rosterN, firstRow, lastRow)
-    paintPager(container, rosterN, pages)
-
+    local rosterBox = findDescendant(container, "rfFwRosterBox")
     if rosterN == 0 then
+        setVis(rosterBox, false)
         setVis(emptyEl, true)
         setText(emptyEl, tr("npc_rf_pda_empty", "no neighbors yet"))
-        for i = 1, MAX_ROWS do
-            for _, c in ipairs({"A", "B", "C", "D"}) do
-                setVis(findDescendant(container, "rfFwRow" .. i .. c), false)
-            end
-        end
-        setText(hintEl, "")
-        return
-    end
-
-    setVis(emptyEl, false)
-    setText(emptyEl, "")
-    -- How many of the eight slots this page fills. A short last page (11 neighbours = 8 + 3)
-    -- hides the slots it does not use rather than leaving the previous page's names in them.
-    local show = lastRow - firstRow + 1
-    for i = 1, MAX_ROWS do
-        local a = findDescendant(container, "rfFwRow" .. i .. "A")
-        local b = findDescendant(container, "rfFwRow" .. i .. "B")
-        local c = findDescendant(container, "rfFwRow" .. i .. "C")
-        local d = findDescendant(container, "rfFwRow" .. i .. "D")
-        if i <= show then
-            local row = roster[firstRow + i - 1]
-            setVis(a, true); setVis(b, true); setVis(c, true); setVis(d, true)
-            setText(a, row.who)
-            setText(b, row.standing)
-            setText(c, clipCell(row.benefits, 34))
-            setText(d, clipCell(row.history, 34))
-        else
-            setVis(a, false); setVis(b, false); setVis(c, false); setVis(d, false)
-        end
-    end
-
-    -- Hint only when More is not already dense (no overflow clause).
-    if rosterN > MAX_ROWS then
-        setText(hintEl, "")
     else
-        setText(hintEl, string.format(
-            tr("npc_rf_pda_hint_sort", "%d neighbors · sorted by standing (best first)"),
-            rosterN
-        ))
+        setVis(emptyEl, false)
+        setText(emptyEl, "")
+        setVis(rosterBox, true)
+        syncList(container, "rfFwRosterList", full)
     end
-end
 
---- BUILD 09:19 (PB-07): one page step from the host's rfFwPage* Buttons.
---- Wraps at both ends, the same way the module pager beside it does, so neither button is
---- ever a dead click. Returns false when nothing moved so the host can skip a repaint.
----@param delta number -1 previous page, +1 next page
----@return boolean moved
-function NpcRfPdaGuest.onPageStep(delta)
-    local pages = pageCountFor(_lastRosterCount)
-    if pages <= 1 then
-        return false
+    local favEmpty = findDescendant(container, "rfFwFavEmpty")
+    local favorBox = findDescendant(container, "rfFwFavorBox")
+    if favorN == 0 then
+        setVis(favorBox, false)
+        setText(favEmpty, tr("npc_rf_pda_fav_empty", "no favors yet"))
+        setVis(favEmpty, true)
+    else
+        setText(favEmpty, "")
+        setVis(favEmpty, false)
+        setVis(favorBox, true)
+        syncList(container, "rfFwFavorList", full)
     end
-    local step = tonumber(delta) or 0
-    if step == 0 then
-        return false
-    end
-    local target = _pageIndex + (step > 0 and 1 or -1)
-    if target > pages then target = 1 end
-    if target < 1 then target = pages end
-    if target == _pageIndex then
-        return false
-    end
-    _pageIndex = target
-    return true
 end
 
 function NpcRfPdaGuest.onHide()
-    -- BUILD 14:04: leaving the module puts the roster back on page 1. The 09:19 build kept
-    -- the index across hide so a returning player landed on the slice they left; the 14:04
-    -- brief pins it the other way (module _currentPage, reset on hide), and the brief wins:
-    -- a re-entered roster always opens on its best-standing head, which is also the only
-    -- state whose MORE label needs no memory to be true.
-    _pageIndex = 1
+    -- BUILD 00:06: nothing to reset; the lists reload on the next full show and the static sheet
+    -- is handed back by the registry change listener (restoreSheetIfLeft).
 end
 
 --- BUILD 14:04: publish the guest handle the same way MdRfPdaGuest publishes its classes
 --- (mdPublishHandles, BUILD 11:43/12:59) - sandbox root plus mission handle, re-published
 --- on every register attempt so a reload cannot leave it stale. Vera's live gates have
 --- shown the mission handle is the one cross-env channel that actually resolves on the
---- live engine (via=mission), and the host's _rfFwPageStep belt reaches this guest through
---- exactly that channel when a stale registry copy has eaten the registered onPageStep.
+--- live engine (via=mission). BUILD 00:06: the page-step handler is gone with the pager (the lists scroll);
+--- the handle stays published for the same reason every other guest publishes one.
 local function npcPublishHandles()
     local okEnv, root = pcall(getfenv, 0)
     if okEnv and type(root) == "table" then
@@ -781,18 +870,12 @@ function NpcRfPdaGuest.tryRegister()
             title = tr("npc_rf_pda_module_title", "NPC Favor"),
             blurb = tr("npc_rf_pda_blurb", "Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only."),
             order = PANEL_ORDER,
-            isAvailable = function() return getSys() ~= nil end,
+            isAvailable = function()
+                if _sheetHidden then pcall(restoreSheetIfLeft) end
+                return getSys() ~= nil
+            end,
             onShow = NpcRfPdaGuest.onShow,
             onHide = NpcRfPdaGuest.onHide,
-            -- BUILD 09:19 (PB-07): the host reads onPageStep off the REGISTERED descriptor,
-            -- not off the guest table, so the pager only exists for a module that opts in
-            -- here. Leaving it out is what keeps Income / Dairy / Depot unpaged and
-            -- unchanged. BUILD 14:04: this registration is only real once
-            -- RfEscModules:registerModule carries onPageStep in its whitelist - it did not,
-            -- the field was silently dropped, and the live MORE was a painted no-op. The
-            -- page index resets to 1 in onHide (14:04 brief), and onShow still re-clamps it
-            -- against the live roster so a shrunk roster cannot strand anyone.
-            onPageStep = NpcRfPdaGuest.onPageStep,
         })
         if ok then
             _registered = true
@@ -801,14 +884,23 @@ function NpcRfPdaGuest.tryRegister()
             return false
         end
     end
+    -- BUILD 00:06: the static sheet is handed back on the registry change listener (see
+    -- restoreSheetIfLeft); registered once per host, the same way DairyRfPdaGuest does it.
+    if _sheetListenerHost ~= host and type(host.addChangeListener) == "function" then
+        host:addChangeListener(restoreSheetIfLeft)
+        _sheetListenerHost = host
+    end
     return _registered and g_inGameMenu ~= nil and g_inGameMenu.menuRealisticFarming ~= nil
 end
 
 function NpcRfPdaGuest.isRegistered() return _registered end
 function NpcRfPdaGuest.reset()
     _registered = false
-    -- A reset is a re-register, i.e. a new session or a re-entered save. The remembered
-    -- page belongs to the roster that is going away with it.
-    _pageIndex = 1
-    _lastRosterCount = 0
+    _sheetListenerHost = nil
+    _sheetHidden = false
+    -- A reset is a re-register, i.e. a new session or a re-entered save. The rows behind the
+    -- last paint belong to the roster that is going away with it.
+    _rosterRows = {}
+    _favorRows = {}
+    _lastContainer = nil
 end
