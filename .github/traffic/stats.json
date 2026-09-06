@@ -30941,36 +30941,36 @@
     "watchers": 5
   },
   {
-    "timestamp": "2026-09-06T00:16:50Z",
+    "timestamp": "2026-09-06T18:40:49Z",
     "date": "2026-09-06",
     "views": {
-      "count": 387,
-      "uniques": 143
+      "count": 385,
+      "uniques": 144
     },
     "clones": {
-      "count": 365,
-      "uniques": 118
+      "count": 354,
+      "uniques": 128
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 148,
-        "uniques": 54
+        "count": 151,
+        "uniques": 55
       },
       {
         "referrer": "Google",
-        "count": 92,
-        "uniques": 40
+        "count": 99,
+        "uniques": 42
       },
       {
         "referrer": "Bing",
-        "count": 16,
-        "uniques": 8
+        "count": 13,
+        "uniques": 7
       },
       {
         "referrer": "kingmods.net",
-        "count": 8,
-        "uniques": 3
+        "count": 9,
+        "uniques": 4
       },
       {
         "referrer": "yandex.ru",
@@ -30980,11 +30980,6 @@
       {
         "referrer": "modhoster.de",
         "count": 3,
-        "uniques": 1
-      },
-      {
-        "referrer": "chatgpt.com",
-        "count": 2,
         "uniques": 1
       },
       {
@@ -31002,44 +30997,38 @@
       {
         "path": "/Realistic-Farming/FS25_NPCFavor",
         "title": "Overview",
-        "count": 232,
-        "uniques": 126
+        "count": 234,
+        "uniques": 127
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1",
         "title": "/releases/tag/v1.2.7.1",
-        "count": 35,
-        "uniques": 31
+        "count": 36,
+        "uniques": 32
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/releases",
         "title": "/releases",
-        "count": 18,
-        "uniques": 14
+        "count": 19,
+        "uniques": 16
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/issues",
         "title": "/issues",
-        "count": 11,
+        "count": 12,
         "uniques": 7
-      },
-      {
-        "path": "/Realistic-Farming/FS25_NPCFavor/tree/main",
-        "title": "/tree/main",
-        "count": 9,
-        "uniques": 8
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/tree/development",
         "title": "/tree/development",
-        "count": 8,
-        "uniques": 2
+        "count": 9,
+        "uniques": 3
       },
       {
-        "path": "/Realistic-Farming/FS25_NPCFavor/blob/main/README.md",
-        "title": "/blob/main/README.md",
-        "count": 3,
-        "uniques": 3
+        "path": "/Realistic-Farming/FS25_NPCFavor/tree/main",
+        "title": "/tree/main",
+        "count": 8,
+        "uniques": 7
       },
       {
         "path": "/Realistic-Farming/FS25_NPCFavor/issues/71",
@@ -31054,9 +31043,15 @@
         "uniques": 2
       },
       {
-        "path": "/Realistic-Farming/FS25_NPCFavor/pull/75",
-        "title": "/pull/75",
+        "path": "/Realistic-Farming/FS25_NPCFavor/issues/created_by/closing_references",
+        "title": "/issues/created_by/closing_references",
         "count": 3,
+        "uniques": 1
+      },
+      {
+        "path": "/Realistic-Farming/FS25_NPCFavor/blob/main/README.md",
+        "title": "/blob/main/README.md",
+        "count": 2,
         "uniques": 2
       }
     ],
@@ -31064,7 +31059,7 @@
       {
         "assets": [
           {
-            "downloads": 23,
+            "downloads": 24,
             "name": "FS25_NPCFavor.zip"
           }
         ],
@@ -31073,7 +31068,7 @@
       {
         "assets": [
           {
-            "downloads": 154,
+            "downloads": 155,
             "name": "FS25_NPCFavor.zip"
           }
         ],
