@@ -587,6 +587,9 @@ local NPC_LIST_IDS = {
 --- The static sheet goes dark for the lists: the eight rows, the hairlines and rfFwMore. The
 --- column headers rfFwColA-D stay (they head the roster list). rfFwHintTable is host-hidden.
 local function hideStaticSheet(container)
+    -- BUILD 17:21: the shared table's rows now live in rfFwSheetBox (Income / Depot own it), so it
+    -- goes dark with the static sheet. Nil-safe: an older door copy has no such id.
+    setVis(findDescendant(container, "rfFwSheetBox"), false)
     for i = 1, MAX_ROWS do
         for _, c in ipairs({ "A", "B", "C", "D" }) do
             setVis(findDescendant(container, "rfFwRow" .. i .. c), false)
@@ -848,6 +851,15 @@ local function npcPublishHandles()
     end
 end
 
+--- BUILD 19:15: the Esc Help footer asks whichever module is showing to open its own guide, so
+--- every companion ships and owns its own help instead of borrowing Soil's.
+---@param container table|nil
+function NpcRfPdaGuest.onOpenHelp(container)
+    if NpcGuideDialog ~= nil and type(NpcGuideDialog.show) == "function" then
+        NpcGuideDialog.show()
+    end
+end
+
 function NpcRfPdaGuest.tryRegister()
     npcPublishHandles()
     if RfEscBootstrap ~= nil then
@@ -858,6 +870,12 @@ function NpcRfPdaGuest.tryRegister()
                 profilesXml = MOD_DIR .. "xml/gui/rfEscProfiles.xml",
                 iconPath = "textures/ui/menuIcon.dds",
             })
+            -- BUILD 19:15 (George CLOSED DESIGN 18:55 item 5): load this mod's Field Guide at the
+            -- same moment the door itself loads. A GUI loaded from a mod directory later, once the
+            -- mod's own file system context has closed, fails to open.
+            if NpcGuideDialog ~= nil and type(NpcGuideDialog.register) == "function" then
+                pcall(NpcGuideDialog.register, MOD_DIR)
+            end
             if not doorOk then print("[NPCFavor] NpcRfPdaGuest: WARNING ensureDoor failed (will retry)") end
         end
     end
@@ -876,6 +894,7 @@ function NpcRfPdaGuest.tryRegister()
             end,
             onShow = NpcRfPdaGuest.onShow,
             onHide = NpcRfPdaGuest.onHide,
+            onOpenHelp = NpcRfPdaGuest.onOpenHelp,
         })
         if ok then
             _registered = true
