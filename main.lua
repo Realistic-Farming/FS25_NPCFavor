@@ -130,6 +130,7 @@ source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscModules.
 source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfPdaMenuPage.lua")
 source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscBootstrap.lua")
 source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscUiDebugger.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/NpcGuideDialog.lua")
 source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/NpcRfPdaGuest.lua")
 
     print("[NPC Favor] All files loaded successfully")

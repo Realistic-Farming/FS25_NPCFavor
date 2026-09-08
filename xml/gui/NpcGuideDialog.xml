@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<!--
+    NPC Favor Field Guide - Field Guide
+    5 tabs. Content is built in Lua and swapped per tab (one column pair).
+    Chrome copied from SoilGuideDialog so every Realistic Farming guide reads the same.
+    Controller: NpcGuideDialog
+-->
+<GUI onOpen="onOpen" onClose="onClose" onCreate="onCreate">
+  <GuiElement profile="newLayer"/>
+  <Bitmap profile="dialogFullscreenBg" id="dialogBg"/>
+
+  <GuiElement profile="npcGuide_bg" id="dialogElement">
+
+    <ThreePartBitmap profile="fs25_dialogBgMiddle"/>
+    <ThreePartBitmap profile="fs25_dialogBgTop"/>
+    <ThreePartBitmap profile="fs25_dialogBgBottom"/>
+
+    <GuiElement profile="fs25_dialogContentContainer">
+
+      <Text profile="fs25_dialogTitle" id="npcGuide_title" text="NPC Favor Field Guide" position="0px -28px"/>
+
+      <BoxLayout profile="npcGuide_tabRow" position="0px -66px">
+        <Button profile="npcGuide_tab" id="npcGuide_tab1" text="Neighbours" onClick="onClickTab1"/>
+        <Button profile="npcGuide_tab" id="npcGuide_tab2" text="The Esc Page" onClick="onClickTab2"/>
+        <Button profile="npcGuide_tab" id="npcGuide_tab3" text="Favours" onClick="onClickTab3"/>
+        <Button profile="npcGuide_tab" id="npcGuide_tab4" text="Standing" onClick="onClickTab4"/>
+        <Button profile="npcGuide_tab" id="npcGuide_tab5" text="Settings and FAQ" onClick="onClickTab5"/>
+      </BoxLayout>
+
+      <Text profile="npcGuide_subtitle" id="npcGuide_subtitle" text="" position="0px -110px"/>
+
+      <GuiElement profile="npcGuide_colPanel" position="-253px -138px">
+        <Bitmap profile="npcGuide_colBg" position="0px 0px"/>
+        <BoxLayout profile="npcGuide_col" id="npcGuide_col1" position="0px -8px"/>
+      </GuiElement>
+
+      <GuiElement profile="npcGuide_colPanel" position="253px -138px">
+        <Bitmap profile="npcGuide_colBgAlt" position="0px 0px"/>
+        <BoxLayout profile="npcGuide_col" id="npcGuide_col2" position="0px -8px"/>
+      </GuiElement>
+
+    </GuiElement>
+
+    <BoxLayout profile="fs25_dialogButtonBox">
+      <Button profile="buttonOK" text="Close" onClick="onClickClose"/>
+    </BoxLayout>
+
+  </GuiElement>
+
+  <GUIProfiles>
+
+    <Profile name="npcGuide_bg" extends="fs25_dialogBg">
+      <size value="1120px 930px"/>
+    </Profile>
+
+    <Profile name="npcGuide_tabRow" extends="emptyPanel" with="anchorTopCenter">
+      <size value="960px 38px"/>
+      <flowDirection value="horizontal"/>
+      <elementSpacing value="10px"/>
+    </Profile>
+
+    <!-- The guide tabs and Close stay buttonOK: dialog chrome, not Esc overlay chips. -->
+    <Profile name="npcGuide_tab" extends="buttonOK">
+      <size value="174px 36px"/>
+      <textSize value="11px"/>
+      <textUpperCase value="true"/>
+    </Profile>
+
+    <Profile name="npcGuide_subtitle" extends="fs25_textDefault" with="anchorTopCenter">
+      <size value="960px 22px"/>
+      <textSize value="11px"/>
+      <textColor value="0.85 0.75 0.30 0.90"/>
+      <textAlignment value="center"/>
+    </Profile>
+
+    <Profile name="npcGuide_colPanel" extends="emptyPanel" with="anchorTopCenter">
+      <size value="510px 630px"/>
+    </Profile>
+    <Profile name="npcGuide_colBg" extends="baseReference" with="anchorTopCenter">
+      <size value="510px 630px"/>
+      <imageColor value="0.08 0.08 0.12 0.90"/>
+    </Profile>
+    <Profile name="npcGuide_colBgAlt" extends="baseReference" with="anchorTopCenter">
+      <size value="510px 630px"/>
+      <imageColor value="0.06 0.10 0.14 0.90"/>
+    </Profile>
+
+    <Profile name="npcGuide_col" extends="emptyPanel" with="anchorTopCenter">
+      <size value="494px 614px"/>
+      <flowDirection value="vertical"/>
+      <useFullVisibility value="false"/>
+      <alignmentX value="left"/>
+      <elementSpacing value="3px"/>
+    </Profile>
+
+    <Profile name="npcGuide_colHeader" extends="fs25_textDefault" with="anchorTopLeft">
+      <size value="472px 22px"/>
+      <textSize value="15px"/>
+      <textBold value="true"/>
+      <textUpperCase value="true"/>
+      <textColor value="1 0.8 0.2 1"/>
+      <textAlignment value="left"/>
+    </Profile>
+    <Profile name="npcGuide_colBody" extends="fs25_textDefault" with="anchorTopLeft">
+      <size value="472px 19px"/>
+      <textSize value="14px"/>
+      <textColor value="1 1 1 1"/>
+      <textAlignment value="left"/>
+    </Profile>
+    <Profile name="npcGuide_colSpacer" extends="fs25_textDefault" with="anchorTopLeft">
+      <size value="472px 10px"/>
+      <textSize value="8px"/>
+      <textColor value="0.0 0.0 0.0 0.0"/>
+    </Profile>
+
+  </GUIProfiles>
+</GUI>
