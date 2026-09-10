@@ -6076,5 +6076,52 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-09-10": [
+    {
+      "referrer": "github.com",
+      "count": 165,
+      "uniques": 58
+    },
+    {
+      "referrer": "Google",
+      "count": 75,
+      "uniques": 33
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 14,
+      "uniques": 5
+    },
+    {
+      "referrer": "Bing",
+      "count": 8,
+      "uniques": 5
+    },
+    {
+      "referrer": "chatgpt.com",
+      "count": 5,
+      "uniques": 2
+    },
+    {
+      "referrer": "realisticfarming.com",
+      "count": 4,
+      "uniques": 2
+    },
+    {
+      "referrer": "modhoster.de",
+      "count": 3,
+      "uniques": 1
+    },
+    {
+      "referrer": "yandex.ru",
+      "count": 2,
+      "uniques": 2
+    },
+    {
+      "referrer": "search.brave.com",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
