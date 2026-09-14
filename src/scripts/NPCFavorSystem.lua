@@ -210,8 +210,9 @@ function NPCFavorSystem:update(dt)
         end
 
         if favor.timeRemaining and favor.timeRemaining <= 0 then
+            -- failFavor owns the removal from activeFavors (RSF-F220). A second
+            -- table.remove here deleted whichever favor had shifted into slot i.
             self:failFavor(favor.id, "time_expired")
-            table.remove(self.activeFavors, i)
         else
             -- Check progress conditions
             self:checkFavorProgress(favor, dt)
