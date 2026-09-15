@@ -13,6 +13,7 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 - The management dialog's Cancel now goes through the server like Done, so a client's cancel is real and the host no longer takes a second relationship penalty.
 - The published `hasActiveFavorOfType(favorType, farmId)` query compared a field nothing writes; it now compares the record's owner, and a farm id that does not resolve always answers false.
 - The favor restore body did its neighbour and step work twice; it now does it once.
+- **A saved favor's remaining destinations no longer move on reload (RSF-F221).** Both save paths now keep each step's resolved destination and completion flag, so a materials pile, a fence point, a field or a co-op is restored where the neighbour first sent you instead of being rebuilt from wherever the neighbour lives, works or stands today, or rolled fresh at random. Restore replaces each step location with its own saved copy, so the neighbour's home and field records are never moved by a restore, and progress is derived from the saved step flags so the bar and the arrow agree. A save from before this change loads exactly as before; a job whose neighbour is gone keeps its saved destinations too.
 
 ### Changed
 - **Favor menu default key** is now Right Shift + apostrophe. Right Shift + 9 is Dashboard Live map orientation, a widely used cab overlay, so the suite default was moved to avoid that clash.

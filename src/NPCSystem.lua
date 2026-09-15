@@ -4960,6 +4960,28 @@ function NPCSystem.writeFavorRecordXML(xmlFile, key, flat)
     if type(flat.originalStatus) == "string" then
         xmlFile:setString(key .. "#originalStatus", encodeXMLValue(flat.originalStatus))
     end
+
+    -- RSF-F221: remaining destinations, one .step(i) child per step. The
+    -- index is zero-based like the favor rows themselves (favorIndex - 1
+    -- above; XMLFile:iterate walks from zero). Additive keys inside schema 1.
+    local count = flat.stepCount
+    if xmlIsNumber(count) and math.floor(count) == count and count >= 0 and type(flat.steps) == "table" then
+        xmlFile:setInt(key .. "#stepCount", count)
+        for i = 1, count do
+            local r = flat.steps[i]
+            if type(r) == "table" then
+                local stepKey = string.format("%s.step(%d)", key, i - 1)
+                local present = r.locPresent == true and xmlIsNumber(r.x) and xmlIsNumber(r.y) and xmlIsNumber(r.z)
+                xmlFile:setBool(stepKey .. "#completed", r.completed == true)
+                xmlFile:setBool(stepKey .. "#locPresent", present)
+                if present then
+                    xmlFile:setFloat(stepKey .. "#x", r.x)
+                    xmlFile:setFloat(stepKey .. "#y", r.y)
+                    xmlFile:setFloat(stepKey .. "#z", r.z)
+                end
+            end
+        end
+    end
 end
 
 --- Read one favor row into the flat record shape. A row without #f148Schema
@@ -5023,6 +5045,31 @@ function NPCSystem.readFavorRecordXML(xmlFile, key)
             flat.originalStatus = xmlFile:getString(key .. "#originalStatus", "")
         end
         readPresent("originalOwnerFarmId", getInt)
+    end
+
+    -- RSF-F221: the saved step set, read raw. A missing child leaves a hole
+    -- at that index and a present-location flag with a missing coordinate
+    -- keeps locPresent true with a nil coordinate; NPCFavorRecovery.
+    -- decodeSavedSteps applies the partial-row rules for both writers.
+    if xmlFile:hasProperty(key .. "#stepCount") then
+        local count = xmlFile:getInt(key .. "#stepCount", 0)
+        flat.stepCount = count
+        flat.steps = {}
+        for i = 1, count do
+            local stepKey = string.format("%s.step(%d)", key, i - 1)
+            if xmlFile:hasProperty(stepKey .. "#completed") or xmlFile:hasProperty(stepKey .. "#locPresent") then
+                local row = {
+                    completed = xmlFile:getBool(stepKey .. "#completed", false),
+                    locPresent = xmlFile:getBool(stepKey .. "#locPresent", false),
+                }
+                if row.locPresent then
+                    if xmlFile:hasProperty(stepKey .. "#x") then row.x = xmlFile:getFloat(stepKey .. "#x", 0) end
+                    if xmlFile:hasProperty(stepKey .. "#y") then row.y = xmlFile:getFloat(stepKey .. "#y", 0) end
+                    if xmlFile:hasProperty(stepKey .. "#z") then row.z = xmlFile:getFloat(stepKey .. "#z", 0) end
+                end
+                flat.steps[i] = row
+            end
+        end
     end
     return flat
 end
