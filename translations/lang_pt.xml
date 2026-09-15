@@ -347,5 +347,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s pronto. Os seus vizinhos estão a instalar-se." />
+		<text name="npc_recovery_title" text="Recuperação de favores (%d)"/>
+		<text name="npc_recovery_subtitle" text="Favores em pausa e recuperados. Nada aqui avança ou paga até que o retomes."/>
+		<text name="npc_recovery_btn_recovery" text="Recuperação (%d)"/>
+		<text name="npc_recovery_btn_active" text="Favores ativos"/>
+		<text name="npc_recovery_btn_resume" text="Retomar"/>
+		<text name="npc_recovery_btn_assign" text="Atribuir"/>
+		<text name="npc_recovery_page" text="Página %d / %d"/>
+		<text name="npc_recovery_empty" text="Não há favores em pausa nem recuperados."/>
+		<text name="npc_recovery_footer" text="Retomar mantém o progresso e os pagamentos guardados. Atribuir destina-se ao trabalho de uma quinta eliminada e exige uma quinta de destino escolhida explicitamente."/>
+		<text name="npc_recovery_unavailable" text="A recuperação não está disponível até o jogo ser recarregado."/>
+		<text name="npc_recovery_tag_paused" text="Em pausa"/>
+		<text name="npc_recovery_tag_resumed" text="Retomado"/>
+		<text name="npc_recovery_tag_pending" text="Oferta"/>
+		<text name="npc_recovery_time" text="Restante: %s (%d%% feito)"/>
+		<text name="npc_recovery_time_unknown" text="Tempo restante indisponível"/>
+		<text name="npc_recovery_field_unknown" text="campo desconhecido, sem proteção do campo"/>
+		<text name="npc_recovery_owner" text="Proprietário: "/>
+		<text name="npc_recovery_owner_unknown" text="proprietário desconhecido"/>
+		<text name="npc_recovery_loan" text="Empréstimo %s, entregue: %s, devolvido: %s"/>
+		<text name="npc_recovery_reward_paid" text="Recompensa paga: %s"/>
+		<text name="npc_recovery_yes" text="sim"/>
+		<text name="npc_recovery_no" text="não"/>
+		<text name="npc_recovery_unknown" text="desconhecido"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Guardado antes de a aceitação ser registada"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Não foi possível determinar a quinta proprietária"/>
+		<text name="npc_recovery_reason_invalid_record" text="O registo guardado está incompleto ou incoerente"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="A quinta proprietária foi eliminada"/>
+		<text name="npc_recovery_reason_unknown_token" text="Registo não reconhecido"/>
+		<text name="npc_recovery_unavail_type" text="O tipo de favor já não está disponível"/>
+		<text name="npc_recovery_unavail_facts" text="Dados de pagamento incompletos, apenas consulta"/>
+		<text name="npc_recovery_unavail_reason" text="Mantido apenas para consulta"/>
+		<text name="npc_recovery_unavail_owner" text="Nenhuma quinta pode retomar este registo"/>
+		<text name="npc_recovery_picker_choose" text="Atribuir a: Escolhe uma quinta"/>
+		<text name="npc_recovery_picker_selected" text="Atribuir a: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Escolhe primeiro uma quinta de destino."/>
+		<text name="npc_recovery_confirm_title" text="Recuperação de favor"/>
+		<text name="npc_recovery_confirm_resume" text="Retomar este favor para a tua quinta?"/>
+		<text name="npc_recovery_confirm_assign" text="Atribuir este favor a %s (#%d) e retomá-lo?"/>
+		<text name="npc_recovery_confirm_complete" text="Pedir ao vizinho para fechar este favor recuperado?"/>
+		<text name="npc_recovery_confirm_abandon" text="Cancelar este favor recuperado? Aplica-se a penalização por abandono."/>
+		<text name="npc_recovery_confirm_no_money" text="Retomar não move dinheiro por si só."/>
+		<text name="npc_recovery_ok_resumed" text="Favor retomado."/>
+		<text name="npc_recovery_ok_completed" text="Favor concluído."/>
+		<text name="npc_recovery_ok_abandoned" text="Favor cancelado."/>
+		<text name="npc_recovery_no_longer_paused" text="Esse favor já não está em pausa."/>
+		<text name="npc_recovery_refused_stale" text="Esse registo mudou. A lista foi atualizada."/>
+		<text name="npc_recovery_refused_operation" text="Essa ação não é permitida."/>
+		<text name="npc_recovery_refused_request_reuse" text="Esse pedido já foi usado."/>
+		<text name="npc_recovery_refused_not_resumable" text="Este registo não pode ser retomado pela sua quinta."/>
+		<text name="npc_recovery_refused_not_owner" text="Só a quinta que aceitou este favor pode agir sobre ele."/>
+		<text name="npc_recovery_refused_not_admin" text="Só o anfitrião ou um administrador pode atribuir um favor."/>
+		<text name="npc_recovery_refused_not_assignable" text="Este registo não pode ser atribuído."/>
+		<text name="npc_recovery_refused_owner_valid" text="Este favor ainda tem um proprietário válido."/>
+		<text name="npc_recovery_refused_target" text="Escolhe uma quinta existente como destino."/>
+		<text name="npc_recovery_refused_view" text="A lista de quintas mudou. Escolhe a quinta novamente."/>
+		<text name="npc_recovery_refused_live_job" text="Esse vizinho já tem um favor em curso. Termina-o primeiro."/>
+		<text name="npc_recovery_refused_not_live" text="Esse favor não é um favor recuperado em curso."/>
+		<text name="npc_recovery_no_local_farm" text="Tens de pertencer a uma quinta para aceitar um favor."/>
+		<text name="npc_recovery_dialog_use_view" text="Este é um favor recuperado. Termina-o ou cancela-o no menu de favores."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Deixa-me verificar esse trabalho recuperado nas minhas notas."/>
+		<text name="npc_recovery_unavail_time" text="Tempo restante desconhecido, apenas consulta"/>
+		<text name="npc_recovery_unavail_npc" text="Esse vizinho já não está aqui, apenas consulta"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: os favores guardados não puderam ser lidos e ficaram intactos no disco. Os favores estão indisponíveis, e o progresso dos NPC e os favores não são guardados nesta sessão."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: os favores guardados não puderam ser lidos e ficaram intactos no disco. Os favores estão indisponíveis e não são guardados nesta sessão. O progresso dos NPC continua a ser guardado."/>
+		<text name="npc_mgmt_title_active" text="Favores ativos (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Gere os teus favores ativos"/>
+		<text name="npc_mgmt_game_time" text="Hora de jogo: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Cancelar aplica a penalização por abandono  |  Concluir pede ao vizinho para fechar o favor"/>
+		<text name="npc_mgmt_footer_paging" text="A mostrar %d de %d favores  |  Cancelar aplica a penalização por abandono"/>
+		<text name="npc_mgmt_btn_view" text="Ver"/>
+		<text name="npc_mgmt_btn_goto" text="Ir"/>
+		<text name="npc_mgmt_btn_cancel" text="Cancelar"/>
+		<text name="npc_mgmt_btn_done" text="Concluir"/>
 </texts>
 </l10n>

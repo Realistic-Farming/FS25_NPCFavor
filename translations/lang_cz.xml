@@ -345,5 +345,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s připraven. Vaši sousedé se zabydlují." />
+		<text name="npc_recovery_title" text="Obnova laskavostí (%d)"/>
+		<text name="npc_recovery_subtitle" text="Pozastavené a obnovené laskavosti. Nic zde neběží ani neplatí, dokud to neobnovíš."/>
+		<text name="npc_recovery_btn_recovery" text="Obnova (%d)"/>
+		<text name="npc_recovery_btn_active" text="Aktivní laskavosti"/>
+		<text name="npc_recovery_btn_resume" text="Obnovit"/>
+		<text name="npc_recovery_btn_assign" text="Přiřadit"/>
+		<text name="npc_recovery_page" text="Strana %d / %d"/>
+		<text name="npc_recovery_empty" text="Žádné pozastavené ani obnovené laskavosti."/>
+		<text name="npc_recovery_footer" text="Obnovení zachová uložený postup a platby. Přiřazení je pro úkol smazané farmy a vyžaduje výslovně zvolenou cílovou farmu."/>
+		<text name="npc_recovery_unavailable" text="Obnova není dostupná, dokud se hra znovu nenačte."/>
+		<text name="npc_recovery_tag_paused" text="Pozastaveno"/>
+		<text name="npc_recovery_tag_resumed" text="Obnoveno"/>
+		<text name="npc_recovery_tag_pending" text="Nabídka"/>
+		<text name="npc_recovery_time" text="Zbývá: %s (%d%% hotovo)"/>
+		<text name="npc_recovery_time_unknown" text="Zbývající čas není k dispozici"/>
+		<text name="npc_recovery_field_unknown" text="pole neznámé, bez ochrany pole"/>
+		<text name="npc_recovery_owner" text="Vlastník: "/>
+		<text name="npc_recovery_owner_unknown" text="vlastník neznámý"/>
+		<text name="npc_recovery_loan" text="Půjčka %s, vyplacena: %s, splacena: %s"/>
+		<text name="npc_recovery_reward_paid" text="Odměna vyplacena: %s"/>
+		<text name="npc_recovery_yes" text="ano"/>
+		<text name="npc_recovery_no" text="ne"/>
+		<text name="npc_recovery_unknown" text="neznámé"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Uloženo dříve, než bylo zaznamenáno přijetí"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Farmu vlastníka se nepodařilo určit"/>
+		<text name="npc_recovery_reason_invalid_record" text="Uložený záznam je neúplný nebo rozporný"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="Farma vlastníka byla smazána"/>
+		<text name="npc_recovery_reason_unknown_token" text="Nerozpoznaný záznam"/>
+		<text name="npc_recovery_unavail_type" text="Tento typ laskavosti už není dostupný"/>
+		<text name="npc_recovery_unavail_facts" text="Údaje o platbách jsou neúplné, pouze k nahlédnutí"/>
+		<text name="npc_recovery_unavail_reason" text="Uchováno pouze k nahlédnutí"/>
+		<text name="npc_recovery_unavail_owner" text="Žádná farma nemůže tento záznam obnovit"/>
+		<text name="npc_recovery_picker_choose" text="Přiřadit: Vyber farmu"/>
+		<text name="npc_recovery_picker_selected" text="Přiřadit: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Nejprve vyber cílovou farmu."/>
+		<text name="npc_recovery_confirm_title" text="Obnova laskavosti"/>
+		<text name="npc_recovery_confirm_resume" text="Obnovit tuto laskavost pro tvou farmu?"/>
+		<text name="npc_recovery_confirm_assign" text="Přiřadit tuto laskavost farmě %s (#%d) a obnovit ji?"/>
+		<text name="npc_recovery_confirm_complete" text="Požádat souseda o uzavření této obnovené laskavosti?"/>
+		<text name="npc_recovery_confirm_abandon" text="Zrušit tuto obnovenou laskavost? Uplatní se postih za opuštění."/>
+		<text name="npc_recovery_confirm_no_money" text="Samotné obnovení nepřesouvá žádné peníze."/>
+		<text name="npc_recovery_ok_resumed" text="Laskavost obnovena."/>
+		<text name="npc_recovery_ok_completed" text="Laskavost dokončena."/>
+		<text name="npc_recovery_ok_abandoned" text="Laskavost zrušena."/>
+		<text name="npc_recovery_no_longer_paused" text="Tato laskavost už není pozastavená."/>
+		<text name="npc_recovery_refused_stale" text="Tento záznam se změnil. Seznam byl obnoven."/>
+		<text name="npc_recovery_refused_operation" text="Tato akce není povolena."/>
+		<text name="npc_recovery_refused_request_reuse" text="Tento požadavek už byl použit."/>
+		<text name="npc_recovery_refused_not_resumable" text="Tento záznam nemůže jeho farma obnovit."/>
+		<text name="npc_recovery_refused_not_owner" text="S touto laskavostí může nakládat jen farma, která ji přijala."/>
+		<text name="npc_recovery_refused_not_admin" text="Laskavost může přiřadit jen hostitel nebo administrátor."/>
+		<text name="npc_recovery_refused_not_assignable" text="Tento záznam nelze přiřadit."/>
+		<text name="npc_recovery_refused_owner_valid" text="Tato laskavost má stále platného vlastníka."/>
+		<text name="npc_recovery_refused_target" text="Vyber existující farmu jako cíl."/>
+		<text name="npc_recovery_refused_view" text="Seznam farem se změnil. Vyber farmu znovu."/>
+		<text name="npc_recovery_refused_live_job" text="Tento soused už má probíhající laskavost. Nejprve ji dokonči."/>
+		<text name="npc_recovery_refused_not_live" text="Tato laskavost není probíhající obnovená laskavost."/>
+		<text name="npc_recovery_no_local_farm" text="Pro přijetí laskavosti musíš patřit k farmě."/>
+		<text name="npc_recovery_dialog_use_view" text="Toto je obnovená laskavost. Dokonči ji nebo zruš v nabídce laskavostí."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Nech mě porovnat tento obnovený úkol s mými poznámkami."/>
+		<text name="npc_recovery_unavail_time" text="Zbývající čas neznámý, pouze k nahlédnutí"/>
+		<text name="npc_recovery_unavail_npc" text="Tento soused už tu není, pouze k nahlédnutí"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: uložené laskavosti se nepodařilo načíst a zůstaly na disku beze změny. Laskavosti jsou nedostupné a postup NPC ani laskavosti se v této relaci neukládají."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: uložené laskavosti se nepodařilo načíst a zůstaly na disku beze změny. Laskavosti jsou nedostupné a v této relaci se neukládají. Postup NPC se nadále ukládá."/>
+		<text name="npc_mgmt_title_active" text="Aktivní laskavosti (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Spravuj své aktivní laskavosti"/>
+		<text name="npc_mgmt_game_time" text="Herní čas: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Zrušit uplatní postih za opuštění  |  Hotovo požádá souseda o uzavření laskavosti"/>
+		<text name="npc_mgmt_footer_paging" text="Zobrazeno %d z %d laskavostí  |  Zrušit uplatní postih za opuštění"/>
+		<text name="npc_mgmt_btn_view" text="Zobrazit"/>
+		<text name="npc_mgmt_btn_goto" text="Jít"/>
+		<text name="npc_mgmt_btn_cancel" text="Zrušit"/>
+		<text name="npc_mgmt_btn_done" text="Hotovo"/>
 </texts>
 </l10n>

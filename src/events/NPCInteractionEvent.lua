@@ -11,7 +11,7 @@
 --
 -- SECURITY & VALIDATION:
 -- [x] Action type whitelist with MIN/MAX range check
--- [x] Farm ownership verification via userManager
+-- [x] Farm ownership verification via g_currentMission:getFarmId(connection) (RSF-F148)
 -- [x] NaN and infinity checks on numeric value field
 -- [x] NPC existence validation before dispatch
 -- [ ] Per-action rate limiting (max N interactions per minute per player)
@@ -119,26 +119,27 @@ function NPCInteractionEvent:run(connection)
         return
     end
 
-    -- OWASP Layer 2: Verify farm ownership
-    if connection ~= nil then
-        -- Connection is from a client, verify authorization
-        local user = nil
-        if g_currentMission and g_currentMission.userManager then
-            user = g_currentMission.userManager:getUserByConnection(connection)
-        end
-
-        if user == nil then
-            print(string.format("[NPCFavor SECURITY] Rejected interaction: no user for connection"))
-            return
-        end
-
-        -- Check farm ownership
-        local userFarmId = user.farmId
-        if userFarmId ~= self.farmId then
-            print(string.format("[NPCFavor SECURITY] Rejected interaction: farmId mismatch (claimed %d, actual %d)",
-                self.farmId, userFarmId or -1))
-            return
-        end
+    -- OWASP Layer 2: Verify the acting farm (RSF-F148).
+    -- Native User carries no farmId field, so the old user.farmId comparison
+    -- read nil and rejected every remote client. The real acting farm comes
+    -- from g_currentMission:getFarmId(connection) through the verified actor
+    -- resolver, must be an ordinary live farm, and must equal the claim. A nil
+    -- connection on a dedicated server has no actor and is refused; no
+    -- administrator bypass exists here.
+    local actor = NPCFarmIdentity.resolveActor(connection)
+    if actor == nil then
+        print("[NPCFavor SECURITY] Rejected interaction: no verified actor for connection")
+        return
+    end
+    if actor.farmId == nil then
+        print(string.format("[NPCFavor SECURITY] Rejected interaction: acting farm %s is not an ordinary farm",
+            tostring(actor.rawFarmId)))
+        return
+    end
+    if actor.farmId ~= self.farmId then
+        print(string.format("[NPCFavor SECURITY] Rejected interaction: farmId mismatch (claimed %d, actual %d)",
+            self.farmId, actor.farmId))
+        return
     end
 
     -- OWASP Layer 3: Delegate to execute with full input validation
@@ -162,13 +163,12 @@ function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data)
         return false
     end
 
-    -- OWASP Input Validation: Validate farm exists
-    if g_farmManager then
-        local farm = g_farmManager:getFarmById(farmId)
-        if farm == nil then
-            print(string.format("[NPCFavor SECURITY] Farm not found: %d", farmId))
-            return false
-        end
+    -- OWASP Input Validation: the acting farm must be an ordinary live farm.
+    -- Spectator (0), guided tour (14) and invalid (15) are refused even when
+    -- their farm objects exist (RSF-F148).
+    if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+        print(string.format("[NPCFavor SECURITY] Farm is not an ordinary farm: %s", tostring(farmId)))
+        return false
     end
 
     -- OWASP Input Validation: NaN and bounds check on value

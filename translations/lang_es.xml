@@ -345,5 +345,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s listo. Tus vecinos se están instalando." />
+		<text name="npc_recovery_title" text="Recuperación de favores (%d)"/>
+		<text name="npc_recovery_subtitle" text="Favores en pausa y recuperados. Nada de esto avanza ni paga hasta que lo reanudes."/>
+		<text name="npc_recovery_btn_recovery" text="Recuperación (%d)"/>
+		<text name="npc_recovery_btn_active" text="Favores activos"/>
+		<text name="npc_recovery_btn_resume" text="Reanudar"/>
+		<text name="npc_recovery_btn_assign" text="Asignar"/>
+		<text name="npc_recovery_page" text="Página %d / %d"/>
+		<text name="npc_recovery_empty" text="No hay favores en pausa ni recuperados."/>
+		<text name="npc_recovery_footer" text="Reanudar conserva el progreso y los pagos guardados. Asignar es para el trabajo de una granja eliminada y requiere elegir una granja de destino."/>
+		<text name="npc_recovery_unavailable" text="La recuperación no está disponible hasta que se recargue la partida."/>
+		<text name="npc_recovery_tag_paused" text="En pausa"/>
+		<text name="npc_recovery_tag_resumed" text="Reanudado"/>
+		<text name="npc_recovery_tag_pending" text="Oferta"/>
+		<text name="npc_recovery_time" text="Restante: %s (%d%% hecho)"/>
+		<text name="npc_recovery_time_unknown" text="Tiempo restante no disponible"/>
+		<text name="npc_recovery_field_unknown" text="campo desconocido, sin protección del campo"/>
+		<text name="npc_recovery_owner" text="Propietario: "/>
+		<text name="npc_recovery_owner_unknown" text="propietario desconocido"/>
+		<text name="npc_recovery_loan" text="Préstamo %s, entregado: %s, devuelto: %s"/>
+		<text name="npc_recovery_reward_paid" text="Recompensa pagada: %s"/>
+		<text name="npc_recovery_yes" text="sí"/>
+		<text name="npc_recovery_no" text="no"/>
+		<text name="npc_recovery_unknown" text="desconocido"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Guardado antes de que se registrara la aceptación"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="No se pudo determinar la granja propietaria"/>
+		<text name="npc_recovery_reason_invalid_record" text="El registro guardado está incompleto o es incoherente"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="La granja propietaria fue eliminada"/>
+		<text name="npc_recovery_reason_unknown_token" text="Registro no reconocido"/>
+		<text name="npc_recovery_unavail_type" text="El tipo de favor ya no está disponible"/>
+		<text name="npc_recovery_unavail_facts" text="Datos de pago incompletos, solo consulta"/>
+		<text name="npc_recovery_unavail_reason" text="Conservado solo para consulta"/>
+		<text name="npc_recovery_unavail_owner" text="Ninguna granja puede reanudar este registro"/>
+		<text name="npc_recovery_picker_choose" text="Asignar a: Elige una granja"/>
+		<text name="npc_recovery_picker_selected" text="Asignar a: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Elige primero una granja de destino."/>
+		<text name="npc_recovery_confirm_title" text="Recuperación de favor"/>
+		<text name="npc_recovery_confirm_resume" text="¿Reanudar este favor para tu granja?"/>
+		<text name="npc_recovery_confirm_assign" text="¿Asignar este favor a %s (#%d) y reanudarlo?"/>
+		<text name="npc_recovery_confirm_complete" text="¿Pedir al vecino que cierre este favor recuperado?"/>
+		<text name="npc_recovery_confirm_abandon" text="¿Cancelar este favor recuperado? Se aplica la penalización por abandono."/>
+		<text name="npc_recovery_confirm_no_money" text="Reanudar no mueve dinero por sí mismo."/>
+		<text name="npc_recovery_ok_resumed" text="Favor reanudado."/>
+		<text name="npc_recovery_ok_completed" text="Favor completado."/>
+		<text name="npc_recovery_ok_abandoned" text="Favor cancelado."/>
+		<text name="npc_recovery_no_longer_paused" text="Ese favor ya no está en pausa."/>
+		<text name="npc_recovery_refused_stale" text="Ese registro cambió. La lista se ha actualizado."/>
+		<text name="npc_recovery_refused_operation" text="Esa acción no está permitida."/>
+		<text name="npc_recovery_refused_request_reuse" text="Esa solicitud ya se usó."/>
+		<text name="npc_recovery_refused_not_resumable" text="Este registro no puede ser reanudado por su granja."/>
+		<text name="npc_recovery_refused_not_owner" text="Solo la granja que aceptó este favor puede actuar sobre él."/>
+		<text name="npc_recovery_refused_not_admin" text="Solo el anfitrión o un administrador puede asignar un favor."/>
+		<text name="npc_recovery_refused_not_assignable" text="Este registro no se puede asignar."/>
+		<text name="npc_recovery_refused_owner_valid" text="Este favor aún tiene un propietario válido."/>
+		<text name="npc_recovery_refused_target" text="Elige una granja existente como destino."/>
+		<text name="npc_recovery_refused_view" text="La lista de granjas cambió. Elige la granja de nuevo."/>
+		<text name="npc_recovery_refused_live_job" text="Ese vecino ya tiene un favor en curso. Termínalo primero."/>
+		<text name="npc_recovery_refused_not_live" text="Ese favor no es un favor recuperado en curso."/>
+		<text name="npc_recovery_no_local_farm" text="Debes pertenecer a una granja para aceptar un favor."/>
+		<text name="npc_recovery_dialog_use_view" text="Este es un favor recuperado. Termínalo o cancélalo desde el menú de favores."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Déjame comprobar ese trabajo recuperado con mis notas."/>
+		<text name="npc_recovery_unavail_time" text="Tiempo restante desconocido, solo consulta"/>
+		<text name="npc_recovery_unavail_npc" text="Ese vecino ya no está aquí, solo consulta"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: no se pudieron leer los favores guardados y se dejaron intactos en el disco. Los favores no están disponibles, y el progreso de los PNJ y los favores no se guardan en esta sesión."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: no se pudieron leer los favores guardados y se dejaron intactos en el disco. Los favores no están disponibles y no se guardan en esta sesión. El progreso de los PNJ sigue guardándose."/>
+		<text name="npc_mgmt_title_active" text="Favores activos (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Gestiona tus favores activos"/>
+		<text name="npc_mgmt_game_time" text="Hora del juego: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Cancelar aplica la penalización por abandono  |  Hecho pide al vecino que cierre el favor"/>
+		<text name="npc_mgmt_footer_paging" text="Mostrando %d de %d favores  |  Cancelar aplica la penalización por abandono"/>
+		<text name="npc_mgmt_btn_view" text="Ver"/>
+		<text name="npc_mgmt_btn_goto" text="Ir"/>
+		<text name="npc_mgmt_btn_cancel" text="Cancelar"/>
+		<text name="npc_mgmt_btn_done" text="Hecho"/>
 </texts>
 </l10n>

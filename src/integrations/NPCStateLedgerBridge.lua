@@ -52,7 +52,20 @@ function NPCStateLedgerBridge.applyState()
     if sys == nil or sys.deserializeState == nil or not NPCStateLedgerBridge.hasLedgerState() then
         return false
     end
-    sys:deserializeState(NPCStateLedgerBridge.pendingState)
+    local ok, err = pcall(function()
+        sys:deserializeState(NPCStateLedgerBridge.pendingState)
+    end)
+    if not ok then
+        print(string.format("[NPC Favor] StateLedger apply error (non-fatal): %s", tostring(err)))
+        -- RSF-F148: an aborted apply is FAILED, never an empty favor snapshot.
+        if sys.favorSystem and sys.favorSystem.getFavorLoadState
+            and sys.favorSystem:getFavorLoadState() ~= NPCFavorRecovery.LOAD_READY then
+            sys.favorSystem:failFavorLoad("StateLedger apply aborted: " .. tostring(err),
+                NPCFavorRecovery.FAIL_ORIGIN_ABORT)
+            if sys.notifyFavorLoadFailed then sys:notifyFavorLoadFailed() end
+        end
+        return false
+    end
     return true
 end
 

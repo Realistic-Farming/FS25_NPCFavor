@@ -347,5 +347,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s gata. Vecinii tăi se instalează." />
+		<text name="npc_recovery_title" text="[EN] Favor Recovery (%d)"/>
+		<text name="npc_recovery_subtitle" text="[EN] Paused and recovered favors. Nothing here runs or pays until you resume it."/>
+		<text name="npc_recovery_btn_recovery" text="[EN] Recovery (%d)"/>
+		<text name="npc_recovery_btn_active" text="[EN] Active favors"/>
+		<text name="npc_recovery_btn_resume" text="[EN] Resume"/>
+		<text name="npc_recovery_btn_assign" text="[EN] Assign"/>
+		<text name="npc_recovery_page" text="[EN] Page %d / %d"/>
+		<text name="npc_recovery_empty" text="[EN] No paused or recovered favors."/>
+		<text name="npc_recovery_footer" text="[EN] Resume keeps saved progress and payments. Assign is for a deleted farm's job and needs an explicit target farm."/>
+		<text name="npc_recovery_unavailable" text="[EN] Recovery is unavailable until the game is reloaded."/>
+		<text name="npc_recovery_tag_paused" text="[EN] Paused"/>
+		<text name="npc_recovery_tag_resumed" text="[EN] Resumed"/>
+		<text name="npc_recovery_tag_pending" text="[EN] Offer"/>
+		<text name="npc_recovery_time" text="[EN] Remaining: %s (%d%% done)"/>
+		<text name="npc_recovery_time_unknown" text="[EN] Remaining time unavailable"/>
+		<text name="npc_recovery_field_unknown" text="[EN] field unknown, no field protection"/>
+		<text name="npc_recovery_owner" text="[EN] Owner: "/>
+		<text name="npc_recovery_owner_unknown" text="[EN] owner unknown"/>
+		<text name="npc_recovery_loan" text="[EN] Loan %s, lent: %s, repaid: %s"/>
+		<text name="npc_recovery_reward_paid" text="[EN] Reward paid: %s"/>
+		<text name="npc_recovery_yes" text="[EN] yes"/>
+		<text name="npc_recovery_no" text="[EN] no"/>
+		<text name="npc_recovery_unknown" text="[EN] unknown"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="[EN] Saved before acceptance was recorded"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="[EN] Owner farm could not be resolved"/>
+		<text name="npc_recovery_reason_invalid_record" text="[EN] Saved record is incomplete or inconsistent"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="[EN] Owner farm was deleted"/>
+		<text name="npc_recovery_reason_unknown_token" text="[EN] Unrecognised record (%s)"/>
+		<text name="npc_recovery_unavail_type" text="[EN] Favor type is no longer available"/>
+		<text name="npc_recovery_unavail_facts" text="[EN] Payment facts are incomplete, inspect only"/>
+		<text name="npc_recovery_unavail_reason" text="[EN] Kept for inspection only"/>
+		<text name="npc_recovery_unavail_owner" text="[EN] No farm can resume this record"/>
+		<text name="npc_recovery_picker_choose" text="[EN] Assign to: Choose a farm"/>
+		<text name="npc_recovery_picker_selected" text="[EN] Assign to: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="[EN] Choose a target farm first."/>
+		<text name="npc_recovery_confirm_title" text="[EN] Favor recovery"/>
+		<text name="npc_recovery_confirm_resume" text="[EN] Resume this favor for your farm?"/>
+		<text name="npc_recovery_confirm_assign" text="[EN] Assign this favor to %s (#%d) and resume it?"/>
+		<text name="npc_recovery_confirm_complete" text="[EN] Ask the neighbour to close this recovered favor?"/>
+		<text name="npc_recovery_confirm_abandon" text="[EN] Cancel this recovered favor? The abandon penalty applies."/>
+		<text name="npc_recovery_confirm_no_money" text="[EN] Resuming moves no money by itself."/>
+		<text name="npc_recovery_ok_resumed" text="[EN] Favor resumed."/>
+		<text name="npc_recovery_ok_completed" text="[EN] Favor completed."/>
+		<text name="npc_recovery_ok_abandoned" text="[EN] Favor cancelled."/>
+		<text name="npc_recovery_no_longer_paused" text="[EN] That favor is no longer paused."/>
+		<text name="npc_recovery_refused_stale" text="[EN] That record changed. The list has been refreshed."/>
+		<text name="npc_recovery_refused_operation" text="[EN] That action is not allowed."/>
+		<text name="npc_recovery_refused_request_reuse" text="[EN] That request was already used."/>
+		<text name="npc_recovery_refused_not_resumable" text="[EN] This record cannot be resumed by its farm."/>
+		<text name="npc_recovery_refused_not_owner" text="[EN] Only the farm that accepted this favor can act on it."/>
+		<text name="npc_recovery_refused_not_admin" text="[EN] Only the host or an administrator can assign a favor."/>
+		<text name="npc_recovery_refused_not_assignable" text="[EN] This record cannot be assigned."/>
+		<text name="npc_recovery_refused_owner_valid" text="[EN] This favor still has a valid owner."/>
+		<text name="npc_recovery_refused_target" text="[EN] Choose a current farm as the target."/>
+		<text name="npc_recovery_refused_view" text="[EN] The farm list changed. Choose the farm again."/>
+		<text name="npc_recovery_refused_live_job" text="[EN] That neighbour already has a live favor. Finish it first."/>
+		<text name="npc_recovery_refused_not_live" text="[EN] That favor is not a live recovered favor."/>
+		<text name="npc_recovery_no_local_farm" text="[EN] You need to be on a farm to accept a favor."/>
+		<text name="npc_recovery_dialog_use_view" text="[EN] This is a recovered favor. Finish or cancel it from the Favor menu."/>
+		<text name="npc_recovery_dialog_complete_sent" text="[EN] Let me check that recovered job against my notes."/>
+		<text name="npc_recovery_unavail_time" text="[EN] Remaining time is unknown, inspect only"/>
+		<text name="npc_recovery_unavail_npc" text="[EN] That neighbour is no longer here, inspect only"/>
+		<text name="npc_recovery_load_failed_notice" text="[EN] NPC Favor: saved favors could not be read and were left untouched on disk. Favors are unavailable, and NPC progress and favors are not saved this session."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="[EN] NPC Favor: saved favors could not be read and were left untouched on disk. Favors are unavailable and not saved this session. NPC progress still saves."/>
+		<text name="npc_mgmt_title_active" text="[EN] Active Favors (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="[EN] Manage your active favors"/>
+		<text name="npc_mgmt_game_time" text="[EN] Game Time: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="[EN] Cancel applies the abandon penalty  |  Done asks the neighbour to close the favor"/>
+		<text name="npc_mgmt_footer_paging" text="[EN] Showing %d of %d favors  |  Cancel applies the abandon penalty"/>
+		<text name="npc_mgmt_btn_view" text="[EN] View"/>
+		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
+		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
+		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
 </texts>
 </l10n>
