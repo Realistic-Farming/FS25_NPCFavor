@@ -372,7 +372,63 @@ function NPCFavorSystem:exportFavorRecord(favor)
         flat.taskFieldIdPresent = true
         flat.taskFieldId = favor.taskFieldIdRaw
     end
+    -- RSF-F221: the remaining destinations and completion flags, one named-key
+    -- row per step in array order, copied by value out of the live location
+    -- table (never a reference: seventeen of the builder's locations alias
+    -- the neighbour's own home or field centre). A step with no location
+    -- writes locPresent false and no coordinate. The percent progress field
+    -- above stays as it is for legacy readers.
+    if type(favor.steps) == "table" then
+        local rows = {}
+        for i, step in ipairs(favor.steps) do
+            local loc = type(step) == "table" and step.location or nil
+            local present = type(loc) == "table"
+                and isFiniteNumber(loc.x) and isFiniteNumber(loc.y) and isFiniteNumber(loc.z)
+            rows[i] = {
+                completed = type(step) == "table" and step.completed == true,
+                locPresent = present == true,
+                x = present and loc.x or nil,
+                y = present and loc.y or nil,
+                z = present and loc.z or nil,
+            }
+        end
+        flat.stepCount = #rows
+        flat.steps = rows
+    end
     return flat
+end
+
+--- RSF-F221: read a saved step set out of a flat row (either writer). Returns
+--- {stepCount, steps = {{completed, locPresent, x, y, z}...}} or nil when the
+--- row carries no usable set. The three partial shapes all read as decided:
+--- a declared count with a missing child is no set at all (regenerate); a
+--- present-location flag with any coordinate missing or non-finite is an
+--- absent location on that step (nil, never zero: zero is a real place on
+--- the map); an absent-location flag restores nil and invents nothing.
+function NPCFavorRecovery.decodeSavedSteps(saved)
+    if type(saved) ~= "table" then return nil end
+    local count = saved.stepCount
+    if not NPCFarmIdentity.isInteger(count) or count < 0 then return nil end
+    local rows = saved.steps
+    if type(rows) ~= "table" then return nil end
+    local out = {}
+    for i = 1, count do
+        local child = rows[i]
+        if type(child) ~= "table" then return nil end
+        local present = child.locPresent == true
+        local x, y, z = child.x, child.y, child.z
+        if present and not (isFiniteNumber(x) and isFiniteNumber(y) and isFiniteNumber(z)) then
+            present = false
+        end
+        out[i] = {
+            completed = child.completed == true,
+            locPresent = present,
+            x = present and x or nil,
+            y = present and y or nil,
+            z = present and z or nil,
+        }
+    end
+    return {stepCount = count, steps = out}
 end
 
 --- Usable field id: finite positive integer. Anything else stays unavailable.
@@ -406,7 +462,13 @@ function NPCFavorSystem:buildRestoredRecord(saved, schema)
     local npc = self:resolveRestoredNPC(saved)
     local npcResolved = (npc ~= nil)
 
-    -- Regenerate steps once (the save does not persist the step list).
+    -- RSF-F221: the destinations the row promised at acceptance, when the
+    -- save carries a usable set. A legacy row (no set) takes today's path.
+    local savedSteps = NPCFavorRecovery.decodeSavedSteps(saved)
+
+    -- Build the type's step list once from the definition (ids, text and the
+    -- dialog / loan flags come from the builder); the save does not persist
+    -- the step list, only its destinations and flags.
     local steps
     if favorType then
         if not npc then
@@ -415,7 +477,20 @@ function NPCFavorSystem:buildRestoredRecord(saved, schema)
                 tostring(saved.npcId), tostring(saved.npcName)))
             npc = { id = saved.npcId or 0, name = saved.npcName or "", homePosition = nil, assignedField = nil }
         end
-        steps = self:generateFavorSteps(favorType, npc)
+        local builderNPC = npc
+        if npc.homePosition == nil and savedSteps ~= nil then
+            -- RSF-F221: a nil home does not degrade the builder, it collapses
+            -- it to a single nil-location step, so a saved multi-step set
+            -- could never match and every saved destination would be thrown
+            -- away in exactly the missing-neighbour case this repair covers.
+            -- Hand the builder a call-local placeholder home (the map origin;
+            -- any finite point would do, since every location it yields is
+            -- replaced by the saved one below). It is a proxy over the live
+            -- record and is never written onto npc.homePosition, which both
+            -- writers persist.
+            builderNPC = setmetatable({homePosition = {x = 0, y = 0, z = 0}}, {__index = npc})
+        end
+        steps = self:generateFavorSteps(favorType, builderNPC)
     else
         print(string.format("[NPC Favor] restoreFavor: unknown favor type '%s'; record kept for inspection",
             tostring(saved.type)))
@@ -424,7 +499,29 @@ function NPCFavorSystem:buildRestoredRecord(saved, schema)
 
     local n = #steps
     local savedProgress = tonumber(saved.progress) or 0
-    if n > 0 then
+    if savedSteps ~= nil and n > 0 and savedSteps.stepCount == n then
+        -- RSF-F221: a matching saved set wins. Every location is REPLACED with
+        -- a new table (or nil), never written through: the builder aliases
+        -- step locations to npc.homePosition and npc.assignedField.center by
+        -- reference, and one home table can sit at two indices of the same
+        -- list. Flags come from the saved flags directly and percent is
+        -- derived from them with the live formula, so the bar and the arrow
+        -- cannot disagree; the saved percent is not consulted.
+        local done = 0
+        for i = 1, n do
+            local r = savedSteps.steps[i]
+            if r.locPresent then
+                steps[i].location = {x = r.x, y = r.y, z = r.z}
+            else
+                steps[i].location = nil
+            end
+            steps[i].completed = r.completed
+            if r.completed then done = done + 1 end
+        end
+        savedProgress = (done / n) * 100
+    elseif n > 0 then
+        -- Legacy row or a count mismatch (a type definition changed): today's
+        -- regenerated steps and positional percent mapping, unchanged.
         local done = math.floor((savedProgress / 100) * n + 0.5)
         if done < 0 then done = 0 elseif done > n then done = n end
         for i = 1, done do steps[i].completed = true end
