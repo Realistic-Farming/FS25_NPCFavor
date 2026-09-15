@@ -706,3 +706,73 @@ do
     T.ok("R7 ledger: the home step is not the neighbour's home record", not rawequal(got.steps[1].location, npcB.homePosition))
     T.eq("R7 ledger: delivered block not mutated by restore", block.favors[1].steps[2].x, pileX)
 end
+
+-- =====================================================================
+-- REVIEW FIXES (Bob, 2026-09-15, cold review of #109): the placeholder home
+-- only counts when the saved set can apply, and the XML reader is bounded
+-- by the children that exist, not by the declared count.
+-- =====================================================================
+
+-- (R8) BLOCKER case: a row saved from the one-step nil-home shape, neighbour
+-- still missing on reload. The placeholder must not turn the map origin into
+-- durable destinations; the row rebuilds as today's one-step nil list and
+-- re-exports as locPresent false.
+do
+    setLiveFarms({1, 3})
+    local gone = realSystem({})
+    local oneStep = {
+        f148Schema = 1, favorId = 77, npcId = 11, npcName = "NPC11", type = "fix_fence", description = "Fence",
+        status = "active", progress = 0, timeRemainingPresent = true, timeRemaining = 60000,
+        ownerFarmIdPresent = true, ownerFarmId = 1, rewardPaidPresent = true, rewardPaid = false,
+        stepCount = 1, steps = {{completed = false, locPresent = false}},
+    }
+    local r = gone:restoreFavor(oneStep)
+    T.eq("R8 mismatch + missing NPC: today's one-step list, not the placeholder's three", #r.steps, 1)
+    T.eq("R8 mismatch + missing NPC: that step has no location", r.steps[1].location, nil)
+    local again = gone:exportFavorRecord(r)
+    T.eq("R8 mismatch + missing NPC: re-export count is one", again.stepCount, 1)
+    T.eq("R8 mismatch + missing NPC: re-export carries no invented coordinate", again.steps[1].locPresent, false)
+    T.eq("R8 mismatch + missing NPC: no x written", again.steps[1].x, nil)
+
+    -- Same with a present but homeless neighbour and a changed-definition count.
+    local homeless = neighbour(nil, nil)
+    local sys2 = realSystem({homeless})
+    local twoStep = {}
+    for k, v in pairs(oneStep) do twoStep[k] = v end
+    twoStep.stepCount = 2
+    twoStep.steps = {{completed = true, locPresent = true, x = 5, y = 0, z = 5}, {completed = false, locPresent = false}}
+    local r2 = sys2:restoreFavor(twoStep)
+    T.eq("R8 homeless + count mismatch: one-step fallback", #r2.steps, 1)
+    T.eq("R8 homeless + count mismatch: nil location", r2.steps[1].location, nil)
+    T.eq("R8 homeless + count mismatch: placeholder never written onto the neighbour", homeless.homePosition, nil)
+
+    -- The matching case still works after the fix.
+    local npc = neighbour({x = 60, y = 2, z = 70}, nil)
+    local sys = realSystem({npc})
+    local row = acceptedRow(sys, "fix_fence", 1)
+    local fenceX = row.steps[3].location.x
+    local flat = sys:exportFavorRecord(row)
+    local r3 = realSystem({}):restoreFavor(flat)
+    T.eq("R8 matching set + missing NPC: still three steps", #r3.steps, 3)
+    T.near("R8 matching set + missing NPC: fence point still survives", r3.steps[3].location.x, fenceX, 0.0001)
+end
+
+-- (R9) MAJOR case: a corrupt or edited #stepCount must not spin the reader.
+do
+    local xml = newXmlMock()
+    local probes = 0
+    local baseHas = xml.hasProperty
+    xml.hasProperty = function(self, k) probes = probes + 1 return baseHas(self, k) end
+    xml.store["row#f148Schema"] = 1
+    xml.store["row#npcId"] = 11
+    xml.store["row#type"] = "fix_fence"
+    xml.store["row#stepCount"] = 2000000000
+    xml.store["row.step(0)#completed"] = false
+    xml.store["row.step(0)#locPresent"] = false
+    local flat = NPCSystem.readFavorRecordXML(xml, "row")
+    T.eq("R9 huge count: the declared count is read", flat.stepCount, 2000000000)
+    T.eq("R9 huge count: one child read", flat.steps[1] ~= nil, true)
+    T.eq("R9 huge count: reading stopped at the first missing child", flat.steps[2], nil)
+    T.ok("R9 huge count: the reader did not walk the declared count", probes < 100)
+    T.eq("R9 huge count: decode treats the set as absent", NPCFavorRecovery.decodeSavedSteps(flat), nil)
+end
