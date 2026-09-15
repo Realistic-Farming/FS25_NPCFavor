@@ -345,5 +345,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s est prêt. Vos voisins s'installent." />
+		<text name="npc_recovery_title" text="Récupération de services (%d)"/>
+		<text name="npc_recovery_subtitle" text="Services en pause et récupérés. Rien ici ne tourne ni ne paie tant que vous ne reprenez pas."/>
+		<text name="npc_recovery_btn_recovery" text="Récupération (%d)"/>
+		<text name="npc_recovery_btn_active" text="Services actifs"/>
+		<text name="npc_recovery_btn_resume" text="Reprendre"/>
+		<text name="npc_recovery_btn_assign" text="Attribuer"/>
+		<text name="npc_recovery_page" text="Page %d / %d"/>
+		<text name="npc_recovery_empty" text="Aucun service en pause ou récupéré."/>
+		<text name="npc_recovery_footer" text="Reprendre conserve la progression et les paiements. Attribuer sert au service d'une ferme supprimée et exige une ferme cible choisie explicitement."/>
+		<text name="npc_recovery_unavailable" text="La récupération est indisponible tant que la partie n'est pas rechargée."/>
+		<text name="npc_recovery_tag_paused" text="En pause"/>
+		<text name="npc_recovery_tag_resumed" text="Repris"/>
+		<text name="npc_recovery_tag_pending" text="Offre"/>
+		<text name="npc_recovery_time" text="Restant : %s (%d%% fait)"/>
+		<text name="npc_recovery_time_unknown" text="Temps restant indisponible"/>
+		<text name="npc_recovery_field_unknown" text="champ inconnu, aucune protection du champ"/>
+		<text name="npc_recovery_owner" text="Propriétaire : "/>
+		<text name="npc_recovery_owner_unknown" text="propriétaire inconnu"/>
+		<text name="npc_recovery_loan" text="Prêt %s, versé : %s, remboursé : %s"/>
+		<text name="npc_recovery_reward_paid" text="Récompense payée : %s"/>
+		<text name="npc_recovery_yes" text="oui"/>
+		<text name="npc_recovery_no" text="non"/>
+		<text name="npc_recovery_unknown" text="inconnu"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Sauvegardé avant que l'acceptation ne soit enregistrée"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Ferme propriétaire introuvable"/>
+		<text name="npc_recovery_reason_invalid_record" text="Enregistrement sauvegardé incomplet ou incohérent"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="La ferme propriétaire a été supprimée"/>
+		<text name="npc_recovery_reason_unknown_token" text="Enregistrement non reconnu"/>
+		<text name="npc_recovery_unavail_type" text="Ce type de service n'est plus disponible"/>
+		<text name="npc_recovery_unavail_facts" text="Données de paiement incomplètes, consultation seule"/>
+		<text name="npc_recovery_unavail_reason" text="Conservé pour consultation seulement"/>
+		<text name="npc_recovery_unavail_owner" text="Aucune ferme ne peut reprendre cet enregistrement"/>
+		<text name="npc_recovery_picker_choose" text="Attribuer à : Choisir une ferme"/>
+		<text name="npc_recovery_picker_selected" text="Attribuer à : %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Choisissez d'abord une ferme cible."/>
+		<text name="npc_recovery_confirm_title" text="Récupération de service"/>
+		<text name="npc_recovery_confirm_resume" text="Reprendre ce service pour votre ferme ?"/>
+		<text name="npc_recovery_confirm_assign" text="Attribuer ce service à %s (#%d) et le reprendre ?"/>
+		<text name="npc_recovery_confirm_complete" text="Demander au voisin de clore ce service récupéré ?"/>
+		<text name="npc_recovery_confirm_abandon" text="Annuler ce service récupéré ? La pénalité d'abandon s'applique."/>
+		<text name="npc_recovery_confirm_no_money" text="Reprendre ne déplace aucun argent par lui-même."/>
+		<text name="npc_recovery_ok_resumed" text="Service repris."/>
+		<text name="npc_recovery_ok_completed" text="Service terminé."/>
+		<text name="npc_recovery_ok_abandoned" text="Service annulé."/>
+		<text name="npc_recovery_no_longer_paused" text="Ce service n'est plus en pause."/>
+		<text name="npc_recovery_refused_stale" text="Cet enregistrement a changé. La liste a été actualisée."/>
+		<text name="npc_recovery_refused_operation" text="Cette action n'est pas autorisée."/>
+		<text name="npc_recovery_refused_request_reuse" text="Cette requête a déjà été utilisée."/>
+		<text name="npc_recovery_refused_not_resumable" text="Cet enregistrement ne peut pas être repris par sa ferme."/>
+		<text name="npc_recovery_refused_not_owner" text="Seule la ferme qui a accepté ce service peut agir dessus."/>
+		<text name="npc_recovery_refused_not_admin" text="Seul l'hôte ou un administrateur peut attribuer un service."/>
+		<text name="npc_recovery_refused_not_assignable" text="Cet enregistrement ne peut pas être attribué."/>
+		<text name="npc_recovery_refused_owner_valid" text="Ce service a encore un propriétaire valide."/>
+		<text name="npc_recovery_refused_target" text="Choisissez une ferme existante comme cible."/>
+		<text name="npc_recovery_refused_view" text="La liste des fermes a changé. Choisissez de nouveau la ferme."/>
+		<text name="npc_recovery_refused_live_job" text="Ce voisin a déjà un service en cours. Terminez-le d'abord."/>
+		<text name="npc_recovery_refused_not_live" text="Ce service n'est pas un service récupéré en cours."/>
+		<text name="npc_recovery_no_local_farm" text="Vous devez appartenir à une ferme pour accepter un service."/>
+		<text name="npc_recovery_dialog_use_view" text="C'est un service récupéré. Terminez-le ou annulez-le depuis le menu Services."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Laissez-moi vérifier ce travail récupéré dans mes notes."/>
+		<text name="npc_recovery_unavail_time" text="Temps restant inconnu, consultation seule"/>
+		<text name="npc_recovery_unavail_npc" text="Ce voisin n'est plus là, consultation seule"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor : les services sauvegardés n'ont pas pu être lus et ont été laissés intacts sur le disque. Les services sont indisponibles, et la progression des PNJ et les services ne sont pas sauvegardés pour cette session."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor : les services sauvegardés n'ont pas pu être lus et ont été laissés intacts sur le disque. Les services sont indisponibles et ne sont pas sauvegardés pour cette session. La progression des PNJ est toujours sauvegardée."/>
+		<text name="npc_mgmt_title_active" text="Services actifs (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Gérez vos services actifs"/>
+		<text name="npc_mgmt_game_time" text="Heure de jeu : %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Annuler applique la pénalité d'abandon  |  Terminé demande au voisin de clore le service"/>
+		<text name="npc_mgmt_footer_paging" text="Affichage de %d services sur %d  |  Annuler applique la pénalité d'abandon"/>
+		<text name="npc_mgmt_btn_view" text="Voir"/>
+		<text name="npc_mgmt_btn_goto" text="Y aller"/>
+		<text name="npc_mgmt_btn_cancel" text="Annuler"/>
+		<text name="npc_mgmt_btn_done" text="Terminé"/>
 </texts>
 </l10n>

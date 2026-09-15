@@ -345,5 +345,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s готовий. Ваші сусіди облаштовуються." />
+		<text name="npc_recovery_title" text="Відновлення послуг (%d)"/>
+		<text name="npc_recovery_subtitle" text="Призупинені та відновлені послуги. Тут нічого не йде і не оплачується, доки ви не відновите."/>
+		<text name="npc_recovery_btn_recovery" text="Відновлення (%d)"/>
+		<text name="npc_recovery_btn_active" text="Активні послуги"/>
+		<text name="npc_recovery_btn_resume" text="Відновити"/>
+		<text name="npc_recovery_btn_assign" text="Призначити"/>
+		<text name="npc_recovery_page" text="Сторінка %d / %d"/>
+		<text name="npc_recovery_empty" text="Немає призупинених або відновлених послуг."/>
+		<text name="npc_recovery_footer" text="Відновлення зберігає прогрес і платежі. Призначення призначене для завдання видаленої ферми і потребує явно обраної цільової ферми."/>
+		<text name="npc_recovery_unavailable" text="Відновлення недоступне до перезавантаження гри."/>
+		<text name="npc_recovery_tag_paused" text="Призупинена"/>
+		<text name="npc_recovery_tag_resumed" text="Відновлена"/>
+		<text name="npc_recovery_tag_pending" text="Пропозиція"/>
+		<text name="npc_recovery_time" text="Залишилось: %s (%d%% виконано)"/>
+		<text name="npc_recovery_time_unknown" text="Залишок часу недоступний"/>
+		<text name="npc_recovery_field_unknown" text="поле невідоме, захист поля відсутній"/>
+		<text name="npc_recovery_owner" text="Власник: "/>
+		<text name="npc_recovery_owner_unknown" text="власник невідомий"/>
+		<text name="npc_recovery_loan" text="Позика %s, видана: %s, повернена: %s"/>
+		<text name="npc_recovery_reward_paid" text="Винагороду виплачено: %s"/>
+		<text name="npc_recovery_yes" text="так"/>
+		<text name="npc_recovery_no" text="ні"/>
+		<text name="npc_recovery_unknown" text="невідомо"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Збережено до того, як було записано прийняття"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Не вдалося визначити ферму власника"/>
+		<text name="npc_recovery_reason_invalid_record" text="Збережений запис неповний або суперечливий"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="Ферму власника видалено"/>
+		<text name="npc_recovery_reason_unknown_token" text="Нерозпізнаний запис"/>
+		<text name="npc_recovery_unavail_type" text="Цей тип послуги більше недоступний"/>
+		<text name="npc_recovery_unavail_facts" text="Дані про оплату неповні, лише перегляд"/>
+		<text name="npc_recovery_unavail_reason" text="Збережено лише для перегляду"/>
+		<text name="npc_recovery_unavail_owner" text="Жодна ферма не може відновити цей запис"/>
+		<text name="npc_recovery_picker_choose" text="Призначити: Оберіть ферму"/>
+		<text name="npc_recovery_picker_selected" text="Призначити: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Спочатку оберіть цільову ферму."/>
+		<text name="npc_recovery_confirm_title" text="Відновлення послуги"/>
+		<text name="npc_recovery_confirm_resume" text="Відновити цю послугу для вашої ферми?"/>
+		<text name="npc_recovery_confirm_assign" text="Призначити цю послугу фермі %s (#%d) і відновити?"/>
+		<text name="npc_recovery_confirm_complete" text="Попросити сусіда закрити цю відновлену послугу?"/>
+		<text name="npc_recovery_confirm_abandon" text="Скасувати цю відновлену послугу? Буде застосовано штраф за відмову."/>
+		<text name="npc_recovery_confirm_no_money" text="Саме відновлення не переміщує гроші."/>
+		<text name="npc_recovery_ok_resumed" text="Послугу відновлено."/>
+		<text name="npc_recovery_ok_completed" text="Послугу завершено."/>
+		<text name="npc_recovery_ok_abandoned" text="Послугу скасовано."/>
+		<text name="npc_recovery_no_longer_paused" text="Ця послуга більше не призупинена."/>
+		<text name="npc_recovery_refused_stale" text="Цей запис змінився. Список оновлено."/>
+		<text name="npc_recovery_refused_operation" text="Ця дія не дозволена."/>
+		<text name="npc_recovery_refused_request_reuse" text="Цей запит уже було використано."/>
+		<text name="npc_recovery_refused_not_resumable" text="Цей запис не може відновити його ферма."/>
+		<text name="npc_recovery_refused_not_owner" text="Лише ферма, яка прийняла цю послугу, може з нею працювати."/>
+		<text name="npc_recovery_refused_not_admin" text="Призначити послугу може лише хост або адміністратор."/>
+		<text name="npc_recovery_refused_not_assignable" text="Цей запис не можна призначити."/>
+		<text name="npc_recovery_refused_owner_valid" text="Ця послуга досі має чинного власника."/>
+		<text name="npc_recovery_refused_target" text="Оберіть наявну ферму як ціль."/>
+		<text name="npc_recovery_refused_view" text="Список ферм змінився. Оберіть ферму знову."/>
+		<text name="npc_recovery_refused_live_job" text="У цього сусіда вже є поточна послуга. Спершу завершіть її."/>
+		<text name="npc_recovery_refused_not_live" text="Ця послуга не є поточною відновленою послугою."/>
+		<text name="npc_recovery_no_local_farm" text="Щоб прийняти послугу, потрібно належати до ферми."/>
+		<text name="npc_recovery_dialog_use_view" text="Це відновлена послуга. Завершіть або скасуйте її в меню послуг."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Дайте мені звірити це відновлене завдання з моїми нотатками."/>
+		<text name="npc_recovery_unavail_time" text="Залишок часу невідомий, лише перегляд"/>
+		<text name="npc_recovery_unavail_npc" text="Цього сусіда більше немає, лише перегляд"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: збережені послуги не вдалося прочитати, їх залишено на диску без змін. Послуги недоступні, а прогрес NPC і послуги в цій сесії не зберігаються."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: збережені послуги не вдалося прочитати, їх залишено на диску без змін. Послуги недоступні й у цій сесії не зберігаються. Прогрес NPC і надалі зберігається."/>
+		<text name="npc_mgmt_title_active" text="Активні послуги (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Керуйте активними послугами"/>
+		<text name="npc_mgmt_game_time" text="Ігровий час: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Скасувати застосовує штраф за відмову  |  Готово просить сусіда закрити послугу"/>
+		<text name="npc_mgmt_footer_paging" text="Показано %d з %d послуг  |  Скасувати застосовує штраф за відмову"/>
+		<text name="npc_mgmt_btn_view" text="Переглянути"/>
+		<text name="npc_mgmt_btn_goto" text="Перейти"/>
+		<text name="npc_mgmt_btn_cancel" text="Скасувати"/>
+		<text name="npc_mgmt_btn_done" text="Готово"/>
 </texts>
 </l10n>

@@ -353,6 +353,22 @@ function NPCSystem:onMissionLoaded()
                     self:loadFromXMLFile(missionInfo)
                 end
 
+                -- RSF-F148 load-once seam. A new mission with no saved favor
+                -- data is a valid empty snapshot. Only a registered ledger that
+                -- has not answered yet keeps the favor system WAITING; XML is
+                -- never chosen merely because the provider is late.
+                if self.favorSystem and self.favorSystem.getFavorLoadState
+                    and self.favorSystem:getFavorLoadState() == NPCFavorRecovery.LOAD_WAITING then
+                    local ledgerWaiting = NPCStateLedgerBridge ~= nil
+                        and NPCStateLedgerBridge.active == true
+                        and NPCStateLedgerBridge.delivered ~= true
+                    if not ledgerWaiting then
+                        self.favorSystem:installEmptyFavorSnapshot()
+                    else
+                        print("[NPC Favor] Favor load WAITING: StateLedger is registered but has not delivered a block yet")
+                    end
+                end
+
                 -- BUILD 15:39 (PB-14). This used to be a red blinking warning
                 -- that advertised the `npcHelp` developer console command. Two
                 -- things wrong with that: the blinking warning is the alarm
@@ -405,6 +421,20 @@ function NPCSystem:onMissionLoaded()
                 if not self._aiJobMsgSubscribed and g_messageCenter and MessageType and MessageType.AI_JOB_STOPPED then
                     g_messageCenter:subscribe(MessageType.AI_JOB_STOPPED, self.onAIJobStopped, self)
                     self._aiJobMsgSubscribed = true
+                end
+
+                -- RSF-F148: farm lifecycle. Established on the mod's own server
+                -- test (self.isServer), not copied from the unguarded shape above,
+                -- because FARM_CREATED also fires on clients for every farm that
+                -- replicates at join.
+                if self.isServer and not self._farmMsgSubscribed and g_messageCenter and MessageType
+                    and MessageType.FARM_DELETED and MessageType.FARM_CREATED then
+                    g_messageCenter:subscribe(MessageType.FARM_DELETED, self.onFarmDeletedMessage, self)
+                    g_messageCenter:subscribe(MessageType.FARM_CREATED, self.onFarmCreatedMessage, self)
+                    if MessageType.USER_REMOVED then
+                        g_messageCenter:subscribe(MessageType.USER_REMOVED, self.onUserRemovedMessage, self)
+                    end
+                    self._farmMsgSubscribed = true
                 end
 
                 print("[NPC Favor] Initialized with " .. tostring(self.npcCount) .. " NPCs")
@@ -4517,21 +4547,87 @@ function NPCSystem:isRelationshipAtLeast(npcId, threshold)
     return self:getRelationshipValue(npcId) >= (threshold or 0)
 end
 
---- True when any ACCEPTED favor (status active / in_progress, matching
---- getActiveFavorForNPC) is of the given type. An optional farmId scopes the
---- check to that farm's favors; omit it to check across all farms.
+--- Published cross-mod query (RSF-F148 contract). True when any ACCEPTED
+--- favor (status active / in_progress) is of the given type.
+---
+--- Contract, stated for companion readers:
+---   * farmId == nil answers across all farms.
+---   * farmId that resolves to a live ordinary farm answers true only for that
+---     farm's rows at status active or in_progress, compared on ownerFarmId,
+---     the one farm field a favor record carries.
+---   * farmId that does not resolve to a live ordinary farm, including the
+---     spectator, guided-tour and invalid sentinels, always answers false by
+---     this explicit branch, regardless of where any orphaned row sits.
+---   * Pending, paused_recovery and terminal rows never qualify. The read never
+---     mutates or resolves an owner.
 function NPCSystem:hasActiveFavorOfType(favorType, farmId)
     if favorType == nil or self.favorSystem == nil then return false end
+    if farmId ~= nil and not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+        return false
+    end
     local favors = self.favorSystem:getActiveFavors()
     if type(favors) ~= "table" then return false end
     for _, favor in ipairs(favors) do
         if favor.type == favorType
             and (favor.status == "active" or favor.status == "in_progress")
-            and (farmId == nil or favor.farmId == farmId) then
+            and (farmId == nil or favor.ownerFarmId == farmId) then
             return true
         end
     end
     return false
+end
+
+-- =========================================================
+-- RSF-F148: farm lifecycle messages and recovery entry points
+-- =========================================================
+
+--- FARM_DELETED subscriber (server only). Both engine publishers reach here:
+--- the immediate publish from FarmManager:destroyFarm and the delayed publish
+--- from onFarmObjectDeleted. The favor system refuses a stale notice itself.
+function NPCSystem:onFarmDeletedMessage(farmId)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.onFarmDeleted == nil then return end
+    self.favorSystem:onFarmDeleted(farmId)
+end
+
+--- FARM_CREATED subscriber (server only). The engine also publishes this on
+--- the client replication path for every existing farm at join, so the
+--- subscription itself is established only when self.isServer.
+function NPCSystem:onFarmCreatedMessage(farmId)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.onFarmCreated == nil then return end
+    self.favorSystem:onFarmCreated(farmId)
+end
+
+--- USER_REMOVED subscriber (server only): a departed user's retained recovery
+--- requests and view are discarded (UserManager.lua publishes user, reason).
+function NPCSystem:onUserRemovedMessage(user)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.onActorDisconnected == nil then return end
+    if user == nil or type(user.getId) ~= "function" then return end
+    local ok, userId = pcall(function() return user:getId() end)
+    if ok and userId ~= nil then
+        self.favorSystem:onActorDisconnected("user:" .. tostring(userId))
+    end
+end
+
+--- Server-side recovery view for a request from `connection` (nil = local
+--- host entry, valid only with g_localPlayer present). Returns a reply table
+--- for the requester only, or nil when there is no verified actor.
+function NPCSystem:serverRecoveryView(connection, requestId, cursor)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.serverRecoveryView == nil then
+        return nil
+    end
+    local actor = NPCFarmIdentity.resolveActor(connection)
+    if actor == nil then return nil end
+    return self.favorSystem:serverRecoveryView(actor, requestId, cursor)
+end
+
+--- Server-side recovery command for a request from `connection`.
+function NPCSystem:serverRecoveryCommand(connection, cmd)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.serverRecoveryCommand == nil then
+        return nil
+    end
+    local actor = NPCFarmIdentity.resolveActor(connection)
+    if actor == nil then return nil end
+    return self.favorSystem:serverRecoveryCommand(actor, cmd)
 end
 
 -- =========================================================
@@ -4552,6 +4648,9 @@ function NPCSystem:serverAcceptFavor(npc, farmId)
     -- favor.ownerFarmId = farmId (the acting farm, validated by NPCInteractionEvent:run)
     -- and returns the favor table. The old call to a non-existent acceptFavor(npc.id,
     -- farmId) was dead; this is the real signature.
+    if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+        return false
+    end
     if self.favorSystem and self.favorSystem.acceptFavorForNPC then
         local favor = self.favorSystem:acceptFavorForNPC(npc.id, farmId)
         if favor then
@@ -4571,6 +4670,19 @@ function NPCSystem:serverCompleteFavor(npc, farmId)
     if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.completeFavor then
         local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
         if favor then
+            -- RSF-F148: an ordinary completion must be performed by the farm that
+            -- owns the job, and a recovered row completes only through the exact
+            -- token command, never through this NPC-keyed door.
+            if favor.recoveredFromLegacy == true then
+                print(string.format("[NPC Favor] Complete refused: favor %s is a recovered record; use the recovery view",
+                    tostring(favor.id)))
+                return false
+            end
+            if favor.ownerFarmId ~= farmId then
+                print(string.format("[NPC Favor SECURITY] Complete refused: farm %s does not own favor %s (owner %s)",
+                    tostring(farmId), tostring(favor.id), tostring(favor.ownerFarmId)))
+                return false
+            end
             local success = self.favorSystem:completeFavor(favor.id)
             if success then
                 self.syncDirty = true
@@ -4588,6 +4700,17 @@ function NPCSystem:serverAbandonFavor(npc, farmId)
     if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.abandonFavor then
         local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
         if favor then
+            -- RSF-F148: owner-only, and recovered rows abandon only by token command.
+            if favor.recoveredFromLegacy == true then
+                print(string.format("[NPC Favor] Abandon refused: favor %s is a recovered record; use the recovery view",
+                    tostring(favor.id)))
+                return false
+            end
+            if favor.ownerFarmId ~= farmId then
+                print(string.format("[NPC Favor SECURITY] Abandon refused: farm %s does not own favor %s (owner %s)",
+                    tostring(farmId), tostring(favor.id), tostring(favor.ownerFarmId)))
+                return false
+            end
             local success = self.favorSystem:abandonFavor(favor.id)
             if success then
                 self.syncDirty = true
@@ -4775,6 +4898,135 @@ local function schemaVersionLessThan(a, b)
     return false
 end
 
+-- =========================================================
+-- RSF-F148 favor record XML shape (schema 1)
+-- =========================================================
+-- Mirrors NPCFavorSystem:exportFavorRecord exactly. Presence booleans travel
+-- as their own attributes; a value attribute is written only when present, so
+-- a false payment flag and an unknown one never look alike on disk.
+
+local function xmlIsNumber(v)
+    return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+function NPCSystem.writeFavorRecordXML(xmlFile, key, flat)
+    xmlFile:setInt(key .. "#f148Schema", flat.f148Schema or 1)
+    if xmlIsNumber(flat.favorId) then
+        xmlFile:setInt(key .. "#favorId", flat.favorId)
+    end
+    xmlFile:setInt(key .. "#npcId", flat.npcId or 0)
+    xmlFile:setString(key .. "#npcName", encodeXMLValue(flat.npcName or ""))
+    xmlFile:setString(key .. "#type", encodeXMLValue(flat.type or ""))
+    xmlFile:setString(key .. "#description", encodeXMLValue(flat.description or ""))
+    xmlFile:setString(key .. "#status", encodeXMLValue(flat.status or "pending"))
+    -- Unknown time is written as absent (presence false), never as 0.
+    local timePresent = flat.timeRemainingPresent == true and xmlIsNumber(flat.timeRemaining)
+    xmlFile:setBool(key .. "#timeRemainingPresent", timePresent)
+    if timePresent then
+        xmlFile:setFloat(key .. "#timeRemaining", flat.timeRemaining)
+    end
+    xmlFile:setFloat(key .. "#progress", xmlIsNumber(flat.progress) and flat.progress or 0)
+    xmlFile:setBool(key .. "#awaitingConfirmation", flat.awaitingConfirmation == true)
+
+    local function writePresent(name, value, present, setter)
+        xmlFile:setBool(key .. "#" .. name .. "Present", present == true)
+        if present == true and value ~= nil then
+            setter(key .. "#" .. name, value)
+        end
+    end
+    local function setInt(k, v) if xmlIsNumber(v) then xmlFile:setInt(k, v) end end
+    local function setFloat(k, v) if xmlIsNumber(v) then xmlFile:setFloat(k, v) end end
+    local function setBool(k, v) if type(v) == "boolean" then xmlFile:setBool(k, v) end end
+
+    writePresent("ownerFarmId", flat.ownerFarmId, flat.ownerFarmIdPresent, setInt)
+    writePresent("rewardPaid", flat.rewardPaid, flat.rewardPaidPresent, setBool)
+    writePresent("repaymentCollected", flat.repaymentCollected, flat.repaymentCollectedPresent, setBool)
+    writePresent("loanAmountDeducted", flat.loanAmountDeducted, flat.loanAmountDeductedPresent, setBool)
+    writePresent("loanAmount", flat.loanAmount, flat.loanAmountPresent, setFloat)
+    writePresent("taskFieldId", flat.taskFieldId, flat.taskFieldIdPresent, setInt)
+    writePresent("originalOwnerFarmId", flat.originalOwnerFarmId, flat.originalOwnerFarmIdPresent, setInt)
+
+    xmlFile:setFloat(key .. "#rewardRelationship", flat.rewardRelationship or 0)
+    xmlFile:setFloat(key .. "#rewardMoney", flat.rewardMoney or 0)
+    xmlFile:setFloat(key .. "#rewardXp", flat.rewardXp or 0)
+
+    xmlFile:setBool(key .. "#recoveredFromLegacy", flat.recoveredFromLegacy == true)
+    if type(flat.recoveryReason) == "string" then
+        xmlFile:setString(key .. "#recoveryReason", encodeXMLValue(flat.recoveryReason))
+    end
+    if type(flat.resumable) == "boolean" then
+        xmlFile:setBool(key .. "#resumable", flat.resumable)
+    end
+    if type(flat.originalStatus) == "string" then
+        xmlFile:setString(key .. "#originalStatus", encodeXMLValue(flat.originalStatus))
+    end
+end
+
+--- Read one favor row into the flat record shape. A row without #f148Schema
+--- is legacy: its presence is the attribute's presence (hasProperty) and it
+--- carries no status. A schema-1 row reads its explicit presence flags.
+function NPCSystem.readFavorRecordXML(xmlFile, key)
+    local schema = nil
+    if xmlFile:hasProperty(key .. "#f148Schema") then
+        schema = xmlFile:getInt(key .. "#f148Schema", 0)
+    end
+    local flat = {
+        f148Schema = schema,
+        npcId = xmlFile:getInt(key .. "#npcId", 0),
+        npcName = xmlFile:getString(key .. "#npcName", ""),
+        type = xmlFile:getString(key .. "#type", ""),
+        description = xmlFile:getString(key .. "#description", ""),
+        progress = xmlFile:getFloat(key .. "#progress", 0),
+        awaitingConfirmation = xmlFile:getBool(key .. "#awaitingConfirmation", false),
+        rewardRelationship = xmlFile:getFloat(key .. "#rewardRelationship", 0),
+        rewardMoney = xmlFile:getFloat(key .. "#rewardMoney", xmlFile:getFloat(key .. "#reward", 0)),
+        rewardXp = xmlFile:getFloat(key .. "#rewardXp", 0),
+    }
+
+    local function readPresent(name, getter)
+        local present
+        if schema == nil then
+            present = xmlFile:hasProperty(key .. "#" .. name)
+        else
+            present = xmlFile:getBool(key .. "#" .. name .. "Present", false)
+        end
+        flat[name .. "Present"] = present
+        if present and xmlFile:hasProperty(key .. "#" .. name) then
+            flat[name] = getter(key .. "#" .. name)
+        end
+    end
+    local function getInt(k) return xmlFile:getInt(k, 0) end
+    local function getFloat(k) return xmlFile:getFloat(k, 0) end
+    local function getBool(k) return xmlFile:getBool(k, false) end
+
+    readPresent("timeRemaining", getFloat)
+    readPresent("ownerFarmId", getInt)
+    readPresent("rewardPaid", getBool)
+    readPresent("repaymentCollected", getBool)
+    readPresent("loanAmountDeducted", getBool)
+    readPresent("loanAmount", getFloat)
+    readPresent("taskFieldId", getInt)
+
+    if schema ~= nil then
+        if xmlFile:hasProperty(key .. "#favorId") then
+            flat.favorId = xmlFile:getInt(key .. "#favorId", 0)
+        end
+        flat.status = xmlFile:getString(key .. "#status", "")
+        flat.recoveredFromLegacy = xmlFile:getBool(key .. "#recoveredFromLegacy", false)
+        if xmlFile:hasProperty(key .. "#recoveryReason") then
+            flat.recoveryReason = xmlFile:getString(key .. "#recoveryReason", "")
+        end
+        if xmlFile:hasProperty(key .. "#resumable") then
+            flat.resumable = xmlFile:getBool(key .. "#resumable", false)
+        end
+        if xmlFile:hasProperty(key .. "#originalStatus") then
+            flat.originalStatus = xmlFile:getString(key .. "#originalStatus", "")
+        end
+        readPresent("originalOwnerFarmId", getInt)
+    end
+    return flat
+end
+
 --- Save all NPC state to XML file in savegame directory.
 -- Called from FSCareerMissionInfo.saveToXMLFile hook in main.lua.
 -- @param missionInfo  FS25 missionInfo table (has savegameDirectory)
@@ -4798,6 +5050,17 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
     end
 
     if not self.isInitialized or self.npcCount == 0 then
+        return
+    end
+
+    -- RSF-F148: never overwrite the safety copy until the selected favor
+    -- snapshot is installed. A FAILED or still-WAITING load leaves the file
+    -- exactly as it was so the fallback is still there next load. The player
+    -- is told (once per session) that NPC progress is not being saved to XML.
+    if self.favorSystem and self.favorSystem.isFavorLoadReady and not self.favorSystem:isFavorLoadReady() then
+        print(string.format("[NPC Favor] Save skipped: favor load state is %s; npc_favor.xml left untouched",
+            tostring(self.favorSystem:getFavorLoadState())))
+        self:notifyFavorLoadFailed()
         return
     end
 
@@ -4889,43 +5152,20 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
         end
     end
 
-    -- Save active favors from the favor system
-    if self.favorSystem then
-        local activeFavors = self.favorSystem:getActiveFavors()
-        if activeFavors then
-            local favorIndex = 0
-            for _, favor in ipairs(activeFavors) do
-                local favorKey = string.format(NPC_SAVE_ROOT .. ".favors.favor(%d)", favorIndex)
-                xmlFile:setInt(favorKey .. "#npcId", favor.npcId or 0)
-                xmlFile:setString(favorKey .. "#npcName", encodeXMLValue(favor.npcName or ""))
-                xmlFile:setString(favorKey .. "#type", encodeXMLValue(favor.type or ""))
-                xmlFile:setString(favorKey .. "#description", encodeXMLValue(favor.description or ""))
-                xmlFile:setFloat(favorKey .. "#timeRemaining", favor.timeRemaining or 0)
-                xmlFile:setInt(favorKey .. "#progress", favor.progress or 0)
-                xmlFile:setBool(favorKey .. "#awaitingConfirmation", favor.awaitingConfirmation or false)
-                -- Farm-attribution: persist the owning farm and the money idempotency
-                -- flags so a reload never re-pays or pays the wrong farm. ownerFarmId is
-                -- only written when set, so a legacy favor loads as nil and gets migrated.
-                if favor.ownerFarmId then
-                    xmlFile:setInt(favorKey .. "#ownerFarmId", favor.ownerFarmId)
-                end
-                xmlFile:setBool(favorKey .. "#rewardPaid", favor.rewardPaid or false)
-                xmlFile:setBool(favorKey .. "#repaymentCollected", favor.repaymentCollected or false)
-                if favor.taskData then
-                    xmlFile:setBool(favorKey .. "#loanAmountDeducted", favor.taskData.loanAmountDeducted or false)
-                    if favor.taskData.loanAmount then
-                        xmlFile:setFloat(favorKey .. "#loanAmount", favor.taskData.loanAmount)
-                    end
-                end
-                if type(favor.reward) == "table" then
-                    xmlFile:setFloat(favorKey .. "#rewardRelationship", favor.reward.relationship or 0)
-                    xmlFile:setFloat(favorKey .. "#rewardMoney", favor.reward.money or 0)
-                    xmlFile:setFloat(favorKey .. "#rewardXp", favor.reward.xp or 0)
-                else
-                    xmlFile:setFloat(favorKey .. "#rewardMoney", tonumber(favor.reward) or 0)
-                end
-                favorIndex = favorIndex + 1
-            end
+    -- Save favors from the favor system (RSF-F148 schema 1). Ordinary rows
+    -- keep the .favors.favor(i) location; paused / inspect-only rows go to
+    -- .recoveryFavors.favor(i). Both arrays are captured from the same owner
+    -- state and written through one flat record shape.
+    if self.favorSystem and self.favorSystem.exportFavorRecord then
+        local activeFavors = self.favorSystem:getActiveFavors() or {}
+        for favorIndex, favor in ipairs(activeFavors) do
+            local favorKey = string.format(NPC_SAVE_ROOT .. ".favors.favor(%d)", favorIndex - 1)
+            NPCSystem.writeFavorRecordXML(xmlFile, favorKey, self.favorSystem:exportFavorRecord(favor))
+        end
+        local recoveryFavors = self.favorSystem:getRecoveryFavors() or {}
+        for favorIndex, favor in ipairs(recoveryFavors) do
+            local favorKey = string.format(NPC_SAVE_ROOT .. ".recoveryFavors.favor(%d)", favorIndex - 1)
+            NPCSystem.writeFavorRecordXML(xmlFile, favorKey, self.favorSystem:exportFavorRecord(favor))
         end
     end
 
@@ -4993,7 +5233,53 @@ function NPCSystem:loadFromXMLFile(missionInfo)
     end)
     if not ok then
         print(string.format("[NPC Favor] Load error (non-fatal): %s", tostring(err)))
+        -- RSF-F148: an aborted load is FAILED, never an empty snapshot. A throw
+        -- before the favor block must not let the next save overwrite the file.
+        if self.favorSystem and self.favorSystem.getFavorLoadState
+            and self.favorSystem:getFavorLoadState() ~= NPCFavorRecovery.LOAD_READY then
+            self.favorSystem:failFavorLoad("npc_favor.xml load aborted: " .. tostring(err),
+                NPCFavorRecovery.FAIL_ORIGIN_ABORT)
+            self:notifyFavorLoadFailed()
+        end
     end
+end
+
+--- RSF-F148: tell the player, once, that saved favors could not be read and
+--- are being left untouched on disk.
+function NPCSystem:notifyFavorLoadFailed()
+    if self._favorLoadFailedNotified then return end
+    self._favorLoadFailedNotified = true
+    -- Which notice: on the XML route the whole save is skipped, and on the
+    -- ledger route an aborted apply hands the delivered block back unchanged,
+    -- so in both cases NPC progress is not saved either. Only a ledger load
+    -- that read the table in full and refused a favor record still saves NPC
+    -- progress.
+    local key = "npc_recovery_load_failed_notice"
+    local fallback = "NPC Favor: saved favors could not be read and were left untouched on disk. "
+        .. "Favors are unavailable, and NPC progress and favors are not saved this session."
+    if self:isFavorLoadFailureFavorsOnly() then
+        key = "npc_recovery_load_failed_notice_favors_only"
+        fallback = "NPC Favor: saved favors could not be read and were left untouched on disk. "
+            .. "Favors are unavailable and not saved this session. NPC progress still saves."
+    end
+    local text = (g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key))
+        and g_i18n:getText(key) or fallback
+    print("[NPC Favor] " .. text)
+    if g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
+        local typ = (FSBaseMission and FSBaseMission.INGAME_NOTIFICATION_CRITICAL) or 1
+        pcall(function() g_currentMission:addIngameNotification(typ, text) end)
+    end
+end
+
+--- True when the ledger owns this load, delivered a block, and the failure
+--- was a refused favor record rather than an abort: live NPC progress is then
+--- still written around the copied-back favor blocks (see serializeState).
+function NPCSystem:isFavorLoadFailureFavorsOnly()
+    if self.favorSystem == nil or self.favorSystem.getFavorLoadFailOrigin == nil then return false end
+    if self.favorSystem:getFavorLoadFailOrigin() ~= NPCFavorRecovery.FAIL_ORIGIN_RECORD then return false end
+    if self._ledgerOriginalState == nil then return false end
+    return NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.hasLedgerState ~= nil
+        and NPCStateLedgerBridge.hasLedgerState() == true
 end
 
 function NPCSystem:_doLoadFromXMLFile(missionInfo)
@@ -5119,32 +5405,33 @@ function NPCSystem:_doLoadFromXMLFile(missionInfo)
         end
     end)
 
-    -- Restore active favors
-    if self.favorSystem and self.favorSystem.restoreFavor then
-        xmlFile:iterate(NPC_SAVE_ROOT .. ".favors.favor", function(_, favorKey)
-            local favor = {
-                npcId = xmlFile:getInt(favorKey .. "#npcId", 0),
-                npcName = xmlFile:getString(favorKey .. "#npcName", ""),
-                type = xmlFile:getString(favorKey .. "#type", ""),
-                description = xmlFile:getString(favorKey .. "#description", ""),
-                timeRemaining = xmlFile:getFloat(favorKey .. "#timeRemaining", 0),
-                progress = xmlFile:getInt(favorKey .. "#progress", 0),
-                awaitingConfirmation = xmlFile:getBool(favorKey .. "#awaitingConfirmation", false),
-                -- ownerFarmId stays nil for legacy saves (guarded by hasProperty) so
-                -- restoreFavor migrates it; 0 would be the spectator farm and truthy.
-                ownerFarmId = (xmlFile:hasProperty(favorKey .. "#ownerFarmId") and xmlFile:getInt(favorKey .. "#ownerFarmId", 0)) or nil,
-                rewardPaid = xmlFile:getBool(favorKey .. "#rewardPaid", false),
-                repaymentCollected = xmlFile:getBool(favorKey .. "#repaymentCollected", false),
-                loanAmountDeducted = xmlFile:getBool(favorKey .. "#loanAmountDeducted", false),
-                loanAmount = xmlFile:getFloat(favorKey .. "#loanAmount", nil),
-                reward = {
-                    relationship = xmlFile:getFloat(favorKey .. "#rewardRelationship", 0),
-                    money = xmlFile:getFloat(favorKey .. "#rewardMoney", xmlFile:getFloat(favorKey .. "#reward", 0)),
-                    xp = xmlFile:getFloat(favorKey .. "#rewardXp", 0)
-                }
-            }
-            self.favorSystem:restoreFavor(favor)
-        end)
+    -- Restore favors (RSF-F148): one selected initial application. Rows are
+    -- classified into a staging pair and swapped in once. A repeated call after
+    -- READY returns without clearing, appending or re-resolving anything.
+    if self.favorSystem and self.favorSystem.restoreFavor and self.favorSystem.beginFavorLoad then
+        local staging = self.favorSystem:beginFavorLoad()
+        if staging ~= nil then
+            local function restoreBlock(blockKey)
+                xmlFile:iterate(blockKey, function(_, favorKey)
+                    if not staging.failed then
+                        local flat = NPCSystem.readFavorRecordXML(xmlFile, favorKey)
+                        self.favorSystem:restoreFavor(flat, staging)
+                    end
+                end)
+            end
+            local ok, err = pcall(function()
+                restoreBlock(NPC_SAVE_ROOT .. ".favors.favor")
+                restoreBlock(NPC_SAVE_ROOT .. ".recoveryFavors.favor")
+            end)
+            if not ok then
+                staging.failed = true
+                staging.failReason = tostring(err)
+                staging.failOrigin = NPCFavorRecovery.FAIL_ORIGIN_ABORT
+            end
+            if not self.favorSystem:installFavorSnapshot(staging) then
+                self:notifyFavorLoadFailed()
+            end
+        end
     end
 
     -- Restore NPC-NPC relationships
@@ -5180,7 +5467,32 @@ end
 -- calls these when the ledger is present.
 
 function NPCSystem:serializeState()
+    -- RSF-F148: while the favor load is WAITING, APPLYING or FAILED, the favor
+    -- blocks are copied back from the unmodified delivered table (nil omits
+    -- the whole block when nothing was delivered), so a bad or unfinished load
+    -- never writes a new empty authoritative favor set. Live NPC and
+    -- relationship progress is still written below in that case.
+    local favorLoadReady = true
+    if self.favorSystem and self.favorSystem.isFavorLoadReady and not self.favorSystem:isFavorLoadReady() then
+        favorLoadReady = false
+        if self._ledgerOriginalState == nil then
+            return nil
+        end
+        -- An aborted apply (a throw, not a refused favor record) stopped at
+        -- an unknown point in the delivered table, so no live reconstruction
+        -- is trusted: the whole delivered block goes back unchanged, NPC data
+        -- included.
+        if self.favorSystem.getFavorLoadFailOrigin
+            and self.favorSystem:getFavorLoadFailOrigin() == NPCFavorRecovery.FAIL_ORIGIN_ABORT then
+            return self._ledgerOriginalState
+        end
+    end
+
     local state = { schemaVersion = SAVE_SCHEMA_VERSION, npcs = {}, favors = {}, relationships = {} }
+    if not favorLoadReady then
+        state.favors = self._ledgerOriginalState.favors
+        state.recoveryFavors = self._ledgerOriginalState.recoveryFavors
+    end
 
     for _, npc in ipairs(self.activeNPCs) do
         if npc.isActive then
@@ -5230,27 +5542,14 @@ function NPCSystem:serializeState()
         end
     end
 
-    if self.favorSystem and self.favorSystem.getActiveFavors then
-        local favors = self.favorSystem:getActiveFavors() or {}
-        for _, favor in ipairs(favors) do
-            local reward = favor.reward
-            state.favors[#state.favors + 1] = {
-                npcId = favor.npcId or 0,
-                npcName = favor.npcName or "",
-                type = favor.type or "",
-                description = favor.description or "",
-                timeRemaining = favor.timeRemaining or 0,
-                progress = favor.progress or 0,
-                awaitingConfirmation = favor.awaitingConfirmation or false,
-                ownerFarmId = favor.ownerFarmId,
-                rewardPaid = favor.rewardPaid or false,
-                repaymentCollected = favor.repaymentCollected or false,
-                loanAmountDeducted = (favor.taskData and favor.taskData.loanAmountDeducted) or false,
-                loanAmount = favor.taskData and favor.taskData.loanAmount or nil,
-                rewardRelationship = (type(reward) == "table" and (reward.relationship or 0)) or 0,
-                rewardMoney = (type(reward) == "table" and (reward.money or 0)) or (tonumber(reward) or 0),
-                rewardXp = (type(reward) == "table" and (reward.xp or 0)) or 0,
-            }
+    -- RSF-F148: both favor arrays through the same flat record shape as XML.
+    if favorLoadReady and self.favorSystem and self.favorSystem.exportFavorRecord then
+        for _, favor in ipairs(self.favorSystem:getActiveFavors() or {}) do
+            state.favors[#state.favors + 1] = self.favorSystem:exportFavorRecord(favor)
+        end
+        state.recoveryFavors = {}
+        for _, favor in ipairs(self.favorSystem:getRecoveryFavors() or {}) do
+            state.recoveryFavors[#state.recoveryFavors + 1] = self.favorSystem:exportFavorRecord(favor)
         end
     end
 
@@ -5270,6 +5569,11 @@ end
 
 function NPCSystem:deserializeState(data)
     if type(data) ~= "table" then return end
+
+    -- RSF-F148: keep the delivered table separately from live reconstruction.
+    if self._ledgerOriginalState == nil then
+        self._ledgerOriginalState = data
+    end
 
     -- Match saved NPCs to spawned ones by uniqueId, then name (same as loadFromXMLFile).
     local byId, byName = {}, {}
@@ -5331,16 +5635,32 @@ function NPCSystem:deserializeState(data)
         end
     end
 
-    if self.favorSystem and self.favorSystem.restoreFavor then
-        for _, f in ipairs(data.favors or {}) do
-            self.favorSystem:restoreFavor({
-                npcId = f.npcId, npcName = f.npcName, type = f.type, description = f.description,
-                timeRemaining = f.timeRemaining, progress = f.progress,
-                awaitingConfirmation = f.awaitingConfirmation,
-                ownerFarmId = f.ownerFarmId, rewardPaid = f.rewardPaid, repaymentCollected = f.repaymentCollected,
-                loanAmountDeducted = f.loanAmountDeducted, loanAmount = f.loanAmount,
-                reward = { relationship = f.rewardRelationship or 0, money = f.rewardMoney or 0, xp = f.rewardXp or 0 },
-            })
+    -- RSF-F148: one selected initial application; a repeated delivery after
+    -- READY leaves live work untouched. Legacy ledger rows carry no f148Schema
+    -- and no presence flags; restoreFavor reads their key presence directly.
+    if self.favorSystem and self.favorSystem.restoreFavor and self.favorSystem.beginFavorLoad then
+        local staging = self.favorSystem:beginFavorLoad()
+        if staging ~= nil then
+            local ok, err = pcall(function()
+                for _, f in ipairs(data.favors or {}) do
+                    if not staging.failed and type(f) == "table" then
+                        self.favorSystem:restoreFavor(f, staging)
+                    end
+                end
+                for _, f in ipairs(data.recoveryFavors or {}) do
+                    if not staging.failed and type(f) == "table" then
+                        self.favorSystem:restoreFavor(f, staging)
+                    end
+                end
+            end)
+            if not ok then
+                staging.failed = true
+                staging.failReason = tostring(err)
+                staging.failOrigin = NPCFavorRecovery.FAIL_ORIGIN_ABORT
+            end
+            if not self.favorSystem:installFavorSnapshot(staging) then
+                self:notifyFavorLoadFailed()
+            end
         end
     end
 
@@ -5895,10 +6215,16 @@ end
 function NPCSystem:delete()
     print("[NPC Favor] Shutting down")
 
-    -- Drop AI job message subscription
-    if self._aiJobMsgSubscribed and g_messageCenter then
+    -- Drop AI job and farm lifecycle message subscriptions
+    if (self._aiJobMsgSubscribed or self._farmMsgSubscribed) and g_messageCenter then
         pcall(function() g_messageCenter:unsubscribeAll(self) end)
         self._aiJobMsgSubscribed = false
+        self._farmMsgSubscribed = false
+    end
+
+    -- RSF-F148: tokens, request cache and the load state are mission-local.
+    if self.favorSystem and self.favorSystem.resetFavorLoadState then
+        pcall(function() self.favorSystem:resetFavorLoadState() end)
     end
 
     -- Restore any temporary field-ownership flips on shutdown.

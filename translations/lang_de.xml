@@ -345,5 +345,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s bereit. Deine Nachbarn richten sich ein." />
+		<text name="npc_recovery_title" text="Gefallen-Wiederherstellung (%d)"/>
+		<text name="npc_recovery_subtitle" text="Pausierte und wiederhergestellte Gefallen. Nichts hier läuft oder zahlt, bis du es fortsetzt."/>
+		<text name="npc_recovery_btn_recovery" text="Wiederherstellung (%d)"/>
+		<text name="npc_recovery_btn_active" text="Aktive Gefallen"/>
+		<text name="npc_recovery_btn_resume" text="Fortsetzen"/>
+		<text name="npc_recovery_btn_assign" text="Zuweisen"/>
+		<text name="npc_recovery_page" text="Seite %d / %d"/>
+		<text name="npc_recovery_empty" text="Keine pausierten oder wiederhergestellten Gefallen."/>
+		<text name="npc_recovery_footer" text="Fortsetzen behält Fortschritt und Zahlungen. Zuweisen gilt für den Auftrag eines gelöschten Hofs und braucht einen ausdrücklich gewählten Zielhof."/>
+		<text name="npc_recovery_unavailable" text="Die Wiederherstellung ist erst nach einem Neuladen des Spiels verfügbar."/>
+		<text name="npc_recovery_tag_paused" text="Pausiert"/>
+		<text name="npc_recovery_tag_resumed" text="Fortgesetzt"/>
+		<text name="npc_recovery_tag_pending" text="Angebot"/>
+		<text name="npc_recovery_time" text="Verbleibend: %s (%d%% erledigt)"/>
+		<text name="npc_recovery_time_unknown" text="Verbleibende Zeit nicht verfügbar"/>
+		<text name="npc_recovery_field_unknown" text="Feld unbekannt, kein Feldschutz"/>
+		<text name="npc_recovery_owner" text="Besitzer: "/>
+		<text name="npc_recovery_owner_unknown" text="Besitzer unbekannt"/>
+		<text name="npc_recovery_loan" text="Darlehen %s, ausgezahlt: %s, zurückgezahlt: %s"/>
+		<text name="npc_recovery_reward_paid" text="Belohnung ausgezahlt: %s"/>
+		<text name="npc_recovery_yes" text="ja"/>
+		<text name="npc_recovery_no" text="nein"/>
+		<text name="npc_recovery_unknown" text="unbekannt"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Gespeichert, bevor die Annahme aufgezeichnet wurde"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Besitzerhof konnte nicht ermittelt werden"/>
+		<text name="npc_recovery_reason_invalid_record" text="Gespeicherter Eintrag ist unvollständig oder widersprüchlich"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="Besitzerhof wurde gelöscht"/>
+		<text name="npc_recovery_reason_unknown_token" text="Unbekannter Eintrag"/>
+		<text name="npc_recovery_unavail_type" text="Gefallenart ist nicht mehr verfügbar"/>
+		<text name="npc_recovery_unavail_facts" text="Zahlungsangaben unvollständig, nur Einsicht"/>
+		<text name="npc_recovery_unavail_reason" text="Nur zur Einsicht aufbewahrt"/>
+		<text name="npc_recovery_unavail_owner" text="Kein Hof kann diesen Eintrag fortsetzen"/>
+		<text name="npc_recovery_picker_choose" text="Zuweisen an: Hof wählen"/>
+		<text name="npc_recovery_picker_selected" text="Zuweisen an: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Wähle zuerst einen Zielhof."/>
+		<text name="npc_recovery_confirm_title" text="Gefallen-Wiederherstellung"/>
+		<text name="npc_recovery_confirm_resume" text="Diesen Gefallen für deinen Hof fortsetzen?"/>
+		<text name="npc_recovery_confirm_assign" text="Diesen Gefallen %s (#%d) zuweisen und fortsetzen?"/>
+		<text name="npc_recovery_confirm_complete" text="Den Nachbarn bitten, diesen wiederhergestellten Gefallen abzuschließen?"/>
+		<text name="npc_recovery_confirm_abandon" text="Diesen wiederhergestellten Gefallen abbrechen? Die Abbruchstrafe gilt."/>
+		<text name="npc_recovery_confirm_no_money" text="Das Fortsetzen bewegt für sich allein kein Geld."/>
+		<text name="npc_recovery_ok_resumed" text="Gefallen fortgesetzt."/>
+		<text name="npc_recovery_ok_completed" text="Gefallen abgeschlossen."/>
+		<text name="npc_recovery_ok_abandoned" text="Gefallen abgebrochen."/>
+		<text name="npc_recovery_no_longer_paused" text="Dieser Gefallen ist nicht mehr pausiert."/>
+		<text name="npc_recovery_refused_stale" text="Dieser Eintrag hat sich geändert. Die Liste wurde aktualisiert."/>
+		<text name="npc_recovery_refused_operation" text="Diese Aktion ist nicht erlaubt."/>
+		<text name="npc_recovery_refused_request_reuse" text="Diese Anfrage wurde bereits verwendet."/>
+		<text name="npc_recovery_refused_not_resumable" text="Dieser Eintrag kann von seinem Hof nicht fortgesetzt werden."/>
+		<text name="npc_recovery_refused_not_owner" text="Nur der Hof, der diesen Gefallen angenommen hat, kann darauf handeln."/>
+		<text name="npc_recovery_refused_not_admin" text="Nur der Host oder ein Administrator kann einen Gefallen zuweisen."/>
+		<text name="npc_recovery_refused_not_assignable" text="Dieser Eintrag kann nicht zugewiesen werden."/>
+		<text name="npc_recovery_refused_owner_valid" text="Dieser Gefallen hat noch einen gültigen Besitzer."/>
+		<text name="npc_recovery_refused_target" text="Wähle einen bestehenden Hof als Ziel."/>
+		<text name="npc_recovery_refused_view" text="Die Hofliste hat sich geändert. Wähle den Hof erneut."/>
+		<text name="npc_recovery_refused_live_job" text="Dieser Nachbar hat bereits einen laufenden Gefallen. Schließe ihn zuerst ab."/>
+		<text name="npc_recovery_refused_not_live" text="Dieser Gefallen ist kein laufender wiederhergestellter Gefallen."/>
+		<text name="npc_recovery_no_local_farm" text="Du musst einem Hof angehören, um einen Gefallen anzunehmen."/>
+		<text name="npc_recovery_dialog_use_view" text="Dies ist ein wiederhergestellter Gefallen. Schließe ihn im Gefallen-Menü ab oder brich ihn dort ab."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Lass mich diesen wiederhergestellten Auftrag mit meinen Notizen abgleichen."/>
+		<text name="npc_recovery_unavail_time" text="Verbleibende Zeit unbekannt, nur Einsicht"/>
+		<text name="npc_recovery_unavail_npc" text="Dieser Nachbar ist nicht mehr da, nur Einsicht"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: Gespeicherte Gefallen konnten nicht gelesen werden und blieben auf der Festplatte unverändert. Gefallen sind nicht verfügbar, und NPC-Fortschritt und Gefallen werden in dieser Sitzung nicht gespeichert."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: Gespeicherte Gefallen konnten nicht gelesen werden und blieben auf der Festplatte unverändert. Gefallen sind nicht verfügbar und werden in dieser Sitzung nicht gespeichert. Der NPC-Fortschritt wird weiterhin gespeichert."/>
+		<text name="npc_mgmt_title_active" text="Aktive Gefallen (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Verwalte deine aktiven Gefallen"/>
+		<text name="npc_mgmt_game_time" text="Spielzeit: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Abbrechen wendet die Abbruchstrafe an  |  Fertig bittet den Nachbarn, den Gefallen abzuschließen"/>
+		<text name="npc_mgmt_footer_paging" text="Zeige %d von %d Gefallen  |  Abbrechen wendet die Abbruchstrafe an"/>
+		<text name="npc_mgmt_btn_view" text="Ansehen"/>
+		<text name="npc_mgmt_btn_goto" text="Hingehen"/>
+		<text name="npc_mgmt_btn_cancel" text="Abbrechen"/>
+		<text name="npc_mgmt_btn_done" text="Fertig"/>
 </texts>
 </l10n>

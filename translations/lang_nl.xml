@@ -347,5 +347,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s is klaar. Je buren richten zich in." />
+		<text name="npc_recovery_title" text="Herstel van gunsten (%d)"/>
+		<text name="npc_recovery_subtitle" text="Gepauzeerde en herstelde gunsten. Niets hier loopt of betaalt totdat je het hervat."/>
+		<text name="npc_recovery_btn_recovery" text="Herstel (%d)"/>
+		<text name="npc_recovery_btn_active" text="Actieve gunsten"/>
+		<text name="npc_recovery_btn_resume" text="Hervatten"/>
+		<text name="npc_recovery_btn_assign" text="Toewijzen"/>
+		<text name="npc_recovery_page" text="Pagina %d / %d"/>
+		<text name="npc_recovery_empty" text="Geen gepauzeerde of herstelde gunsten."/>
+		<text name="npc_recovery_footer" text="Hervatten behoudt de opgeslagen voortgang en betalingen. Toewijzen is voor de klus van een verwijderde boerderij en vereist een uitdrukkelijk gekozen doelboerderij."/>
+		<text name="npc_recovery_unavailable" text="Herstel is niet beschikbaar totdat het spel opnieuw is geladen."/>
+		<text name="npc_recovery_tag_paused" text="Gepauzeerd"/>
+		<text name="npc_recovery_tag_resumed" text="Hervat"/>
+		<text name="npc_recovery_tag_pending" text="Aanbod"/>
+		<text name="npc_recovery_time" text="Resterend: %s (%d%% klaar)"/>
+		<text name="npc_recovery_time_unknown" text="Resterende tijd niet beschikbaar"/>
+		<text name="npc_recovery_field_unknown" text="veld onbekend, geen veldbescherming"/>
+		<text name="npc_recovery_owner" text="Eigenaar: "/>
+		<text name="npc_recovery_owner_unknown" text="eigenaar onbekend"/>
+		<text name="npc_recovery_loan" text="Lening %s, uitgeleend: %s, terugbetaald: %s"/>
+		<text name="npc_recovery_reward_paid" text="Beloning betaald: %s"/>
+		<text name="npc_recovery_yes" text="ja"/>
+		<text name="npc_recovery_no" text="nee"/>
+		<text name="npc_recovery_unknown" text="onbekend"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Opgeslagen voordat de aanvaarding werd vastgelegd"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Eigenaarsboerderij kon niet worden bepaald"/>
+		<text name="npc_recovery_reason_invalid_record" text="Opgeslagen record is onvolledig of tegenstrijdig"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="Eigenaarsboerderij is verwijderd"/>
+		<text name="npc_recovery_reason_unknown_token" text="Onbekend record"/>
+		<text name="npc_recovery_unavail_type" text="Dit gunsttype is niet meer beschikbaar"/>
+		<text name="npc_recovery_unavail_facts" text="Betalingsgegevens onvolledig, alleen inzien"/>
+		<text name="npc_recovery_unavail_reason" text="Alleen bewaard om in te zien"/>
+		<text name="npc_recovery_unavail_owner" text="Geen enkele boerderij kan dit record hervatten"/>
+		<text name="npc_recovery_picker_choose" text="Toewijzen aan: Kies een boerderij"/>
+		<text name="npc_recovery_picker_selected" text="Toewijzen aan: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Kies eerst een doelboerderij."/>
+		<text name="npc_recovery_confirm_title" text="Herstel van gunst"/>
+		<text name="npc_recovery_confirm_resume" text="Deze gunst hervatten voor jouw boerderij?"/>
+		<text name="npc_recovery_confirm_assign" text="Deze gunst toewijzen aan %s (#%d) en hervatten?"/>
+		<text name="npc_recovery_confirm_complete" text="De buur vragen deze herstelde gunst af te sluiten?"/>
+		<text name="npc_recovery_confirm_abandon" text="Deze herstelde gunst annuleren? De afbreekstraf geldt."/>
+		<text name="npc_recovery_confirm_no_money" text="Hervatten verplaatst op zichzelf geen geld."/>
+		<text name="npc_recovery_ok_resumed" text="Gunst hervat."/>
+		<text name="npc_recovery_ok_completed" text="Gunst voltooid."/>
+		<text name="npc_recovery_ok_abandoned" text="Gunst geannuleerd."/>
+		<text name="npc_recovery_no_longer_paused" text="Die gunst is niet meer gepauzeerd."/>
+		<text name="npc_recovery_refused_stale" text="Dat record is gewijzigd. De lijst is vernieuwd."/>
+		<text name="npc_recovery_refused_operation" text="Die actie is niet toegestaan."/>
+		<text name="npc_recovery_refused_request_reuse" text="Dat verzoek is al gebruikt."/>
+		<text name="npc_recovery_refused_not_resumable" text="Dit record kan niet door zijn boerderij worden hervat."/>
+		<text name="npc_recovery_refused_not_owner" text="Alleen de boerderij die deze gunst aanvaardde, kan erop handelen."/>
+		<text name="npc_recovery_refused_not_admin" text="Alleen de host of een beheerder kan een gunst toewijzen."/>
+		<text name="npc_recovery_refused_not_assignable" text="Dit record kan niet worden toegewezen."/>
+		<text name="npc_recovery_refused_owner_valid" text="Deze gunst heeft nog een geldige eigenaar."/>
+		<text name="npc_recovery_refused_target" text="Kies een bestaande boerderij als doel."/>
+		<text name="npc_recovery_refused_view" text="De boerderijenlijst is gewijzigd. Kies de boerderij opnieuw."/>
+		<text name="npc_recovery_refused_live_job" text="Die buur heeft al een lopende gunst. Rond die eerst af."/>
+		<text name="npc_recovery_refused_not_live" text="Die gunst is geen lopende herstelde gunst."/>
+		<text name="npc_recovery_no_local_farm" text="Je moet bij een boerderij horen om een gunst te aanvaarden."/>
+		<text name="npc_recovery_dialog_use_view" text="Dit is een herstelde gunst. Rond hem af of annuleer hem via het gunstenmenu."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Laat me die herstelde klus even nakijken in mijn aantekeningen."/>
+		<text name="npc_recovery_unavail_time" text="Resterende tijd onbekend, alleen inzien"/>
+		<text name="npc_recovery_unavail_npc" text="Die buur is er niet meer, alleen inzien"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: opgeslagen gunsten konden niet worden gelezen en zijn op schijf onaangeroerd gelaten. Gunsten zijn niet beschikbaar, en NPC-voortgang en gunsten worden deze sessie niet opgeslagen."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: opgeslagen gunsten konden niet worden gelezen en zijn op schijf onaangeroerd gelaten. Gunsten zijn niet beschikbaar en worden deze sessie niet opgeslagen. NPC-voortgang wordt nog wel opgeslagen."/>
+		<text name="npc_mgmt_title_active" text="Actieve gunsten (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Beheer je actieve gunsten"/>
+		<text name="npc_mgmt_game_time" text="Speeltijd: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Annuleren past de afbreekstraf toe  |  Klaar vraagt de buur de gunst af te sluiten"/>
+		<text name="npc_mgmt_footer_paging" text="Toont %d van %d gunsten  |  Annuleren past de afbreekstraf toe"/>
+		<text name="npc_mgmt_btn_view" text="Bekijk"/>
+		<text name="npc_mgmt_btn_goto" text="Ga heen"/>
+		<text name="npc_mgmt_btn_cancel" text="Annuleren"/>
+		<text name="npc_mgmt_btn_done" text="Klaar"/>
 </texts>
 </l10n>

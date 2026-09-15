@@ -345,5 +345,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s pronto. I tuoi vicini si stanno sistemando." />
+		<text name="npc_recovery_title" text="Recupero favori (%d)"/>
+		<text name="npc_recovery_subtitle" text="Favori in pausa e recuperati. Niente qui procede o paga finché non lo riprendi."/>
+		<text name="npc_recovery_btn_recovery" text="Recupero (%d)"/>
+		<text name="npc_recovery_btn_active" text="Favori attivi"/>
+		<text name="npc_recovery_btn_resume" text="Riprendi"/>
+		<text name="npc_recovery_btn_assign" text="Assegna"/>
+		<text name="npc_recovery_page" text="Pagina %d / %d"/>
+		<text name="npc_recovery_empty" text="Nessun favore in pausa o recuperato."/>
+		<text name="npc_recovery_footer" text="Riprendi conserva progressi e pagamenti salvati. Assegna serve per il lavoro di una fattoria eliminata e richiede una fattoria di destinazione scelta esplicitamente."/>
+		<text name="npc_recovery_unavailable" text="Il recupero non è disponibile finché la partita non viene ricaricata."/>
+		<text name="npc_recovery_tag_paused" text="In pausa"/>
+		<text name="npc_recovery_tag_resumed" text="Ripreso"/>
+		<text name="npc_recovery_tag_pending" text="Offerta"/>
+		<text name="npc_recovery_time" text="Rimanente: %s (%d%% fatto)"/>
+		<text name="npc_recovery_time_unknown" text="Tempo rimanente non disponibile"/>
+		<text name="npc_recovery_field_unknown" text="campo sconosciuto, nessuna protezione del campo"/>
+		<text name="npc_recovery_owner" text="Proprietario: "/>
+		<text name="npc_recovery_owner_unknown" text="proprietario sconosciuto"/>
+		<text name="npc_recovery_loan" text="Prestito %s, erogato: %s, restituito: %s"/>
+		<text name="npc_recovery_reward_paid" text="Ricompensa pagata: %s"/>
+		<text name="npc_recovery_yes" text="sì"/>
+		<text name="npc_recovery_no" text="no"/>
+		<text name="npc_recovery_unknown" text="sconosciuto"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Salvato prima che l'accettazione fosse registrata"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Impossibile determinare la fattoria proprietaria"/>
+		<text name="npc_recovery_reason_invalid_record" text="Il record salvato è incompleto o incoerente"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="La fattoria proprietaria è stata eliminata"/>
+		<text name="npc_recovery_reason_unknown_token" text="Record non riconosciuto"/>
+		<text name="npc_recovery_unavail_type" text="Il tipo di favore non è più disponibile"/>
+		<text name="npc_recovery_unavail_facts" text="Dati di pagamento incompleti, sola consultazione"/>
+		<text name="npc_recovery_unavail_reason" text="Conservato solo per consultazione"/>
+		<text name="npc_recovery_unavail_owner" text="Nessuna fattoria può riprendere questo record"/>
+		<text name="npc_recovery_picker_choose" text="Assegna a: Scegli una fattoria"/>
+		<text name="npc_recovery_picker_selected" text="Assegna a: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Scegli prima una fattoria di destinazione."/>
+		<text name="npc_recovery_confirm_title" text="Recupero favore"/>
+		<text name="npc_recovery_confirm_resume" text="Riprendere questo favore per la tua fattoria?"/>
+		<text name="npc_recovery_confirm_assign" text="Assegnare questo favore a %s (#%d) e riprenderlo?"/>
+		<text name="npc_recovery_confirm_complete" text="Chiedere al vicino di chiudere questo favore recuperato?"/>
+		<text name="npc_recovery_confirm_abandon" text="Annullare questo favore recuperato? Si applica la penalità di abbandono."/>
+		<text name="npc_recovery_confirm_no_money" text="Riprendere non sposta denaro da solo."/>
+		<text name="npc_recovery_ok_resumed" text="Favore ripreso."/>
+		<text name="npc_recovery_ok_completed" text="Favore completato."/>
+		<text name="npc_recovery_ok_abandoned" text="Favore annullato."/>
+		<text name="npc_recovery_no_longer_paused" text="Quel favore non è più in pausa."/>
+		<text name="npc_recovery_refused_stale" text="Quel record è cambiato. L'elenco è stato aggiornato."/>
+		<text name="npc_recovery_refused_operation" text="Quell'azione non è consentita."/>
+		<text name="npc_recovery_refused_request_reuse" text="Quella richiesta è già stata usata."/>
+		<text name="npc_recovery_refused_not_resumable" text="Questo record non può essere ripreso dalla sua fattoria."/>
+		<text name="npc_recovery_refused_not_owner" text="Solo la fattoria che ha accettato questo favore può agire su di esso."/>
+		<text name="npc_recovery_refused_not_admin" text="Solo l'host o un amministratore può assegnare un favore."/>
+		<text name="npc_recovery_refused_not_assignable" text="Questo record non può essere assegnato."/>
+		<text name="npc_recovery_refused_owner_valid" text="Questo favore ha ancora un proprietario valido."/>
+		<text name="npc_recovery_refused_target" text="Scegli una fattoria esistente come destinazione."/>
+		<text name="npc_recovery_refused_view" text="L'elenco delle fattorie è cambiato. Scegli di nuovo la fattoria."/>
+		<text name="npc_recovery_refused_live_job" text="Quel vicino ha già un favore in corso. Completalo prima."/>
+		<text name="npc_recovery_refused_not_live" text="Quel favore non è un favore recuperato in corso."/>
+		<text name="npc_recovery_no_local_farm" text="Devi appartenere a una fattoria per accettare un favore."/>
+		<text name="npc_recovery_dialog_use_view" text="Questo è un favore recuperato. Completalo o annullalo dal menu Favori."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Fammi controllare quel lavoro recuperato sui miei appunti."/>
+		<text name="npc_recovery_unavail_time" text="Tempo rimanente sconosciuto, sola consultazione"/>
+		<text name="npc_recovery_unavail_npc" text="Quel vicino non c'è più, sola consultazione"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: i favori salvati non sono stati letti e sono rimasti intatti su disco. I favori non sono disponibili, e i progressi dei PNG e i favori non vengono salvati in questa sessione."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: i favori salvati non sono stati letti e sono rimasti intatti su disco. I favori non sono disponibili e non vengono salvati in questa sessione. I progressi dei PNG vengono comunque salvati."/>
+		<text name="npc_mgmt_title_active" text="Favori attivi (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Gestisci i tuoi favori attivi"/>
+		<text name="npc_mgmt_game_time" text="Ora di gioco: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Annulla applica la penalità di abbandono  |  Fatto chiede al vicino di chiudere il favore"/>
+		<text name="npc_mgmt_footer_paging" text="Mostro %d favori su %d  |  Annulla applica la penalità di abbandono"/>
+		<text name="npc_mgmt_btn_view" text="Vedi"/>
+		<text name="npc_mgmt_btn_goto" text="Vai"/>
+		<text name="npc_mgmt_btn_cancel" text="Annulla"/>
+		<text name="npc_mgmt_btn_done" text="Fatto"/>
 </texts>
 </l10n>

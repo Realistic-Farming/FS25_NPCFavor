@@ -548,14 +548,23 @@ function NPCDialog:onClickFavor()
     -- 1) Pending favor waiting for the player to accept
     local pending = sys:getPendingFavorForNPC(self.npc.id)
     if pending then
-        -- Stamp the owning farm at accept with the acting player's farm. On host/SP this
-        -- local accept IS the server-side accept. On a client we also send the accept to
-        -- the server via NPCInteractionEvent, which validates the farm against the
-        -- connection and stamps its authoritative favor copy's ownerFarmId to match.
-        local farmId = (g_currentMission.player and g_currentMission.player.farmId) or 0
-        local accepted = sys:acceptFavorForNPC(self.npc.id, farmId)
-        if g_server == nil then
+        -- RSF-F148: the local farm is a claim resolved through
+        -- g_currentMission:getFarmId() and validated as an ordinary farm; it is
+        -- never defaulted to farm 0 or farm 1. On host/SP the local accept IS the
+        -- server-side accept. On a client only the intent is sent; the server
+        -- re-resolves the farm from the connection and stamps its own copy.
+        local farmId = NPCFarmIdentity.localClaimFarmId()
+        if farmId == nil then
+            self:setResponse(getModText("npc_recovery_no_local_farm", "You need to be on a farm to accept a favor."))
+            self:updateButtonStates()
+            return
+        end
+        local accepted = nil
+        if g_server ~= nil then
+            accepted = sys:acceptFavorForNPC(self.npc.id, farmId)
+        else
             NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_ACCEPT, self.npc.id, farmId, 0, "")
+            accepted = pending  -- optimistic text only; the server owns the state
         end
         if accepted then
             self:setResponse(string.format(
@@ -566,8 +575,14 @@ function NPCDialog:onClickFavor()
         end
     end
 
-    -- 2a) Active favor awaiting final confirmation (e.g. watch_property patrol complete)
+    -- 2) Active favor. RSF-F148: each completion branch below keeps its own
+    -- conditions (distance, loan step, dialog step). Only once they pass does
+    -- sendCompletion decide the route: a recovered row goes by the exact token
+    -- command with its local step state untouched; an ordinary row takes the
+    -- old NPC-keyed complete.
     local active = sys:getActiveFavorForNPC(self.npc.id)
+
+    -- 2a) Active favor awaiting final confirmation (e.g. watch_property patrol complete)
     if active and active.awaitingConfirmation then
         local tooFar = false
         if self.npc.homePosition and self.npcSystem.playerPositionValid then
@@ -581,9 +596,9 @@ function NPCDialog:onClickFavor()
         if tooFar then
             self:setResponse(self.npc.name .. ": \"Come find me — I need to see you in person to close this out!\"")
         else
-            active.awaitingConfirmation = false
-            self:requestCompleteFavor()
-            self:setResponse(self.npc.name .. ": \"Thank you so much for watching my property! Here's your reward.\"")
+            local route = self:sendCompletion(active, nil, true)
+            self:setCompletionResponse(route,
+                self.npc.name .. ": \"Thank you so much for watching my property! Here's your reward.\"")
         end
         self:updateButtonStates()
         return
@@ -596,9 +611,8 @@ function NPCDialog:onClickFavor()
                 local loanAmount = (active.taskData and active.taskData.loanAmount) or 5000
                 -- The loan principal is returned server-side in applyFavorRewards
                 -- (repaymentCollected guard); the client only sends the completion intent.
-                step.completed = true
-                self:requestCompleteFavor()
-                self:setResponse(string.format(
+                local route = self:sendCompletion(active, step, false)
+                self:setCompletionResponse(route, string.format(
                     "%s: \"Here's your $%d back — and a little extra for your trouble!\"",
                     self.npc.name, loanAmount))
                 self:updateButtonStates()
@@ -630,15 +644,13 @@ function NPCDialog:onClickFavor()
                 local loanAmount = (active.taskData and active.taskData.loanAmount) or 5000
                 -- Loan principal returned server-side (repaymentCollected guard); the
                 -- client only sends the completion intent.
-                readyStep.completed = true
-                self:requestCompleteFavor()
-                self:setResponse(string.format(
+                local route = self:sendCompletion(active, readyStep, false)
+                self:setCompletionResponse(route, string.format(
                     "%s: \"Here's your $%d back — and a little extra for your trouble!\"",
                     self.npc.name, loanAmount))
             else
-                readyStep.completed = true
-                self:requestCompleteFavor()
-                self:setResponse(self.npc.name .. ": \"" .. (getModText("npc_dialog_favor_completed_confirm", "Thanks so much for your help! Here's your reward.")) .. "\"")
+                local route = self:sendCompletion(active, readyStep, false)
+                self:setCompletionResponse(route, self.npc.name .. ": \"" .. (getModText("npc_dialog_favor_completed_confirm", "Thanks so much for your help! Here's your reward.")) .. "\"")
             end
             self:updateButtonStates()
             return
@@ -708,8 +720,102 @@ end
 -- On host/single-player sendToServer executes directly, so behaviour is unchanged there.
 function NPCDialog:requestCompleteFavor()
     if not self.npc then return end
-    local farmId = (g_currentMission.player and g_currentMission.player.farmId) or 0
+    -- RSF-F148: claim the local farm through g_currentMission:getFarmId(); an
+    -- unavailable farm sends nothing rather than farm 0.
+    local farmId = NPCFarmIdentity.localClaimFarmId()
+    if farmId == nil then
+        print("[NPC Favor] Complete not sent: no ordinary local farm")
+        return
+    end
     NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_COMPLETE, self.npc.id, farmId, 0, "")
+end
+
+--- RSF-F148: decide the completion route once a branch's own conditions
+--- have passed. A recovered row goes by the exact token command and its local
+--- step / confirmation state is left untouched; an ordinary row marks the step
+--- and sends the old NPC-keyed complete.
+--- @return "sent" | "recovered_sent" | "recovered_resolved" | "recovered_unavailable"
+function NPCDialog:sendCompletion(active, step, clearConfirmation)
+    if active ~= nil and active.recoveredFromLegacy == true then
+        if self:requestRecoveredComplete(active) then
+            -- On a listen host / SP the command runs synchronously, so
+            -- onRecoveryResult has already shown the real outcome and cleared
+            -- the pending id. Nothing may overwrite that line.
+            if NPCDialog.pendingRecoveryRequestId == nil then
+                return "recovered_resolved"
+            end
+            return "recovered_sent"
+        end
+        return "recovered_unavailable"
+    end
+    if clearConfirmation and active ~= nil then
+        active.awaitingConfirmation = false
+    end
+    if step ~= nil then
+        step.completed = true
+    end
+    self:requestCompleteFavor()
+    return "sent"
+end
+
+function NPCDialog:setCompletionResponse(route, ordinaryText)
+    if route == "recovered_resolved" then
+        return
+    elseif route == "recovered_sent" then
+        self:setResponse(self.npc.name .. ": \"" .. getModText("npc_recovery_dialog_complete_sent",
+            "Let me check that recovered job against my notes.") .. "\"")
+    elseif route == "recovered_unavailable" then
+        self:setResponse(getModText("npc_recovery_dialog_use_view",
+            "This is a recovered favor. Finish or cancel it from the Favor menu."))
+    else
+        self:setResponse(ordinaryText)
+    end
+end
+
+--- Result of a token command sent from this dialog (server reply or local
+--- host path). Shows the authoritative outcome instead of the optimistic line.
+NPCDialog.INSTANCE = nil
+NPCDialog.pendingRecoveryRequestId = nil
+function NPCDialog.onRecoveryResult(reply)
+    local dlg = NPCDialog.INSTANCE
+    if dlg == nil or reply == nil or NPCDialog.pendingRecoveryRequestId == nil
+        or reply.requestId ~= NPCDialog.pendingRecoveryRequestId then
+        return false
+    end
+    NPCDialog.pendingRecoveryRequestId = nil
+    local key = reply.messageKey
+    if key == nil or key == "" then
+        key = (reply.result == NPCFavorRecovery.RESULT_OK) and "npc_recovery_ok_completed" or "npc_recovery_refused_stale"
+    end
+    dlg:setResponse(getModText(key, key))
+    if dlg.updateButtonStates then dlg:updateButtonStates() end
+    return true
+end
+
+--- RSF-F148: route completion of a recovered (resumed) favor through the exact
+--- token COMPLETE command. Only the host/SP dialog can see such a row (favor
+--- state never reaches clients), so the token and revisions are read from the
+--- authoritative record itself. Returns true when a command was sent.
+function NPCDialog:requestRecoveredComplete(favor)
+    if favor == nil or favor.recoveryToken == nil or self.npcSystem == nil then return false end
+    local sys = self.npcSystem.favorSystem
+    if sys == nil or NPCFavorRecoveryCommandEvent == nil or NPCFavorManagementDialog == nil
+        or NPCFavorManagementDialog.allocateRequestId == nil then
+        return false
+    end
+    local requestId = NPCFavorManagementDialog.allocateRequestId()
+    if requestId == nil then return false end
+    NPCDialog.INSTANCE = self
+    NPCDialog.pendingRecoveryRequestId = requestId
+    return NPCFavorRecoveryCommandEvent.sendCommand({
+        requestId = requestId,
+        collectionRevision = NPCFarmIdentity.encodeWireNumber(sys._recoveryCollectionRevision or 0) or "0",
+        recordRevision = NPCFarmIdentity.encodeWireNumber(favor.recordRevision or 0) or "0",
+        token = NPCFarmIdentity.encodeWireNumber(favor.recoveryToken) or "",
+        op = NPCFavorRecovery.OP_COMPLETE,
+        targetFarmId = nil,
+        originatingViewRequestId = "",
+    })
 end
 
 --- "Give gift" button: open the gift tier selection panel.
@@ -733,7 +839,13 @@ function NPCDialog:executeGift(amount)
 
     -- Advisory client-side balance check (UI only). The server re-checks the balance
     -- authoritatively before it deducts, so this just avoids a pointless round-trip.
-    local farmId = (g_currentMission.player and g_currentMission.player.farmId) or 0
+    -- RSF-F148: the farm is a validated local claim, never farm 0 or farm 1.
+    local farmId = NPCFarmIdentity.localClaimFarmId()
+    if farmId == nil then
+        self:setResponse(getModText("npc_recovery_no_local_farm", "You need to be on a farm to accept a favor."))
+        self:hideGiftPanel()
+        return
+    end
     local farm = g_farmManager and g_farmManager:getFarmById(farmId)
     local balance = farm and farm.money or 0
     if balance < amount then
@@ -905,6 +1017,10 @@ function NPCDialog:onClose()
     -- Unfreeze the NPC so they resume AI behavior
     if self.npc then
         self.npc.isTalking = false
+    end
+    if NPCDialog.INSTANCE == self then
+        NPCDialog.INSTANCE = nil
+        NPCDialog.pendingRecoveryRequestId = nil
     end
     NPCDialog:superClass().onClose(self)
     self.npc = nil

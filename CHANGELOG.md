@@ -6,6 +6,14 @@ All notable changes to the FS25_NPCFavor mod are documented below, organized by 
 
 ## Unreleased
 
+### Fixed
+- **A favor belongs to the farm that accepted it, and only to that farm (RSF-F148).** Reloading a save no longer turns an unanswered neighbour request into an accepted job on a running clock: favor status now round-trips through both save paths, and a saved row whose acceptance an old save cannot prove is paused in a new Recovery view instead of being silently attached to a farm. Deleting a farm invalidates its accepted jobs (they stop, release their field, pay and charge nobody), and a new farm reusing the same number inherits neither the job nor its rewards. A host or administrator can deliberately assign such a job to an explicitly chosen current farm; a farm can resume its own paused job. Resuming preserves saved progress, remaining time and payment facts and moves no money by itself.
+- **A saved favor block that cannot be read is left exactly as it was (RSF-F148).** When the favor load fails, no favors are installed, a notice says so once, and the saved data is never overwritten by an empty set. On the npc_favor.xml route nothing is written that session, NPC progress included. On the StateLedger route an aborted apply hands the delivered block back unchanged, and only a load that read the whole block but refused one favor record still saves live NPC progress around the untouched favor rows.
+- Remote clients could never complete or abandon a favor: the interaction event compared a field the native user object does not have. The acting farm is now resolved from the requesting connection and must match the claim; ordinary completion and abandonment require the owning farm.
+- The management dialog's Cancel now goes through the server like Done, so a client's cancel is real and the host no longer takes a second relationship penalty.
+- The published `hasActiveFavorOfType(favorType, farmId)` query compared a field nothing writes; it now compares the record's owner, and a farm id that does not resolve always answers false.
+- The favor restore body did its neighbour and step work twice; it now does it once.
+
 ### Changed
 - **Favor menu default key** is now Right Shift + apostrophe. Right Shift + 9 is Dashboard Live map orientation, a widely used cab overlay, so the suite default was moved to avoid that clash.
 

@@ -345,5 +345,78 @@
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
 		<text name="npc_notice_loaded" text="NPC Favor v%s gotowy. Twoi sąsiedzi się zadomawiają." />
+		<text name="npc_recovery_title" text="Odzyskiwanie przysług (%d)"/>
+		<text name="npc_recovery_subtitle" text="Wstrzymane i odzyskane przysługi. Nic tutaj nie biegnie ani nie płaci, dopóki tego nie wznowisz."/>
+		<text name="npc_recovery_btn_recovery" text="Odzyskiwanie (%d)"/>
+		<text name="npc_recovery_btn_active" text="Aktywne przysługi"/>
+		<text name="npc_recovery_btn_resume" text="Wznów"/>
+		<text name="npc_recovery_btn_assign" text="Przypisz"/>
+		<text name="npc_recovery_page" text="Strona %d / %d"/>
+		<text name="npc_recovery_empty" text="Brak wstrzymanych lub odzyskanych przysług."/>
+		<text name="npc_recovery_footer" text="Wznowienie zachowuje zapisany postęp i płatności. Przypisanie dotyczy zadania usuniętej farmy i wymaga wyraźnie wybranej farmy docelowej."/>
+		<text name="npc_recovery_unavailable" text="Odzyskiwanie jest niedostępne do czasu ponownego wczytania gry."/>
+		<text name="npc_recovery_tag_paused" text="Wstrzymana"/>
+		<text name="npc_recovery_tag_resumed" text="Wznowiona"/>
+		<text name="npc_recovery_tag_pending" text="Oferta"/>
+		<text name="npc_recovery_time" text="Pozostało: %s (%d%% ukończone)"/>
+		<text name="npc_recovery_time_unknown" text="Pozostały czas niedostępny"/>
+		<text name="npc_recovery_field_unknown" text="pole nieznane, brak ochrony pola"/>
+		<text name="npc_recovery_owner" text="Właściciel: "/>
+		<text name="npc_recovery_owner_unknown" text="właściciel nieznany"/>
+		<text name="npc_recovery_loan" text="Pożyczka %s, wypłacona: %s, spłacona: %s"/>
+		<text name="npc_recovery_reward_paid" text="Nagroda wypłacona: %s"/>
+		<text name="npc_recovery_yes" text="tak"/>
+		<text name="npc_recovery_no" text="nie"/>
+		<text name="npc_recovery_unknown" text="nieznane"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Zapisano, zanim zarejestrowano przyjęcie"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Nie udało się ustalić farmy właściciela"/>
+		<text name="npc_recovery_reason_invalid_record" text="Zapisany wpis jest niekompletny lub niespójny"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="Farma właściciela została usunięta"/>
+		<text name="npc_recovery_reason_unknown_token" text="Nierozpoznany wpis"/>
+		<text name="npc_recovery_unavail_type" text="Ten rodzaj przysługi nie jest już dostępny"/>
+		<text name="npc_recovery_unavail_facts" text="Dane o płatnościach niekompletne, tylko do wglądu"/>
+		<text name="npc_recovery_unavail_reason" text="Zachowane tylko do wglądu"/>
+		<text name="npc_recovery_unavail_owner" text="Żadna farma nie może wznowić tego wpisu"/>
+		<text name="npc_recovery_picker_choose" text="Przypisz do: Wybierz farmę"/>
+		<text name="npc_recovery_picker_selected" text="Przypisz do: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Najpierw wybierz farmę docelową."/>
+		<text name="npc_recovery_confirm_title" text="Odzyskiwanie przysługi"/>
+		<text name="npc_recovery_confirm_resume" text="Wznowić tę przysługę dla twojej farmy?"/>
+		<text name="npc_recovery_confirm_assign" text="Przypisać tę przysługę do %s (#%d) i wznowić?"/>
+		<text name="npc_recovery_confirm_complete" text="Poprosić sąsiada o zamknięcie tej odzyskanej przysługi?"/>
+		<text name="npc_recovery_confirm_abandon" text="Anulować tę odzyskaną przysługę? Obowiązuje kara za porzucenie."/>
+		<text name="npc_recovery_confirm_no_money" text="Samo wznowienie nie przenosi żadnych pieniędzy."/>
+		<text name="npc_recovery_ok_resumed" text="Przysługa wznowiona."/>
+		<text name="npc_recovery_ok_completed" text="Przysługa ukończona."/>
+		<text name="npc_recovery_ok_abandoned" text="Przysługa anulowana."/>
+		<text name="npc_recovery_no_longer_paused" text="Ta przysługa nie jest już wstrzymana."/>
+		<text name="npc_recovery_refused_stale" text="Ten wpis się zmienił. Lista została odświeżona."/>
+		<text name="npc_recovery_refused_operation" text="Ta akcja jest niedozwolona."/>
+		<text name="npc_recovery_refused_request_reuse" text="To żądanie zostało już użyte."/>
+		<text name="npc_recovery_refused_not_resumable" text="Tego wpisu nie może wznowić jego farma."/>
+		<text name="npc_recovery_refused_not_owner" text="Tylko farma, która przyjęła tę przysługę, może na niej działać."/>
+		<text name="npc_recovery_refused_not_admin" text="Tylko host lub administrator może przypisać przysługę."/>
+		<text name="npc_recovery_refused_not_assignable" text="Tego wpisu nie można przypisać."/>
+		<text name="npc_recovery_refused_owner_valid" text="Ta przysługa nadal ma ważnego właściciela."/>
+		<text name="npc_recovery_refused_target" text="Wybierz istniejącą farmę jako cel."/>
+		<text name="npc_recovery_refused_view" text="Lista farm się zmieniła. Wybierz farmę ponownie."/>
+		<text name="npc_recovery_refused_live_job" text="Ten sąsiad ma już trwającą przysługę. Najpierw ją zakończ."/>
+		<text name="npc_recovery_refused_not_live" text="Ta przysługa nie jest trwającą odzyskaną przysługą."/>
+		<text name="npc_recovery_no_local_farm" text="Musisz należeć do farmy, aby przyjąć przysługę."/>
+		<text name="npc_recovery_dialog_use_view" text="To odzyskana przysługa. Zakończ ją lub anuluj w menu przysług."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Pozwól, że sprawdzę to odzyskane zadanie w moich notatkach."/>
+		<text name="npc_recovery_unavail_time" text="Pozostały czas nieznany, tylko do wglądu"/>
+		<text name="npc_recovery_unavail_npc" text="Tego sąsiada już tu nie ma, tylko do wglądu"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: nie udało się odczytać zapisanych przysług, pozostawiono je bez zmian na dysku. Przysługi są niedostępne, a postęp NPC i przysługi nie są zapisywane w tej sesji."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: nie udało się odczytać zapisanych przysług, pozostawiono je bez zmian na dysku. Przysługi są niedostępne i nie są zapisywane w tej sesji. Postęp NPC nadal jest zapisywany."/>
+		<text name="npc_mgmt_title_active" text="Aktywne przysługi (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Zarządzaj aktywnymi przysługami"/>
+		<text name="npc_mgmt_game_time" text="Czas gry: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Anuluj nakłada karę za porzucenie  |  Gotowe prosi sąsiada o zamknięcie przysługi"/>
+		<text name="npc_mgmt_footer_paging" text="Pokazano %d z %d przysług  |  Anuluj nakłada karę za porzucenie"/>
+		<text name="npc_mgmt_btn_view" text="Pokaż"/>
+		<text name="npc_mgmt_btn_goto" text="Idź"/>
+		<text name="npc_mgmt_btn_cancel" text="Anuluj"/>
+		<text name="npc_mgmt_btn_done" text="Gotowe"/>
 </texts>
 </l10n>
