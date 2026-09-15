@@ -1,7 +1,7 @@
 # NPC Favor Roadmap
 
-**Current version:** 1.2.7.66
-**Last updated:** 2026-08-15
+**Current version:** 1.2.7.102
+**Last updated:** 2026-09-15
 
 > *"These NPCs notice me. They remember what I do. I'm part of this world, not just passing through it."*
 
