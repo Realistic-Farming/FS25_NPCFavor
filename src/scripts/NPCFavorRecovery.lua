@@ -491,6 +491,15 @@ function NPCFavorSystem:buildRestoredRecord(saved, schema)
             builderNPC = setmetatable({homePosition = {x = 0, y = 0, z = 0}}, {__index = npc})
         end
         steps = self:generateFavorSteps(favorType, builderNPC)
+        if builderNPC ~= npc and #steps ~= savedSteps.stepCount then
+            -- The placeholder only earns its keep when the saved set can apply.
+            -- On a count mismatch (a row saved from the one-step nil-home
+            -- shape, or a changed type definition) the placeholder's origin-
+            -- based destinations would fall through as real places and be
+            -- saved as such next time. Rebuild with the real record instead,
+            -- which is today's one-step, nil-location list.
+            steps = self:generateFavorSteps(favorType, npc)
+        end
     else
         print(string.format("[NPC Favor] restoreFavor: unknown favor type '%s'; record kept for inspection",
             tostring(saved.type)))

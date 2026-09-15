@@ -5047,28 +5047,32 @@ function NPCSystem.readFavorRecordXML(xmlFile, key)
         readPresent("originalOwnerFarmId", getInt)
     end
 
-    -- RSF-F221: the saved step set, read raw. A missing child leaves a hole
-    -- at that index and a present-location flag with a missing coordinate
-    -- keeps locPresent true with a nil coordinate; NPCFavorRecovery.
-    -- decodeSavedSteps applies the partial-row rules for both writers.
+    -- RSF-F221: the saved step set, read raw. The read stops at the first
+    -- missing child, leaving a hole at that index (a declared count is never
+    -- trusted to bound the walk: an edited or corrupt count must not spin the
+    -- load); a present-location flag with a missing coordinate keeps
+    -- locPresent true with a nil coordinate. NPCFavorRecovery.decodeSavedSteps
+    -- applies the partial-row rules for both writers, and a hole reads as no
+    -- set at all.
     if xmlFile:hasProperty(key .. "#stepCount") then
         local count = xmlFile:getInt(key .. "#stepCount", 0)
         flat.stepCount = count
         flat.steps = {}
         for i = 1, count do
             local stepKey = string.format("%s.step(%d)", key, i - 1)
-            if xmlFile:hasProperty(stepKey .. "#completed") or xmlFile:hasProperty(stepKey .. "#locPresent") then
-                local row = {
-                    completed = xmlFile:getBool(stepKey .. "#completed", false),
-                    locPresent = xmlFile:getBool(stepKey .. "#locPresent", false),
-                }
-                if row.locPresent then
-                    if xmlFile:hasProperty(stepKey .. "#x") then row.x = xmlFile:getFloat(stepKey .. "#x", 0) end
-                    if xmlFile:hasProperty(stepKey .. "#y") then row.y = xmlFile:getFloat(stepKey .. "#y", 0) end
-                    if xmlFile:hasProperty(stepKey .. "#z") then row.z = xmlFile:getFloat(stepKey .. "#z", 0) end
-                end
-                flat.steps[i] = row
+            if not (xmlFile:hasProperty(stepKey .. "#completed") or xmlFile:hasProperty(stepKey .. "#locPresent")) then
+                break
             end
+            local row = {
+                completed = xmlFile:getBool(stepKey .. "#completed", false),
+                locPresent = xmlFile:getBool(stepKey .. "#locPresent", false),
+            }
+            if row.locPresent then
+                if xmlFile:hasProperty(stepKey .. "#x") then row.x = xmlFile:getFloat(stepKey .. "#x", 0) end
+                if xmlFile:hasProperty(stepKey .. "#y") then row.y = xmlFile:getFloat(stepKey .. "#y", 0) end
+                if xmlFile:hasProperty(stepKey .. "#z") then row.z = xmlFile:getFloat(stepKey .. "#z", 0) end
+            end
+            flat.steps[i] = row
         end
     end
     return flat
