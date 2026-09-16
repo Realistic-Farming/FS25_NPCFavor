@@ -1159,12 +1159,20 @@ function NPCSystem:isPlayerOwnedFarmland(farmlandId)
         or (FarmManager and FarmManager.SINGLEPLAYER_FARM_ID) or 1
     if owner == localFarmId then return true end
 
-    -- Multiplayer: any farm carrying human members is a player farm.
-    local farm = g_farmManager and g_farmManager:getFarmById(owner)
-    if farm ~= nil then
-        local users = farm.users or farm.userIds
-        if type(users) == "table" and next(users) ~= nil then return true end
-    end
+    -- [RSF-F206] hole two. This read used to be `farm.users or farm.userIds`, and
+    -- native Farm carries NEITHER: it has players, userIdToPlayer, uniqueUserIdToPlayer
+    -- and activeUsers (Farm.lua:186-189). Both reads were nil, so in multiplayer every
+    -- farm except the local one read as not player owned and every other player's land
+    -- was ambient-work eligible. On a dedicated server there is no local farm to catch
+    -- it one line earlier either.
+    -- Membership is also the wrong test even with the right field names: native saves
+    -- prune the players list at 150 entries and 30 days offline, and a connected client
+    -- rebuilds `players` from a stream carrying only activeUsers, so a real farm can
+    -- legitimately present an empty list. Arissani's ruling 2026-09-14: any currently
+    -- resolvable farm that is not spectator, guided tour or invalid is player land,
+    -- whatever its membership. NPCFarmIdentity already owns exactly that test and the
+    -- three excluded ids; no second copy is made here.
+    if NPCFarmIdentity.isOrdinaryFarmId(owner) then return true end
 
     return false
 end
@@ -1181,6 +1189,204 @@ function NPCSystem:isPlayerOwnedAtPosition(x, z)
     return self:isPlayerOwnedFarmland(fid)
 end
 
+-- =========================================================
+-- [RSF-F206] Ambient land admission
+-- =========================================================
+-- The two helpers above KEEP their boolean signatures and their two existing callers
+-- (the eviction sweep and the synthetic mint) unchanged: they are the only code in the
+-- mod that already got this question right, and changing them is risk with no return.
+-- Everything that has to tell "denied" from "could not ask" comes through here instead,
+-- and nothing calls both for the same decision.
+
+--- Typed admission for a world coordinate, carrying this mod's borrow stash.
+-- @return string status, number|nil farmlandId
+function NPCSystem:admitPosition(x, z)
+    return NPCLandAdmission.classifyPosition(x, z, self._ownershipFlips)
+end
+
+--- Typed admission for a known parcel id (the assignment producer holds ids, not
+--- coordinates).
+-- @return string status
+function NPCSystem:admitFarmlandId(farmlandId)
+    return NPCLandAdmission.classifyFarmlandId(farmlandId, self._ownershipFlips)
+end
+
+--- Typed admission for an assignment RECORD, which is what every door holds.
+-- A synthetic record is exempt from the parcel ORDER and is still judged by POSITION:
+-- it answers ALLOW or DENY_PLAYER and nothing else, so sample-zero ground keeps working
+-- and the farmer's ground is still refused exactly as the sweep refuses it. A real
+-- record goes through the full order at its centre.
+-- @return string status
+function NPCSystem:admitFieldRecord(record)
+    if type(record) ~= "table" then return NPCLandAdmission.INVALID end
+
+    local center = record.center
+    if type(center) ~= "table" then return NPCLandAdmission.INVALID end
+
+    if NPCLandAdmission.isSyntheticRecord(record) then
+        return NPCLandAdmission.classifySynthetic(center.x, center.z, self._ownershipFlips)
+    end
+
+    local status = self:admitPosition(center.x, center.z)
+    return status
+end
+
+--- True when a record is currently admissible. The one test every door makes.
+function NPCSystem:isFieldRecordAdmitted(record)
+    return self:admitFieldRecord(record) == NPCLandAdmission.ALLOW
+end
+
+--- The record a work door is about to act on. Every door in the call graph already
+--- picks its target this way; naming it once keeps admission and action on the SAME
+--- record, which is what "only the actual selected target is checked and acted on"
+--- requires.
+function NPCSystem:_workTargetRecord(npc)
+    if npc == nil then return nil end
+    if npc.assignedField ~= nil then return npc.assignedField end
+    if type(npc.assignedFields) == "table" then return npc.assignedFields[1] end
+    return nil
+end
+
+--- Admit the record a door is about to act on.
+-- @return string status, table|nil record
+function NPCSystem:admitWorkTarget(npc)
+    local record = self:_workTargetRecord(npc)
+    if record == nil then return NPCLandAdmission.UNAVAILABLE, nil end
+    return self:admitFieldRecord(record), record
+end
+
+--- Log a refusal. This repair is deliberately SILENT to the player: the four statuses
+--- live here and no string in this mod means "the ground was refused". A player-facing
+--- caption is registered separately as its own work.
+function NPCSystem:_logLandRefusal(npc, where, status)
+    if not self.settings or not self.settings.debugMode then return end
+    print(string.format("[NPC Favor] %s: land refused at %s (%s)",
+        (npc and npc.name) or "?", tostring(where), tostring(status)))
+end
+
+--- True while the NPC still holds ANY parcel across the three slots.
+function NPCSystem:_holdsAnyParcel(npc)
+    if npc.assignedFarmland ~= nil then return true end
+    if type(npc.assignedFields) == "table" and #npc.assignedFields > 0 then return true end
+    if type(npc.assignedField) == "table" and npc.assignedField.farmlandId ~= nil then return true end
+    return false
+end
+
+--- [RSF-F206] item 7. Clear PER DENIED PARCEL, never wholesale, matching on
+--- `farmlandId` and on nothing else. Position is not a match key and `fieldId` is not
+--- a parcel. Records belonging to a DIFFERENT parcel the same NPC legitimately holds
+--- are left exactly as they are: the producer's wrap-around deliberately allows several
+--- farmlands onto one NPC, so a wholesale clear would strip ground that is still that
+--- neighbour's and empty a field count the farmer can see.
+--- A synthetic record carries no `farmlandId` and is therefore never matched here,
+--- which is correct: it is cleared by the eviction sweep on position, not by a parcel
+--- denial.
+function NPCSystem:clearDeniedParcel(npc, farmlandId)
+    if npc == nil or farmlandId == nil then return false end
+    local cleared = false
+
+    if type(npc.assignedField) == "table" and npc.assignedField.farmlandId == farmlandId then
+        npc.assignedField = nil
+        npc._fieldRetryAge = 0
+        cleared = true
+    end
+
+    if type(npc.assignedFields) == "table" then
+        local kept = {}
+        for _, entry in ipairs(npc.assignedFields) do
+            if type(entry) == "table" and entry.farmlandId == farmlandId then
+                cleared = true
+            else
+                kept[#kept + 1] = entry
+            end
+        end
+        if cleared then npc.assignedFields = kept end
+    end
+
+    if type(npc.assignedFarmland) == "table" and npc.assignedFarmland.farmlandId == farmlandId then
+        npc.assignedFarmland = nil
+        cleared = true
+    end
+
+    -- farmName goes with the LAST parcel. It is generated and never assigned nil
+    -- anywhere in the mod, so without this the farmer opens the list and reads
+    -- "Works at Smith Farm" beside a field count of zero.
+    if cleared and not self:_holdsAnyParcel(npc) then
+        npc.farmName = nil
+    end
+
+    return cleared
+end
+
+--- [RSF-F206] item 7. Ask CURRENT admission for every DISTINCT parcel this NPC holds
+--- and clear per parcel on anything but ALLOW.
+--- assignFarmlands runs once, nothing subscribes to the native owner-changed message,
+--- and the eviction sweep clears only `assignedField`. So a parcel that classified
+--- ALLOW at start of session and is bought by the farmer an hour later keeps its
+--- `assignedFarmland` row and keeps driving the daily treatment. This is the smallest
+--- correct close: no message subscription, no new registry, no re-run of the producer.
+--- It asks about EVERY parcel because an NPC that wrapped around carries fields from a
+--- parcel its `assignedFarmland` no longer names.
+--- @return number  how many parcels were denied and cleared
+function NPCSystem:reviewLandAdmission(npc)
+    if npc == nil then return 0 end
+
+    local seen, parcels = {}, {}
+    local function note(id)
+        if id ~= nil and not seen[id] then
+            seen[id] = true
+            parcels[#parcels + 1] = id
+        end
+    end
+
+    if type(npc.assignedFarmland) == "table" then note(npc.assignedFarmland.farmlandId) end
+    if type(npc.assignedFields) == "table" then
+        for _, entry in ipairs(npc.assignedFields) do
+            if type(entry) == "table" then note(entry.farmlandId) end
+        end
+    end
+    if type(npc.assignedField) == "table" then note(npc.assignedField.farmlandId) end
+
+    local denied = 0
+    for _, farmlandId in ipairs(parcels) do
+        if self:admitFarmlandId(farmlandId) ~= NPCLandAdmission.ALLOW then
+            if self:clearDeniedParcel(npc, farmlandId) then
+                denied = denied + 1
+            end
+        end
+    end
+
+    return denied
+end
+
+--- [RSF-F206] item 7. A terminal land refusal LEAVES THE WORKING STATE and releases
+--- the reservation it took. Two existing calls, in the combination the mod's own
+--- recovery already uses at the work-timer break, and nothing hand-rolled.
+--- stopNPCFieldWork does NOT call setState and does not clear fieldWorkPath, so an NPC
+--- refused without this keeps aiState WORKING with its waypoints intact and KEEPS
+--- WALKING THE ROWS on foot for the rest of the work timer (180 to 600 seconds): from
+--- the tractor seat the machine vanishes and the person stays.
+--- IDLE, not RESTING and not goHome, because IDLE is what every existing recovery uses
+--- when work ends without the day ending, and a refused neighbour should re-decide
+--- rather than be sent home.
+function NPCSystem:endAttemptOnLandRefusal(npc, where, status)
+    if npc == nil then return end
+    self:_logLandRefusal(npc, where, status)
+
+    local ai = self.aiSystem
+    if ai == nil then return end
+
+    -- Release first, then leave the state, matching the work-timer break's order.
+    -- The helper is idempotent, so calling it on a path that already released is safe
+    -- and failing to call it is not.
+    if type(ai._releaseFieldWorkSlot) == "function" then
+        pcall(function() ai:_releaseFieldWorkSlot(npc) end)
+    end
+    if type(ai.setState) == "function" and ai.STATES ~= nil then
+        pcall(function() ai:setState(npc, ai.STATES.IDLE) end)
+    end
+end
+
 function NPCSystem:findNearestField(x, z, npcId)
     if not g_fieldManager or not g_fieldManager.fields then
         return nil
@@ -1190,8 +1396,15 @@ function NPCSystem:findNearestField(x, z, npcId)
     local nearestDist = math.huge
 
     for _, field in pairs(g_fieldManager.fields) do
-        -- Ambient NPC fieldwork never targets player-owned land.
-        local skipField = self:isPlayerOwnedFarmland(field.farmlandId)
+        -- [RSF-F206] hole one. This gate used to be
+        --     self:isPlayerOwnedFarmland(field.farmlandId)
+        -- and native Field carries NO `farmlandId`: it carries `self.farmland`, a
+        -- reference to the Farmland object stitched to it by FieldManager at map load.
+        -- The argument was nil on every native field, the guard returned false, every
+        -- field was eligible, and the record then stamped `id = field.farmlandId or 0`
+        -- so the same zero satisfied every later gate too. Admission is now resolved
+        -- from the field's own CENTRE through the native manager, which is the read the
+        -- eviction sweep has always used and the selector never did.
 
         -- Try multiple field center location patterns used by FS25
         local cx, cz = nil, nil
@@ -1210,17 +1423,28 @@ function NPCSystem:findNearestField(x, z, npcId)
             end
         end
 
-        if cx and cz and not skipField then
-            local dx = cx - x
-            local dz = cz - z
-            local dist = math.sqrt(dx * dx + dz * dz)
-            if dist < nearestDist then
-                nearestDist = dist
-                nearest = {
-                    id = field.farmlandId or 0,
-                    center = { x = cx, y = 0, z = cz },
-                    size = (field.fieldArea and field.fieldArea.fieldArea) or 1
-                }
+        -- A missing centre is a REJECTION, not world origin: a record centred on 0,0
+        -- is a claim about ground nobody chose.
+        if cx and cz then
+            local status, parcelId = self:admitPosition(cx, cz)
+            if status == NPCLandAdmission.ALLOW then
+                local dx = cx - x
+                local dz = cz - z
+                local dist = math.sqrt(dx * dx + dz * dz)
+                if dist < nearestDist then
+                    nearestDist = dist
+                    -- [RSF-F206] item 8: `farmlandId` is the canonical parcel key every
+                    -- new test uses, and `id` is RETAINED carrying the same value as a
+                    -- compatibility alias so the existing work-start guards and
+                    -- NPCFieldWork's reservation key keep working unchanged.
+                    local recordParcel = parcelId or NPCLandAdmission.fieldParcelId(field)
+                    nearest = {
+                        farmlandId = recordParcel,
+                        id = recordParcel,
+                        center = { x = cx, y = 0, z = cz },
+                        size = (field.fieldArea and field.fieldArea.fieldArea) or 1
+                    }
+                end
             end
         end
     end
@@ -1229,8 +1453,10 @@ function NPCSystem:findNearestField(x, z, npcId)
     if nearest then
         nearest.cropInfo = nil
         for _, field in pairs(g_fieldManager.fields) do
-            local fid = field.farmlandId or 0
-            if fid == nearest.id then
+            -- [RSF-F206] hole one again: resolve the field's parcel through the nested
+            -- Farmland object, not the flat member native Field does not carry.
+            local fid = NPCLandAdmission.fieldParcelId(field)
+            if fid ~= nil and fid == nearest.farmlandId then
                 local cropInfo = {}
                 -- Try to read fruit type
                 pcall(function()
@@ -1378,14 +1604,10 @@ function NPCSystem:assignFarmlands()
     local assignableFarmlands = {}
     for _, farmland in pairs(farmlands) do
         local farmlandId = nil
-        local ownerFarmId = nil
-        local isNPCOwned = false
         local farmlandName = "Farmland"
 
         pcall(function()
             farmlandId = farmland.id or farmland.farmlandId
-            ownerFarmId = farmland.ownerFarmId or 0
-            isNPCOwned = farmland.isNPCOwned or false
             if farmland.getName then
                 farmlandName = farmland:getName()
             elseif farmland.name then
@@ -1394,10 +1616,16 @@ function NPCSystem:assignFarmlands()
         end)
 
         if farmlandId then
-            -- Assign if unowned (farmId 0, nil, or 15=spectator) or marked as NPC-owned
-            -- FarmId 15 is the spectator farm — used for all non-ownable map features
-            local spectatorId = FarmManager.SPECTATOR_FARM_ID or 15
-            if ownerFarmId == 0 or ownerFarmId == nil or ownerFarmId == spectatorId or isNPCOwned then
+            -- [RSF-F206] hole three. This used to classify off `farmland.ownerFarmId`
+            -- and `farmland.isNPCOwned`, and native Farmland carries NEITHER: owner
+            -- truth does not live on the instance at all, it lives in the manager's own
+            -- farmlandMapping (FarmlandManager:getFarmlandOwner). Both reads were nil,
+            -- the owner defaulted to zero, and EVERY native farmland classified
+            -- assignable. This producer runs once and nothing rewrites its output, so a
+            -- wrong classification here was permanent for the session.
+            -- A parcel that does not classify ALLOW is never written into
+            -- assignedFarmland or assignedFields at all.
+            if self:admitFarmlandId(farmlandId) == NPCLandAdmission.ALLOW then
                 table.insert(assignableFarmlands, {
                     farmlandId = farmlandId,
                     name = farmlandName or ("Farmland #" .. tostring(farmlandId)),
@@ -1545,11 +1773,24 @@ function NPCSystem:assignFarmlands()
                                 if ok3 and fx3 then fcx = fx3; fcz = fz3 end
                             end
 
-                            table.insert(bestNPC.assignedFields, {
-                                fieldId = fieldId,
-                                center = { x = fcx or 0, y = 0, z = fcz or 0 },
-                                field = field
-                            })
+                            -- [RSF-F206] item 8. A missing centre is a REJECTION, not
+                            -- world origin. Entries used to carry fieldId, center and
+                            -- field and NO parcel key at all, so item 7's per-parcel
+                            -- close had nothing to resolve a distinct set from, and
+                            -- anything reading assignedFields[1] as an assignedField
+                            -- (the work fallbacks, and NPCFieldWork's reservation key)
+                            -- saw a nil `id` and took its slot under a different key
+                            -- than a selector record on the same ground.
+                            -- `fieldId` keeps its present meaning and is never a parcel.
+                            if fcx and fcz then
+                                table.insert(bestNPC.assignedFields, {
+                                    fieldId = fieldId,
+                                    farmlandId = farmlandEntry.farmlandId,
+                                    id = farmlandEntry.farmlandId,
+                                    center = { x = fcx, y = 0, z = fcz },
+                                    field = field
+                                })
+                            end
                         end
                     end
                 end
@@ -2035,6 +2276,22 @@ function NPCSystem:spawnNPCTractor(npc, callback)
                 pcall(function() self:removeNPCTractor(npc) end)
                 if callback then callback(nil) end
                 return
+            end
+
+            -- [RSF-F206] item 9: re-admit at the START of the tractor-load callback,
+            -- BEFORE the implement is attached. This leg checks _pendingFieldSpawn and
+            -- aiState and reads no land at all today. Gated on _pendingFieldSpawn like
+            -- the churn guard above, so any other caller of spawnNPCTractor is
+            -- unaffected. The refusal is carried out to the field-spawn callback, which
+            -- owns the terminal pair.
+            if npc._pendingFieldSpawn then
+                local loadStatus = self:admitWorkTarget(npc)
+                if loadStatus ~= NPCLandAdmission.ALLOW then
+                    npc._landRefusedDuringSpawn = loadStatus
+                    pcall(function() self:removeNPCTractor(npc) end)
+                    if callback then callback(nil) end
+                    return
+                end
             end
 
             self:spawnNPCImplement(npc, vehicle, function(_attached)
@@ -2829,8 +3086,17 @@ function NPCSystem:startNPCFieldWorkOwned(npc)
     -- This path temporarily flips farmland ownership to make AIJobFieldWork run. Never
     -- do that to land the player already owns: it is both the wrong tool and it makes
     -- the land-steal worse (George ENGINE ACK 2026-08-07).
-    if npc.assignedField and self:isPlayerOwnedFarmland(npc.assignedField.id) then
-        npc.assignedField = nil
+    -- [RSF-F206] hole one. This guard used to be
+    --     self:isPlayerOwnedFarmland(npc.assignedField.id)
+    -- and every selector record carried id 0 because native Field has no farmlandId,
+    -- so the guard's own early return (`farmlandId == 0 -> not player owned`) passed
+    -- every field straight through. Admission now resolves from the record's centre.
+    local targetStatus, targetRecord = self:admitWorkTarget(npc)
+    if targetStatus ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "startNPCFieldWorkOwned", targetStatus)
+        if npc.assignedField ~= nil and targetRecord == npc.assignedField then
+            npc.assignedField = nil
+        end
         return false
     end
 
@@ -2867,6 +3133,23 @@ function NPCSystem:startNPCFieldWorkOwned(npc)
     local farmlandId
     pcall(function() farmlandId = g_farmlandManager:getFarmlandIdAtWorldPosition(cx, cz) end)
     if not farmlandId then return false end
+
+    -- [RSF-F206] item 6: the ownership BORROW is its own door and it is the one
+    -- irreversible act on this path. `assignedField.id` is never the value handed to
+    -- the native owner write: the centre is resolved to a parcel here, and THAT id is
+    -- flipped. So a synthetic centre sitting on a positive parcel would be flipped
+    -- normally, which is the one thing the position judgement alone cannot stop.
+    -- A synthetic record never borrows a real parcel's ownership, and a real record
+    -- re-admits the parcel it actually resolved before the write.
+    if NPCLandAdmission.isSyntheticRecord(field) then
+        self:_logLandRefusal(npc, "startNPCFieldWorkOwned/borrow", "SYNTHETIC")
+        return false
+    end
+    local borrowStatus = self:admitFarmlandId(farmlandId)
+    if borrowStatus ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "startNPCFieldWorkOwned/borrow", borrowStatus)
+        return false
+    end
 
     -- Temporarily own the field with a GUARDED real farm id (a guaranteed real farm).
     -- [SF-27] LANE B: the flip stays mechanically (the job needs a real farm id),
@@ -2947,6 +3230,16 @@ function NPCSystem:startGoToWaypoint(npc)
     local wp = wps and wps[idx]
     if not wp then return false end
 
+    -- [RSF-F206] item 6: EACH chained waypoint re-admits before it creates the next
+    -- native job. AIJobGoTo has no ownership check of its own, so without this a
+    -- neighbour keeps driving the farmer's field one waypoint at a time after the
+    -- ground changed hands under it.
+    local status = self:admitWorkTarget(npc)
+    if status ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "startGoToWaypoint", status)
+        return false
+    end
+
     local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.GOTO)
     if not job then return false end
 
@@ -2999,6 +3292,15 @@ function NPCSystem:startNPCComboGoTo(npc)
 
     local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
     if not field then return false end
+
+    -- [RSF-F206] item 6: admit BEFORE getWorkPattern, because that call is what takes
+    -- the field-work reservation. Refusing after it would leak a worker slot on every
+    -- refusal.
+    local status = self:admitFieldRecord(field)
+    if status ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "startNPCComboGoTo", status)
+        return false
+    end
 
     local waypoints
     if self.fieldWork and self.fieldWork.getWorkPattern then
@@ -3110,6 +3412,20 @@ function NPCSystem:spawnFieldWorkVehicle(npc)
     local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
     if not field or not field.center then return false end
 
+    -- [RSF-F206] item 6: admit BEFORE the vehicle load is requested, not only after it
+    -- returns. The load is asynchronous and the callback below is a terminal site in
+    -- its own right; refusing only there would still have spent the spawn.
+    local spawnStatus = self:admitFieldRecord(field)
+    if spawnStatus ~= NPCLandAdmission.ALLOW then
+        self:endAttemptOnLandRefusal(npc, "spawnFieldWorkVehicle", spawnStatus)
+        return false
+    end
+    -- [RSF-F206] item 9: capture the parcel this attempt was admitted for, so each
+    -- re-admission across the async gap can compare it to the NPC's CURRENT assignment.
+    -- A changed target is a refusal, never an inherited permission.
+    local admittedParcel = field.farmlandId
+    local admittedRecord = field
+
     -- Concurrency cap for performance; extra NPCs work the field on foot.
     if self:countActiveFieldVehicles() >= (self.MAX_FIELD_VEHICLES or 4) then
         if self.settings.debugMode then
@@ -3146,6 +3462,19 @@ function NPCSystem:spawnFieldWorkVehicle(npc)
         -- async. Never strand a vehicle: remove it and bail. If the spawn itself
         -- failed (vehicle == nil), there is nothing to remove and the NPC simply
         -- works the field on foot.
+        -- [RSF-F206] a land refusal raised by the tractor-load leg lands here. It is
+        -- NOT an ordinary spawn failure: an ordinary one leaves the NPC working the
+        -- field on foot, which on refused ground is the defect itself.
+        local carriedRefusal = npc._landRefusedDuringSpawn
+        npc._landRefusedDuringSpawn = nil
+        if carriedRefusal ~= nil then
+            if npc.realTractor then
+                pcall(function() self:removeNPCTractor(npc) end)
+            end
+            self:endAttemptOnLandRefusal(npc, "spawnNPCTractor/load", carriedRefusal)
+            return
+        end
+
         if not vehicle or npc.aiState ~= "working" or not npc.realTractor then
             if npc.realTractor then
                 pcall(function() self:removeNPCTractor(npc) end)
@@ -3153,15 +3482,64 @@ function NPCSystem:spawnFieldWorkVehicle(npc)
             return
         end
 
+        -- [RSF-F206] item 9: re-admit across the async gap, in the ACTIVATION callback,
+        -- before activateNPCTractor runs. Neither leg of the spawn reads land today:
+        -- the tractor-load leg checks _pendingFieldSpawn and aiState, the
+        -- implement-attach leg re-checks tractor identity. The captured parcel is
+        -- compared to the NPC's current assignment, so a target that changed while we
+        -- loaded is a refusal rather than an inherited permission.
+        local current = self:_workTargetRecord(npc)
+        local gapStatus = self:admitFieldRecord(current)
+        local sameTarget = (current == admittedRecord)
+            or (current ~= nil and admittedParcel ~= nil and current.farmlandId == admittedParcel)
+        if gapStatus ~= NPCLandAdmission.ALLOW or not sameTarget then
+            -- THIS CALLBACK IS A TERMINAL SITE IN ITS OWN RIGHT. startWorking has
+            -- already set WORKING and called initFieldWork, which took the reservation
+            -- and planted fieldWorkPath, BEFORE any vehicle existed, and this callback's
+            -- own failure path leaves the NPC working the field ON FOOT. A refusal that
+            -- fired only inside activateNPCTractor, or only at the five-second sweep,
+            -- would leave a neighbour walking the farmer's rows with no tractor for up
+            -- to ten minutes.
+            pcall(function() self:removeNPCTractor(npc) end)
+            self:endAttemptOnLandRefusal(npc, "spawnFieldWorkVehicle/callback",
+                sameTarget and gapStatus or "TARGET_CHANGED")
+            return
+        end
+
         -- Seat the NPC and start the AI job (tillage -> GoTo -> kinematic fallback).
-        pcall(function() self:activateNPCTractor(npc) end)
+        -- [RSF-F206] item 4: the return is CAPTURED now. A land refusal ends the
+        -- attempt here instead of being discarded inside the pcall.
+        local started, landStatus
+        pcall(function() started, landStatus = self:activateNPCTractor(npc) end)
+        if not started and landStatus ~= nil then
+            pcall(function() self:removeNPCTractor(npc) end)
+            self:endAttemptOnLandRefusal(npc, "activateNPCTractor/callback", landStatus)
+        end
     end)
 
     return true
 end
 
+--- Seat the NPC and start the best available job.
+-- [RSF-F206] item 4. THE SIGNATURE IS TWO VALUES: the existing boolean FIRST, so
+-- nothing that reads it today changes meaning, and the admission status SECOND.
+-- An ordinary failure (AI capacity, a missing implement) returns its existing boolean
+-- with NO status, which preserves the visual fallback. A LAND refusal returns false
+-- with DENY_PLAYER, UNAVAILABLE or INVALID, and the caller stops the attempt.
+-- @return boolean started, string|nil landStatus
 function NPCSystem:activateNPCTractor(npc)
     if not npc.realTractor then return false end
+
+    -- THE LAND STATUS IS CONSULTED BEFORE THE FALLBACK CHAIN, NOT AFTER IT. A check
+    -- placed inside startNPCFieldWorkOwned alone, with the boolean still meaning
+    -- "try the next fallback", would drive the neighbour to the refused parcel via
+    -- GoTo or work it kinematically until the sweep fires, which is the exact churn
+    -- this repair exists to end.
+    local status = self:admitWorkTarget(npc)
+    if status ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "activateNPCTractor", status)
+        return false, status
+    end
 
     -- 1. Real AI TILLAGE via AIJobFieldWork with temporary field ownership
     --    (the AI actually works the ground).
@@ -3553,6 +3931,13 @@ function NPCSystem:update(dt)
                     pcall(function() self:removeNPCTractor(npc) end)
                     npc.assignedField = nil
                     npc._fieldRetryAge = 0
+                    -- [RSF-F206] item 7. stopNPCFieldWork does NOT call setState and
+                    -- does not clear fieldWorkPath, and the sweep released nothing, so
+                    -- an evicted NPC kept aiState WORKING with its waypoints intact and
+                    -- KEPT WALKING THE FARMER'S ROWS on foot for the rest of the work
+                    -- timer while its tractor vanished, leaking its worker slot too.
+                    self:endAttemptOnLandRefusal(npc, "evictionSweep",
+                        NPCLandAdmission.DENY_PLAYER)
                 end
             end
 
@@ -5848,6 +6233,15 @@ function NPCSystem:updateEventScheduler(hour, day, weatherFactor)
     -- -------------------------------------------------------
     -- End expired events first
     -- -------------------------------------------------------
+    -- [RSF-F206] item 7: a MID-EVENT land refusal, not an end-of-event one. A parcel
+    -- bought during a gathering would otherwise keep helpers on the farmer's crop for
+    -- the rest of the event.
+    if scheduler.activeEvent and self:reviewActiveEventLand() then
+        scheduler.activeEvent = nil
+        scheduler.eventParticipants = {}
+        return
+    end
+
     if scheduler.activeEvent then
         local ev = scheduler.activeEvent
         local shouldEnd = false
@@ -6001,6 +6395,18 @@ end
 function NPCSystem:startHarvestGatheringEvent()
     local ownerNPC, field = self:findHarvestReadyNPC()
     if not ownerNPC or not field then
+        return
+    end
+
+    -- [RSF-F206] item 6. This door selects a target through findHarvestReadyNPC and
+    -- could enter WORKING and take a reservation with no ownership read at all. It must
+    -- refuse BEFORE the pattern is taken, because the eviction sweep cannot reach these
+    -- helpers: the sweep judges each NPC by that NPC's OWN assignedField, and a helper
+    -- is walking the EVENT OWNER's field, so a helper on refused ground is never
+    -- evicted for it and keeps working until the event ends.
+    local status = self:admitFieldRecord(field)
+    if status ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(ownerNPC, "startHarvestGatheringEvent", status)
         return
     end
 
@@ -6217,6 +6623,45 @@ end
 
 --- End an active event: restore NPC states to idle.
 -- @param event  The active event table to end
+--- [RSF-F206] item 7. Re-admit the ground an ACTIVE event is working, and on a refusal
+--- apply the terminal pair to every participant.
+--- THE STATE TEST IS NOT `aiState == WORKING`. The harvest branch splits: when
+--- getWorkPattern returns a pattern it sets WORKING with a reservation and a path, and
+--- when it does not it calls walkFieldRows, which sets WALKING with a plain path and no
+--- reservation. A leave that fired only on WORKING would miss every helper on the
+--- second branch, which is the eviction sweep's own blindness reproduced one layer
+--- down. endEvent already sets IDLE from any state, so the existing precedent is
+--- state-agnostic and this matches it. The release helper is idempotent for the WALKING
+--- half, which took no reservation, so applying the pair uniformly is safe and simpler
+--- than branching on which half a helper landed on.
+--- @return boolean  true when the event was refused and torn down
+function NPCSystem:reviewActiveEventLand()
+    local scheduler = self.eventScheduler
+    local ev = scheduler and scheduler.activeEvent
+    if ev == nil or ev.field == nil then return false end
+
+    local status = self:admitFieldRecord(ev.field)
+    if status == NPCLandAdmission.ALLOW then return false end
+
+    for _, npc in ipairs(scheduler.eventParticipants or {}) do
+        if npc ~= nil and npc.isActive then
+            if npc._originalSpeed then
+                npc.movementSpeed = npc._originalSpeed
+                npc._originalSpeed = nil
+            end
+            npc.currentAction = "idle"
+            self:endAttemptOnLandRefusal(npc, "event:" .. tostring(ev.type), status)
+        end
+    end
+
+    if self.settings.debugMode then
+        print(string.format("[NPC Favor] Event '%s' stopped: land refused (%s)",
+            tostring(ev.type), tostring(status)))
+    end
+
+    return true
+end
+
 function NPCSystem:endEvent(event)
     if not event then
         return
