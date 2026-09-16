@@ -2033,6 +2033,25 @@ function NPCAI:startWorking(npc)
     local targetZ = npc.assignedField.center.z
 
     if self:isAtPosition(npc, targetX, targetZ, 40) then
+        -- [RSF-F206] item 6. This is a live door and it was unguarded: it sets WORKING
+        -- and calls initFieldWork below, which TAKES THE RESERVATION and plants
+        -- fieldWorkPath, BEFORE any vehicle exists. A neighbour can be put to work on
+        -- foot here with no tractor at all, so a refusal that fired only inside
+        -- activateNPCTractor would never see this path.
+        local sys = self.npcSystem
+        if sys ~= nil and type(sys.admitFieldRecord) == "function" then
+            local status = sys:admitFieldRecord(npc.assignedField)
+            if status ~= NPCLandAdmission.ALLOW then
+                if type(sys.endAttemptOnLandRefusal) == "function" then
+                    sys:endAttemptOnLandRefusal(npc, "NPCAI:startWorking", status)
+                else
+                    self:_releaseFieldWorkSlot(npc)
+                    self:setState(npc, self.STATES.IDLE)
+                end
+                return
+            end
+        end
+
         -- At field, start working
         self:setState(npc, self.STATES.WORKING)
 

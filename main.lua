@@ -76,6 +76,7 @@ if modDirectory then
     source(modDirectory .. "src/utils/VectorHelper.lua")
     source(modDirectory .. "src/utils/TimeHelper.lua")
     source(modDirectory .. "src/utils/NPCFarmIdentity.lua")
+    source(modDirectory .. "src/utils/NPCLandAdmission.lua")
 
     -- Configuration & settings
     source(modDirectory .. "src/settings/NPCConfig.lua")

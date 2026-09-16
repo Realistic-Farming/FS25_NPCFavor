@@ -162,6 +162,18 @@ function NPCTreatment:breakfastRoll(selfNpcSystem)
     local npcs = selfNpcSystem.activeNPCs
     if not npcs then return end
     for _, npc in ipairs(npcs) do
+        -- [RSF-F206] item 7. assignFarmlands runs ONCE, nothing subscribes to the native
+        -- owner-changed message, and the five-second sweep clears only assignedField.
+        -- So a parcel that classified ALLOW at start of session and is bought by the
+        -- farmer an hour later kept its assignedFarmland row and kept driving this roll,
+        -- and no work refusal ever fired to clear it because this roll is not a work
+        -- path. Asking current admission here is the smallest correct close: no message
+        -- subscription, no new registry, no re-run of the producer. It asks about EVERY
+        -- distinct parcel the NPC holds, because the producer's wrap-around means
+        -- assignedFarmland names only the LAST one while assignedFields accumulates.
+        if npc and npc.isActive and type(selfNpcSystem.reviewLandAdmission) == "function" then
+            selfNpcSystem:reviewLandAdmission(npc)
+        end
         if npc and npc.isActive and npc.assignedFarmland and npc.assignedFarmland.farmlandId then
             local fid = npc.assignedFarmland.farmlandId
             local treatToday, chemId = self:rollTreatToday(npc, fid)
