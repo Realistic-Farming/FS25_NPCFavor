@@ -1670,6 +1670,15 @@ function NPCAI:_releaseFieldWorkSlot(npc)
         npc._fieldWorkFieldId = nil
         npc.fieldWorkWaypoints = nil
         npc.fieldWorkSlot = nil
+        -- [RSF-F206] the traversal path goes with the slot. Both callers of this helper
+        -- end the work (goHome and a terminal land refusal), and the work-timer break
+        -- that this pairing copies clears these two alongside the slot. Without them a
+        -- refused NPC reached IDLE still carrying a waypoint path for the ground it was
+        -- just refused. Benign today, because every entry to WORKING rebuilds the path
+        -- through initFieldWork, but the clear set now actually matches the recovery it
+        -- claims to match.
+        npc.fieldWorkPath = nil
+        npc.fieldWorkIndex = nil
     end
 end
 

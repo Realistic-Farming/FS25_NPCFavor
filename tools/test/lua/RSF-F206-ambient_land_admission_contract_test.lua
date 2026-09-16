@@ -388,7 +388,11 @@ T.eq("G3 a positive parcel with no owner PASSES", sys:admitFieldRecord(synthetic
 T.eq("G4 the not-buyable sentinel PASSES", sys:admitFieldRecord(syntheticAt(800, 800)), A.ALLOW)
 T.eq("G5 guided-tour ground PASSES", sys:admitFieldRecord(syntheticAt(500, 500)), A.ALLOW)
 T.eq("G6 invalid-id ground PASSES", sys:admitFieldRecord(syntheticAt(600, 600)), A.ALLOW)
-T.eq("G7 an unresolved owner PASSES", sys:admitFieldRecord(syntheticAt(700, 700)), A.ALLOW)
+-- CORRECTED after Bob's cold review of #112: an owner of ORDINARY SHAPE that does not
+-- resolve is the seventh row and it REFUSES. It is not ground nobody can own; it names
+-- a farm whose object is not in the manager at this instant. See group G17 to G28.
+T.eq("G7 an owner of ordinary shape that does not resolve REFUSES",
+    sys:admitFieldRecord(syntheticAt(700, 700)), A.DENY_PLAYER)
 W.mapLoaded = false
 T.eq("G8 map-absent ground PASSES", sys:admitFieldRecord(syntheticAt(100, 100)), A.ALLOW)
 W.mapLoaded = true
@@ -399,16 +403,53 @@ T.eq("G9 the synthetic branch answers ALLOW or DENY_PLAYER and NOTHING else",
 -- THE DIFFERENCE, and it is the reason a refusal-only bar cannot tell the two builds
 -- apart: BOTH deny player land, and the misread refuses FOUR of the six kinds of ground
 -- the eight-try mint can accept.
-local mintable = { { 900, 900 }, { 100, 100 }, { 800, 800 }, { 500, 500 }, { 600, 600 }, { 700, 700 } }
+-- The five grounds the mint can accept that carry no owner anybody could hold. The
+-- sixth constructible input, an ordinary owner that did not resolve, is the seventh
+-- row and is asserted separately at G17 to G22 because it REFUSES.
+local mintable = { { 900, 900 }, { 100, 100 }, { 800, 800 }, { 500, 500 }, { 600, 600 } }
 local misreadPasses, builtPasses = 0, 0
 for _, p in ipairs(mintable) do
     if misreadDoor(syntheticAt(p[1], p[2])) then misreadPasses = misreadPasses + 1 end
     if sys:admitFieldRecord(syntheticAt(p[1], p[2])) == A.ALLOW then builtPasses = builtPasses + 1 end
 end
-T.eq("G10 DIFFERENCE: the misread passes only 1 of the 6 mintable grounds", misreadPasses, 1)
-T.eq("G11 DIFFERENCE: the built table passes all 6", builtPasses, 6)
+T.eq("G10 DIFFERENCE: the misread passes only 1 of the 5 ownerless mintable grounds", misreadPasses, 1)
+T.eq("G11 DIFFERENCE: the built table passes all 5", builtPasses, 5)
 T.eq("G12 and BOTH still deny player land",
     misreadDoor(syntheticAt(200, 200)), sys:admitFieldRecord(syntheticAt(200, 200)) == A.ALLOW)
+
+-- THE SEVENTH ROW, found by Bob's cold review of #112 and proved rather than reasoned.
+-- isOrdinaryFarmId is shape AND a live farm object, so a parcel whose mapping names an
+-- ordinary farm whose object is not in the manager at this instant falls past
+-- DENY_PLAYER and lands in UNAVAILABLE. Mapping every non-DENY_PLAYER to ALLOW admitted
+-- it: the real record refused that coordinate while a synthetic worked it. The parcel
+-- order is unchanged and still answers UNAVAILABLE; only the synthetic branch splits
+-- the bucket, using isOrdinaryFarmIdShape, which is shape WITHOUT the resolve.
+W.owners[17] = 3
+placeSample(1700, 1700, 17)
+T.eq("G17 with farm 3 resolving, a real record on its parcel is DENY_PLAYER",
+    (sys:admitPosition(1700, 1700)), A.DENY_PLAYER)
+T.eq("G18 and a synthetic there is refused too",
+    sys:admitFieldRecord(syntheticAt(1700, 1700)), A.DENY_PLAYER)
+setFarm(3, nil)   -- the mapping still names farm 3; the object is gone
+T.eq("G19 the parcel order still answers UNAVAILABLE, never ALLOW",
+    (sys:admitPosition(1700, 1700)), A.UNAVAILABLE)
+T.eq("G20 and the reason separates it from ground nobody can own",
+    select(3, sys:admitPosition(1700, 1700)), "OWNER_UNRESOLVED")
+T.eq("G21 DIFFERENCE: the synthetic branch REFUSES it rather than passing it",
+    sys:admitFieldRecord(syntheticAt(1700, 1700)), A.DENY_PLAYER)
+T.ok("G22 DIFFERENCE: a refuse-only-on-DENY_PLAYER build would have passed it",
+    sys:admitPosition(1700, 1700) ~= A.DENY_PLAYER)
+-- And the six PASS rows are unmoved by the split: an excluded owner is still not an
+-- unresolved ordinary one.
+T.eq("G23 guided-tour ground still PASSES after the split",
+    sys:admitFieldRecord(syntheticAt(500, 500)), A.ALLOW)
+T.eq("G24 its reason is OWNER_EXCLUDED, not OWNER_UNRESOLVED",
+    select(3, sys:admitPosition(500, 500)), "OWNER_EXCLUDED")
+T.eq("G25 sample-zero ground still PASSES", sys:admitFieldRecord(syntheticAt(900, 900)), A.ALLOW)
+T.eq("G26 and carries its own reason", select(3, sys:admitPosition(900, 900)), "NOT_FARMLAND")
+T.eq("G27 the not-buyable sentinel still PASSES", sys:admitFieldRecord(syntheticAt(800, 800)), A.ALLOW)
+T.eq("G28 unowned working land is untouched", sys:admitFieldRecord(syntheticAt(100, 100)), A.ALLOW)
+setFarm(3, nativeFarm(3, 5))   -- restore for anything below
 
 -- THE MARK IS `isSynthetic`, NEVER `id == 0`. Hole one meant every selector record
 -- carried zero, so an identity test would have exempted the entire selector path from
