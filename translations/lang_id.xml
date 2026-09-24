@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Tidak dapat dikaitkan dengan tetangga yang sama"/>
 		<text name="npc_person_server_only" text="Hanya host yang dapat mendaftarkan konsultan."/>
 		<text name="npc_person_bad_claim" text="Klaim konsultan ditolak: nama atau posisi tidak dapat digunakan."/>
+		<text name="npc_dialog_pending" text="Menanyakan tetangga..."/>
+		<text name="npc_dialog_unavailable" text="Tidak tersedia saat ini."/>
+		<text name="npc_dialog_refused_person" text="Tetangga itu tidak ada di sini untuk diajak bicara."/>
+		<text name="npc_dialog_refused_far" text="Kamu terlalu jauh untuk melakukan itu."/>
+		<text name="npc_dialog_refused_farm" text="Kamu harus berada di pertanian untuk melakukan itu."/>
+		<text name="npc_dialog_refused_stale" text="Tawaran itu berubah. Biar kulihat lagi."/>
+		<text name="npc_dialog_refused_request_reuse" text="Permintaan itu sudah dijawab dengan cara lain."/>
+		<text name="npc_dialog_refused_relationship" text="Tetangga ini belum cukup mengenalmu."/>
+		<text name="npc_dialog_refused_not_ready" text="Pekerjaan itu belum siap ditutup."/>
+		<text name="npc_dialog_refused_operation" text="Itu tidak bisa dilakukan di sini."/>
+		<text name="npc_dialog_talk_ok" text="Terima kasih atas obrolannya."/>
+		<text name="npc_dialog_talk_limit" text="(Sudah mengobrol hari ini, hubungan tidak berubah)"/>
+		<text name="npc_dialog_tone_warm" text="Senang selalu melihatmu."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Kamu lagi."/>
+		<text name="npc_dialog_tone_cool" text="Oh. Hai."/>
+		<text name="npc_dialog_declined" text="Aku baik-baik saja untuk saat ini, tapi terima kasih."/>
+		<text name="npc_dialog_no_work" text="Aku tidak butuh apa-apa sekarang, tapi terima kasih sudah bertanya!"/>
+		<text name="npc_dialog_offer" text="Aku punya sesuatu untukmu."/>
+		<text name="npc_dialog_offer_waiting" text="Aku punya sesuatu untukmu: %s"/>
+		<text name="npc_dialog_accepted" text="Terima kasih! Aku benar-benar butuh bantuanmu."/>
+		<text name="npc_dialog_accepted_short" text="Terima kasih! Aku benar-benar butuh bantuanmu."/>
+		<text name="npc_dialog_completed" text="Terima kasih banyak atas bantuanmu! Ini hadiahmu."/>
+		<text name="npc_dialog_abandoned" text="Baiklah, lupakan saja."/>
+		<text name="npc_dialog_busy" text="Aku sudah membantu pertanian lain untuk itu. Kembalilah nanti!"/>
+		<text name="npc_dialog_come_find_me" text="Datanglah ke rumahku. Aku perlu bertemu langsung untuk menyelesaikan ini!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Sibuk dengan pertanian lain"/>
+		<text name="npc_dialog_gift_ok" text="Terima kasih atas hadiahnya!"/>
+		<text name="npc_dialog_gift_refused" text="Hadiah tidak dapat diberikan."/>
+		<text name="npc_dialog_ok" text="Selesai."/>
+		<text name="npc_work_view_unavailable" text="Daftar pekerjaanmu tidak tersedia saat ini."/>
+		<text name="npc_work_view_last_confirmed" text="Menampilkan daftar pekerjaan terakhir yang dikonfirmasi; tetangga belum menjawab."/>
+		<text name="npc_work_view_last_confirmed_short" text="terakhir dikonfirmasi"/>
+		<text name="npc_rf_pda_completed_count" text="%d selesai untuk pertanian ini"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Tidak tersedia di sini: hanya host yang dapat menyesuaikan tetangga."/>
 </texts>
 </l10n>

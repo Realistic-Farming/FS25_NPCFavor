@@ -89,6 +89,7 @@ if modDirectory then
     source(modDirectory .. "src/events/NPCInteractionEvent.lua")
     source(modDirectory .. "src/events/NPCSettingsSyncEvent.lua")
     source(modDirectory .. "src/events/NPCFavorRecoveryEvents.lua")
+    source(modDirectory .. "src/events/NPCPersonDialogEvents.lua")
 
     -- Core systems in dependency order
     print("[NPC Favor] Loading core systems...")
@@ -120,6 +121,8 @@ if modDirectory then
 
     -- Main coordinator
     source(modDirectory .. "src/NPCSystem.lua")
+    -- RSF-F357 section 9: the dialog dispatcher and the client adapters (methods on NPCSystem)
+    source(modDirectory .. "src/scripts/NPCPersonDialog.lua")
 
     -- Cross-mod integrations (load after the coordinator)
     source(modDirectory .. "src/scripts/NPCFieldSentry.lua")

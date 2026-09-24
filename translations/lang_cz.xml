@@ -440,5 +440,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Nelze propojit se stejným sousedem"/>
 		<text name="npc_person_server_only" text="Poradce může zaregistrovat pouze hostitel."/>
 		<text name="npc_person_bad_claim" text="Žádost o poradce byla odmítnuta: jméno nebo pozice nebyly použitelné."/>
+		<text name="npc_dialog_pending" text="Ptáme se souseda..."/>
+		<text name="npc_dialog_unavailable" text="Momentálně nedostupné."/>
+		<text name="npc_dialog_refused_person" text="Tento soused tu není, aby si s vámi promluvil."/>
+		<text name="npc_dialog_refused_far" text="Na to jste příliš daleko."/>
+		<text name="npc_dialog_refused_farm" text="K tomu musíte být na farmě."/>
+		<text name="npc_dialog_refused_stale" text="Tato nabídka se změnila. Podívám se znovu."/>
+		<text name="npc_dialog_refused_request_reuse" text="Na tento požadavek už byla dána jiná odpověď."/>
+		<text name="npc_dialog_refused_relationship" text="Tento soused vás ještě nezná dost dobře."/>
+		<text name="npc_dialog_refused_not_ready" text="Tuto práci ještě nelze uzavřít."/>
+		<text name="npc_dialog_refused_operation" text="To tady nejde."/>
+		<text name="npc_dialog_talk_ok" text="Díky za rozhovor."/>
+		<text name="npc_dialog_talk_limit" text="(Dnes už jsme mluvili, vztah beze změny)"/>
+		<text name="npc_dialog_tone_warm" text="Vždycky rád vás vidím."/>
+		<text name="npc_dialog_tone_cold" text="Hm. Zase vy."/>
+		<text name="npc_dialog_tone_cool" text="Ó. Ahoj."/>
+		<text name="npc_dialog_declined" text="Zatím to zvládám, ale díky."/>
+		<text name="npc_dialog_no_work" text="Teď nic nepotřebuji, ale díky za optání!"/>
+		<text name="npc_dialog_offer" text="Mám pro vás něco."/>
+		<text name="npc_dialog_offer_waiting" text="Mám pro vás něco: %s"/>
+		<text name="npc_dialog_accepted" text="Díky! Vaši pomoc opravdu potřebuji."/>
+		<text name="npc_dialog_accepted_short" text="Díky! Vaši pomoc opravdu potřebuji."/>
+		<text name="npc_dialog_completed" text="Moc díky za pomoc! Tady je vaše odměna."/>
+		<text name="npc_dialog_abandoned" text="Dobře, tak to nechme."/>
+		<text name="npc_dialog_busy" text="S tím už pomáhám jiné farmě. Přijďte později!"/>
+		<text name="npc_dialog_come_find_me" text="Přijďte za mnou domů. Musím vás vidět osobně, abychom to uzavřeli!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Zaneprázdněn jinou farmou"/>
+		<text name="npc_dialog_gift_ok" text="Díky za dárek!"/>
+		<text name="npc_dialog_gift_refused" text="Dárek se nepodařilo předat."/>
+		<text name="npc_dialog_ok" text="Hotovo."/>
+		<text name="npc_work_view_unavailable" text="Váš seznam prací je momentálně nedostupný."/>
+		<text name="npc_work_view_last_confirmed" text="Zobrazuje se poslední potvrzený seznam prací; soused ještě neodpověděl."/>
+		<text name="npc_work_view_last_confirmed_short" text="naposledy potvrzeno"/>
+		<text name="npc_rf_pda_completed_count" text="%d dokončeno pro tuto farmu"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Zde nedostupné: souseda může upravit pouze hostitel."/>
 </texts>
 </l10n>

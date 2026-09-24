@@ -593,6 +593,7 @@ function NPCFavorSystem:generateFavorRequest()
     if favor then
         -- Add to player's active favors
         table.insert(self.activeFavors, favor)
+        if self.assignRecoveryToken ~= nil then self:assignRecoveryToken(favor) end
         
         -- Set NPC cooldown
         local cooldownDays = self.npcSystem.settings.favorFrequency
@@ -763,19 +764,24 @@ function NPCFavorSystem:createFavor(npc, favorTypeId)
     return favor
 end
 
-function NPCFavorSystem:checkFavorRequirements(npc, favorType)
+function NPCFavorSystem:checkFavorRequirements(npc, favorType, actingFarmId)
     -- Check relationship requirement
     if favorType.requirements.minRelationship and npc.relationship < favorType.requirements.minRelationship then
         return false
     end
-    
-    -- Check player money requirement
+
+    -- Check player money requirement. RSF-F357: a request names its verified
+    -- acting farm and its current balance is what counts, never
+    -- g_currentMission.player (nil on a dedicated server).
     if favorType.requirements.playerMoney then
-        if not g_currentMission or not g_currentMission.player then
-            return false
+        local money = nil
+        if actingFarmId ~= nil then
+            local farm = NPCFarmIdentity.getLiveFarm(actingFarmId)
+            money = farm and farm.money or nil
+        elseif g_currentMission and g_currentMission.player then
+            money = g_currentMission.player.money or 0
         end
-        local playerMoney = g_currentMission.player.money or 0
-        if playerMoney < favorType.requirements.playerMoney then
+        if money == nil or money < favorType.requirements.playerMoney then
             return false
         end
     end
@@ -1062,6 +1068,7 @@ function NPCFavorSystem:completeFavor(favorId)
     -- Update status
     favor.status = "completed"
     favor.progress = 100
+    if self.retireRecoveryToken ~= nil then self:retireRecoveryToken(favor) end
     
     -- Move to completed list
     table.insert(self.completedFavors, favor)
@@ -1109,6 +1116,7 @@ function NPCFavorSystem:failFavor(favorId, reason)
     favor.status = "failed"
     favor.failureTime = g_currentMission.time
     favor.failureReason = reason or "unknown"
+    if self.retireRecoveryToken ~= nil then self:retireRecoveryToken(favor) end
     
     -- Move to failed list
     table.insert(self.failedFavors, favor)
@@ -1162,6 +1170,7 @@ function NPCFavorSystem:abandonFavor(favorId)
     -- Update status
     favor.status = "abandoned"
     favor.abandonTime = g_currentMission.time
+    if self.retireRecoveryToken ~= nil then self:retireRecoveryToken(favor) end
     
     -- Move to abandoned list
     table.insert(self.abandonedFavors, favor)
@@ -1498,7 +1507,7 @@ end
 -- marks the favor, and adds a 15% reward bonus.
 -- Returns the created favor, or nil if the NPC already has one, has nothing eligible,
 -- or (when playerInitiated) the NPC declines.
-function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
+function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated, actingFarmId)
     if not npc or not npc.isActive then return nil end
     if self.isFavorLoadReady ~= nil and not self:isFavorLoadReady() then return nil end
     -- RSF-F357: only a unique live durable person can be offered help.
@@ -1528,7 +1537,7 @@ function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
 
     local available = {}
     for _, favorType in ipairs(self.favorTypes) do
-        if self:checkFavorRequirements(npc, favorType) then
+        if self:checkFavorRequirements(npc, favorType, actingFarmId) then
             table.insert(available, favorType)
         end
     end
@@ -1568,6 +1577,7 @@ function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
             end
         end
         table.insert(self.activeFavors, favor)
+        if self.assignRecoveryToken ~= nil then self:assignRecoveryToken(favor) end
         local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
         npc.favorCooldown = cooldownDays * 300
     end

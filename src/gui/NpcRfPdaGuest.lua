@@ -135,6 +135,8 @@ local function showTableMode(container)
     refreshFwAbs(container)
 end
 
+local _watchingWork = false
+
 local function getSys()
     if g_currentMission ~= nil and g_currentMission.npcFavorSystem ~= nil then
         return g_currentMission.npcFavorSystem
@@ -277,66 +279,53 @@ local function formatHistory(sys, npcId, info)
     return cell
 end
 
+--- RSF-F357: the roster is the host's copied roster view. A live durable
+--- person shows her public trust; a waiting, presence or opaque row shows its
+--- reason and no score (never a zero, never a fabricated history).
 local function buildRoster(sys)
     local roster = {}
-    if sys == nil or type(sys.activeNPCs) ~= "table" then
+    if sys == nil or type(sys.getNeighbourRosterView) ~= "function" then
         return roster
     end
-    for _, npc in ipairs(sys.activeNPCs) do
-        if npc ~= nil and npc.isActive ~= false then
-            local npcId = npc.id
-            local info = nil
-            if sys.relationshipManager ~= nil and type(sys.relationshipManager.getRelationshipInfo) == "function" then
-                local ok, got = pcall(function() return sys.relationshipManager:getRelationshipInfo(npcId) end)
-                if ok then info = got end
+    local ok, view = pcall(function() return sys:getNeighbourRosterView() end)
+    if not ok or type(view) ~= "table" then return roster end
+    for _, r in ipairs(view.rows or {}) do
+        local who = r.name
+        if who == nil or who == "" then who = tostring(r.personId or "?") end
+        local score, standing, benefits, history = nil, "--", "--", "--"
+        if r.kind == "LIVE" and r.trust ~= nil then
+            score = math.floor(r.trust + 0.5)
+            local level = nil
+            if sys.relationshipManager ~= nil and type(sys.relationshipManager.getRelationshipLevel) == "function" then
+                local ok2, got = pcall(function() return sys.relationshipManager:getRelationshipLevel(score) end)
+                if ok2 then level = got end
             end
-            local score = nil
-            if info ~= nil and info.value ~= nil then
-                score = tonumber(info.value)
-            end
-            if score == nil and type(sys.getRelationshipValue) == "function" then
-                local ok, v = pcall(function() return sys:getRelationshipValue(npcId) end)
-                if ok then score = tonumber(v) end
-            end
-            if score == nil then
-                score = tonumber(npc.relationship) or 0
-            end
-            score = math.floor(score + 0.5)
-
-            local level = info and info.level
-            if level == nil and sys.relationshipManager ~= nil
-                and type(sys.relationshipManager.getRelationshipLevel) == "function" then
-                local ok, got = pcall(function() return sys.relationshipManager:getRelationshipLevel(score) end)
-                if ok then level = got end
-            end
-
-            local benefits = nil
-            if level ~= nil and level.benefits ~= nil then
-                benefits = level.benefits
-            elseif info ~= nil and info.benefits ~= nil then
-                benefits = info.benefits
-            end
-
-            local who = npc.name
-            if who == nil or who == "" then
-                who = tostring(npcId or "?")
-            end
-
-            local standing
             if level ~= nil and level.name ~= nil then
                 standing = string.format("%s · %d", tierLabel(level.name), score)
             else
-                standing = "--"
+                standing = tostring(score)
             end
-
-            roster[#roster + 1] = {
-                who = tostring(who),
-                score = score,
-                standing = standing,
-                benefits = formatBenefits(benefits),
-                history = formatHistory(sys, npcId, info),
-            }
+            if level ~= nil and level.benefits ~= nil then
+                benefits = formatBenefits(level.benefits)
+            end
+            local info = nil
+            if sys.relationshipManager ~= nil and type(sys.relationshipManager.getRelationshipInfo) == "function" then
+                local ok3, got = pcall(function() return sys.relationshipManager:getRelationshipInfo(r.personId) end)
+                if ok3 then info = got end
+            end
+            if info ~= nil then history = formatHistory(sys, r.personId, info) end
+        elseif r.reasonKey ~= nil and r.reasonKey ~= "" then
+            standing = tr(r.reasonKey, r.reasonKey)
         end
+        roster[#roster + 1] = {
+            who = tostring(who),
+            score = score or -1,
+            standing = standing,
+            benefits = benefits,
+            history = history,
+            kind = r.kind,
+            personId = r.personId,
+        }
     end
 
     table.sort(roster, function(a, b)
@@ -348,32 +337,15 @@ local function buildRoster(sys)
     return roster
 end
 
-local function collectActiveFavors(sys)
-    local favors = {}
-    if sys == nil or sys.favorSystem == nil or type(sys.favorSystem.getActiveFavors) ~= "function" then
-        return favors
-    end
-    local ok, list = pcall(function() return sys.favorSystem:getActiveFavors() end)
-    if not ok or type(list) ~= "table" then
-        return favors
-    end
-    local farmId = getLocalFarmId()
-    local farmFiltered = {}
-    for _, favor in ipairs(list) do
-        if favor ~= nil then
-            if farmId ~= nil and favor.ownerFarmId ~= nil then
-                if favor.ownerFarmId == farmId then
-                    farmFiltered[#farmFiltered + 1] = favor
-                end
-            else
-                favors[#favors + 1] = favor
-            end
-        end
-    end
-    if #farmFiltered > 0 then
-        return farmFiltered
-    end
-    return favors
+--- RSF-F357 section 9b: the favours are the owner's copied work page (this
+--- farm's accepted work and the public offers), never the raw collections.
+--- An unavailable page is an honest empty block, not a claimed zero.
+local function workPage(sys)
+    if sys == nil or type(sys.getPersonalWorkView) ~= "function" then return nil end
+    local ok, view = pcall(function() return sys:getPersonalWorkView() end)
+    if not ok or type(view) ~= "table" then return nil end
+    if view.state ~= "CURRENT" and view.state ~= "LAST_CONFIRMED" then return nil end
+    return view
 end
 
 local function favorWho(favor, sys)
@@ -381,53 +353,26 @@ local function favorWho(favor, sys)
     if favor.npcName ~= nil and favor.npcName ~= "" then
         return tostring(favor.npcName)
     end
-    if sys ~= nil and type(sys.activeNPCs) == "table" and favor.npcId ~= nil then
-        for _, npc in ipairs(sys.activeNPCs) do
-            if npc ~= nil and npc.id == favor.npcId then
-                return tostring(npc.name or favor.npcId)
-            end
-        end
-    end
-    return tostring(favor.npcId or "?")
+    return tostring(favor.personId or "?")
 end
 
---- BUILD 17:24 (George CLOSED DESIGN 17:14): the three favor groups. Available = pending,
---- Current = active / in_progress (both from getActiveFavors, farm-filtered like
---- collectActiveFavors), Completed = getCompletedFavors count with the same farm rule
---- (the farm slice when one exists, else the unowned favors).
+--- The three groups: Available = public offers, Current = this farm's active
+--- and in-progress work, Completed = the count the owner supplied (a summary,
+--- not history; unknown reads unavailable).
 local function splitFavorGroups(sys)
     local pending, current = {}, {}
-    for _, favor in ipairs(collectActiveFavors(sys)) do
-        local st = favor.status
+    local view = workPage(sys)
+    if view == nil then return pending, current, nil, nil end
+    for _, r in ipairs(view.rows or {}) do
+        local st = r.status
         if st == "pending" then
-            pending[#pending + 1] = favor
+            pending[#pending + 1] = r
         elseif st == "active" or st == "in_progress" then
-            current[#current + 1] = favor
+            current[#current + 1] = r
         end
     end
-    -- BUILD 00:06: Completed comes back as the LIST (the favors table shows every row), same
-    -- farm rule: the farm slice when one exists, else the unowned favors.
-    local completed = {}
-    if sys ~= nil and sys.favorSystem ~= nil and type(sys.favorSystem.getCompletedFavors) == "function" then
-        local ok, list = pcall(function() return sys.favorSystem:getCompletedFavors() end)
-        if ok and type(list) == "table" then
-            local farmId = getLocalFarmId()
-            local mine, unowned = {}, {}
-            for _, favor in ipairs(list) do
-                if favor ~= nil then
-                    if farmId ~= nil and favor.ownerFarmId ~= nil then
-                        if favor.ownerFarmId == farmId then
-                            mine[#mine + 1] = favor
-                        end
-                    else
-                        unowned[#unowned + 1] = favor
-                    end
-                end
-            end
-            completed = (#mine > 0) and mine or unowned
-        end
-    end
-    return pending, current, completed
+    local completedCount = view.completedKnown and view.completedCount or nil
+    return pending, current, completedCount, view
 end
 
 local function byUrgency(a, b)
@@ -441,11 +386,11 @@ end
 --- by urgency ascending, then Available (pending) by urgency ascending, then Completed; every row
 --- tagged with its group; urgency = urgencyLabel for Current / Available, "done" for Completed.
 local function buildFavorRows(sys)
-    local pending, current, completed = splitFavorGroups(sys)
+    local pending, current, completedCount, view = splitFavorGroups(sys)
     table.sort(current, byUrgency)
     table.sort(pending, byUrgency)
     local rows = {}
-    local function add(list, groupText, done)
+    local function add(list, groupText)
         for _, favor in ipairs(list) do
             local whoFull = favorWho(favor, sys)
             local whatFull = favorWhat(favor)
@@ -453,15 +398,26 @@ local function buildFavorRows(sys)
                 group = groupText,
                 who = clipCell(whoFull, 12),
                 what = clipCell(whatFull, 50),
-                urgency = done and tr("npc_rf_pda_urg_done", "done") or urgencyLabel(favor),
+                urgency = urgencyLabel({ timeRemaining = favor.timeRemainingMs }),
                 whoFull = whoFull,
                 whatFull = whatFull,
             }
         end
     end
-    add(current, tr("npc_rf_pda_group_current", "Current"), false)
-    add(pending, tr("npc_rf_pda_group_available", "Available"), false)
-    add(completed, tr("npc_rf_pda_group_completed", "Completed"), true)
+    add(current, tr("npc_rf_pda_group_current", "Current"))
+    add(pending, tr("npc_rf_pda_group_available", "Available"))
+    if completedCount ~= nil then
+        local whatFull = string.format(tr("npc_rf_pda_completed_count", "%d completed for this farm"), completedCount)
+        rows[#rows + 1] = {
+            group = tr("npc_rf_pda_group_completed", "Completed"),
+            who = "-", what = clipCell(whatFull, 50),
+            urgency = tr("npc_rf_pda_urg_done", "done"),
+            whoFull = "-", whatFull = whatFull,
+        }
+    end
+    if view ~= nil and view.state == "LAST_CONFIRMED" and #rows > 0 then
+        rows[#rows].urgency = tr("npc_work_view_last_confirmed_short", "last confirmed")
+    end
     return rows
 end
 
@@ -794,6 +750,14 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
     local full = not lightOnly
     local sys = getSys()
     _lastContainer = container
+    -- RSF-F357: watch the shared work page while shown; a full show asks for it.
+    if sys ~= nil and type(sys.watchPersonalWork) == "function" and not _watchingWork then
+        _watchingWork = true
+        pcall(function() sys:watchPersonalWork(true) end)
+    end
+    if full and sys ~= nil and type(sys.requestPersonalWorkView) == "function" then
+        pcall(function() sys:requestPersonalWorkView("") end)
+    end
     if full then
         _rosterRows = buildRoster(sys)
         _favorRows = buildFavorRows(sys)
@@ -831,8 +795,14 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
 end
 
 function NpcRfPdaGuest.onHide()
-    -- BUILD 00:06: nothing to reset; the lists reload on the next full show and the static sheet
+    -- BUILD 00:06: the lists reload on the next full show and the static sheet
     -- is handed back by the registry change listener (restoreSheetIfLeft).
+    -- RSF-F357: stop watching the shared work page.
+    local sys = getSys()
+    if _watchingWork and sys ~= nil and type(sys.watchPersonalWork) == "function" then
+        _watchingWork = false
+        pcall(function() sys:watchPersonalWork(false) end)
+    end
 end
 
 --- BUILD 14:04: publish the guest handle the same way MdRfPdaGuest publishes its classes

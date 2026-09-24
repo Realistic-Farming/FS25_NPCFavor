@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Nem köthető ugyanahhoz a szomszédhoz"/>
 		<text name="npc_person_server_only" text="Tanácsadót csak a házigazda regisztrálhat."/>
 		<text name="npc_person_bad_claim" text="A tanácsadói kérést elutasítottuk: a név vagy a pozíció nem volt használható."/>
+		<text name="npc_dialog_pending" text="Megkérdezzük a szomszédot..."/>
+		<text name="npc_dialog_unavailable" text="Jelenleg nem elérhető."/>
+		<text name="npc_dialog_refused_person" text="Az a szomszéd nincs itt, hogy beszélhess vele."/>
+		<text name="npc_dialog_refused_far" text="Túl messze vagy ehhez."/>
+		<text name="npc_dialog_refused_farm" text="Ehhez egy farmon kell lenned."/>
+		<text name="npc_dialog_refused_stale" text="Ez az ajánlat megváltozott. Hadd nézzem meg újra."/>
+		<text name="npc_dialog_refused_request_reuse" text="Erre a kérésre már más választ adtunk."/>
+		<text name="npc_dialog_refused_relationship" text="Ez a szomszéd még nem ismer eléggé."/>
+		<text name="npc_dialog_refused_not_ready" text="Ez a munka még nem zárható le."/>
+		<text name="npc_dialog_refused_operation" text="Ezt itt nem lehet megtenni."/>
+		<text name="npc_dialog_talk_ok" text="Köszönöm a beszélgetést."/>
+		<text name="npc_dialog_talk_limit" text="(Ma már beszéltünk, a kapcsolat nem változik)"/>
+		<text name="npc_dialog_tone_warm" text="Mindig jó látni téged."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Már megint te."/>
+		<text name="npc_dialog_tone_cool" text="Ó. Szia."/>
+		<text name="npc_dialog_declined" text="Egyelőre megvagyok, de köszönöm."/>
+		<text name="npc_dialog_no_work" text="Most nincs szükségem semmire, de köszönöm, hogy kérdezted!"/>
+		<text name="npc_dialog_offer" text="Van valamim a számodra."/>
+		<text name="npc_dialog_offer_waiting" text="Van valamim a számodra: %s"/>
+		<text name="npc_dialog_accepted" text="Köszönöm! Tényleg szükségem van a segítségedre."/>
+		<text name="npc_dialog_accepted_short" text="Köszönöm! Tényleg szükségem van a segítségedre."/>
+		<text name="npc_dialog_completed" text="Nagyon köszönöm a segítséget! Itt a jutalmad."/>
+		<text name="npc_dialog_abandoned" text="Rendben, akkor felejtsd el."/>
+		<text name="npc_dialog_busy" text="Ebben már egy másik farmnak segítek. Gyere vissza később!"/>
+		<text name="npc_dialog_come_find_me" text="Gyere el hozzám haza. Személyesen kell látnom téged, hogy lezárjuk!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Egy másik farmmal van elfoglalva"/>
+		<text name="npc_dialog_gift_ok" text="Köszönöm az ajándékot!"/>
+		<text name="npc_dialog_gift_refused" text="Az ajándékot nem sikerült átadni."/>
+		<text name="npc_dialog_ok" text="Kész."/>
+		<text name="npc_work_view_unavailable" text="A munkalistád jelenleg nem elérhető."/>
+		<text name="npc_work_view_last_confirmed" text="Az utoljára megerősített munkalista látható; a szomszéd még nem válaszolt."/>
+		<text name="npc_work_view_last_confirmed_short" text="utoljára megerősítve"/>
+		<text name="npc_rf_pda_completed_count" text="%d befejezve ennek a farmnak"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Itt nem elérhető: csak a házigazda módosíthat egy szomszédot."/>
 </texts>
 </l10n>

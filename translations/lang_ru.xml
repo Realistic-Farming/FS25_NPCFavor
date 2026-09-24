@@ -440,5 +440,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Нельзя связать с тем же соседом"/>
 		<text name="npc_person_server_only" text="Только хост может зарегистрировать консультанта."/>
 		<text name="npc_person_bad_claim" text="Запрос консультанта отклонён: имя или позиция были непригодны."/>
+		<text name="npc_dialog_pending" text="Спрашиваем соседа..."/>
+		<text name="npc_dialog_unavailable" text="Сейчас недоступно."/>
+		<text name="npc_dialog_refused_person" text="Этого соседа здесь нет, поговорить не с кем."/>
+		<text name="npc_dialog_refused_far" text="Вы слишком далеко для этого."/>
+		<text name="npc_dialog_refused_farm" text="Для этого нужно быть на ферме."/>
+		<text name="npc_dialog_refused_stale" text="Это предложение изменилось. Дайте взглянуть ещё раз."/>
+		<text name="npc_dialog_refused_request_reuse" text="На этот запрос уже был дан другой ответ."/>
+		<text name="npc_dialog_refused_relationship" text="Этот сосед пока недостаточно хорошо вас знает."/>
+		<text name="npc_dialog_refused_not_ready" text="Эту работу пока нельзя завершить."/>
+		<text name="npc_dialog_refused_operation" text="Здесь это сделать нельзя."/>
+		<text name="npc_dialog_talk_ok" text="Спасибо за разговор."/>
+		<text name="npc_dialog_talk_limit" text="(Сегодня уже разговаривали, отношения без изменений)"/>
+		<text name="npc_dialog_tone_warm" text="Всегда рад вас видеть."/>
+		<text name="npc_dialog_tone_cold" text="Хм. Опять вы."/>
+		<text name="npc_dialog_tone_cool" text="О. Привет."/>
+		<text name="npc_dialog_declined" text="Пока справляюсь сам, но спасибо."/>
+		<text name="npc_dialog_no_work" text="Мне сейчас ничего не нужно, но спасибо, что спросили!"/>
+		<text name="npc_dialog_offer" text="У меня есть кое-что для вас."/>
+		<text name="npc_dialog_offer_waiting" text="У меня есть кое-что для вас: %s"/>
+		<text name="npc_dialog_accepted" text="Спасибо! Мне очень нужна ваша помощь."/>
+		<text name="npc_dialog_accepted_short" text="Спасибо! Мне очень нужна ваша помощь."/>
+		<text name="npc_dialog_completed" text="Большое спасибо за помощь! Вот ваша награда."/>
+		<text name="npc_dialog_abandoned" text="Ладно, тогда забудем."/>
+		<text name="npc_dialog_busy" text="Я уже помогаю с этим другой ферме. Заходите позже!"/>
+		<text name="npc_dialog_come_find_me" text="Приходите ко мне домой. Мне нужно увидеть вас лично, чтобы закрыть это дело!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Занят с другой фермой"/>
+		<text name="npc_dialog_gift_ok" text="Спасибо за подарок!"/>
+		<text name="npc_dialog_gift_refused" text="Подарок не удалось вручить."/>
+		<text name="npc_dialog_ok" text="Готово."/>
+		<text name="npc_work_view_unavailable" text="Ваш список работ сейчас недоступен."/>
+		<text name="npc_work_view_last_confirmed" text="Показан последний подтверждённый список работ; сосед ещё не ответил."/>
+		<text name="npc_work_view_last_confirmed_short" text="последний подтверждённый"/>
+		<text name="npc_rf_pda_completed_count" text="%d выполнено для этой фермы"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Здесь недоступно: изменить соседа может только хост."/>
 </texts>
 </l10n>

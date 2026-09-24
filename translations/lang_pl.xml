@@ -440,5 +440,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Nie można powiązać z tym samym sąsiadem"/>
 		<text name="npc_person_server_only" text="Tylko gospodarz może zarejestrować doradcę."/>
 		<text name="npc_person_bad_claim" text="Zgłoszenie doradcy odrzucono: nazwa lub pozycja nie nadawała się do użycia."/>
+		<text name="npc_dialog_pending" text="Pytam sąsiada..."/>
+		<text name="npc_dialog_unavailable" text="Obecnie niedostępne."/>
+		<text name="npc_dialog_refused_person" text="Tego sąsiada nie ma tu, by z nim porozmawiać."/>
+		<text name="npc_dialog_refused_far" text="Jesteś za daleko, by to zrobić."/>
+		<text name="npc_dialog_refused_farm" text="Musisz być na farmie, by to zrobić."/>
+		<text name="npc_dialog_refused_stale" text="Ta oferta się zmieniła. Pozwól, że spojrzę jeszcze raz."/>
+		<text name="npc_dialog_refused_request_reuse" text="Na tę prośbę udzielono już innej odpowiedzi."/>
+		<text name="npc_dialog_refused_relationship" text="Ten sąsiad jeszcze nie zna cię wystarczająco dobrze."/>
+		<text name="npc_dialog_refused_not_ready" text="Tej pracy nie da się jeszcze zamknąć."/>
+		<text name="npc_dialog_refused_operation" text="Tego nie da się tu zrobić."/>
+		<text name="npc_dialog_talk_ok" text="Dzięki za rozmowę."/>
+		<text name="npc_dialog_talk_limit" text="(Dziś już rozmawialiśmy, relacja bez zmian)"/>
+		<text name="npc_dialog_tone_warm" text="Zawsze miło cię widzieć."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Znowu ty."/>
+		<text name="npc_dialog_tone_cool" text="Och. Cześć."/>
+		<text name="npc_dialog_declined" text="Na razie sobie radzę, ale dziękuję."/>
+		<text name="npc_dialog_no_work" text="Niczego teraz nie potrzebuję, ale dzięki za pytanie!"/>
+		<text name="npc_dialog_offer" text="Mam coś dla ciebie."/>
+		<text name="npc_dialog_offer_waiting" text="Mam coś dla ciebie: %s"/>
+		<text name="npc_dialog_accepted" text="Dziękuję! Naprawdę potrzebuję twojej pomocy."/>
+		<text name="npc_dialog_accepted_short" text="Dziękuję! Naprawdę potrzebuję twojej pomocy."/>
+		<text name="npc_dialog_completed" text="Wielkie dzięki za pomoc! Oto twoja nagroda."/>
+		<text name="npc_dialog_abandoned" text="Dobrze, to nieważne."/>
+		<text name="npc_dialog_busy" text="Już pomagam w tym innej farmie. Wróć później!"/>
+		<text name="npc_dialog_come_find_me" text="Przyjdź do mnie do domu. Muszę cię zobaczyć osobiście, żeby to zamknąć!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Zajęty inną farmą"/>
+		<text name="npc_dialog_gift_ok" text="Dziękuję za prezent!"/>
+		<text name="npc_dialog_gift_refused" text="Nie udało się wręczyć prezentu."/>
+		<text name="npc_dialog_ok" text="Gotowe."/>
+		<text name="npc_work_view_unavailable" text="Twoja lista prac jest obecnie niedostępna."/>
+		<text name="npc_work_view_last_confirmed" text="Wyświetlana jest ostatnia potwierdzona lista prac; sąsiad jeszcze nie odpowiedział."/>
+		<text name="npc_work_view_last_confirmed_short" text="ostatnio potwierdzona"/>
+		<text name="npc_rf_pda_completed_count" text="%d ukończonych dla tej farmy"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Niedostępne tutaj: tylko gospodarz może zmienić sąsiada."/>
 </texts>
 </l10n>

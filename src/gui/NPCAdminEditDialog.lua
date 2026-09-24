@@ -112,6 +112,19 @@ end
 function NPCAdminEditDialog:adjustRelationship(amount)
     if not self.npc or not self.npcSystem then return end
 
+    -- RSF-F357: the direct adjustment writes the model, so only the verified
+    -- local host may do it (the server with its own local player). A remote
+    -- client sees it unavailable rather than editing its local copy; no remote
+    -- admin RPC is commissioned.
+    if g_server == nil or g_localPlayer == nil then
+        if self.statusText then
+            self.statusText:setText((g_i18n and g_i18n.hasText and g_i18n:hasText("npc_admin_edit_unavailable_remote"))
+                and g_i18n:getText("npc_admin_edit_unavailable_remote") or "Unavailable here: only the host can adjust a neighbour.")
+            self.statusText:setTextColor(1, 0.7, 0.4, 1)
+        end
+        return
+    end
+
     local rm = self.npcSystem.relationshipManager
     if not rm then return end
 

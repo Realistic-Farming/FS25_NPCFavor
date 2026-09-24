@@ -440,5 +440,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Cannot be linked to the same neighbour" />
 		<text name="npc_person_server_only" text="Only the host can register a consultant." />
 		<text name="npc_person_bad_claim" text="The consultant claim was refused: the name or position was not usable." />
+		<text name="npc_dialog_pending" text="Asking the neighbour..." />
+		<text name="npc_dialog_unavailable" text="Unavailable right now." />
+		<text name="npc_dialog_refused_person" text="That neighbour is not here to talk to." />
+		<text name="npc_dialog_refused_far" text="You are too far away to do that." />
+		<text name="npc_dialog_refused_farm" text="You need to be on a farm to do that." />
+		<text name="npc_dialog_refused_stale" text="That offer changed. Let me look again." />
+		<text name="npc_dialog_refused_request_reuse" text="That request was already answered differently." />
+		<text name="npc_dialog_refused_relationship" text="This neighbour does not know you well enough yet." />
+		<text name="npc_dialog_refused_not_ready" text="That job is not ready to close yet." />
+		<text name="npc_dialog_refused_operation" text="That cannot be done here." />
+		<text name="npc_dialog_talk_ok" text="Thanks for the chat." />
+		<text name="npc_dialog_talk_limit" text="(Already chatted today, no relationship change)" />
+		<text name="npc_dialog_tone_warm" text="It's always good to see you." />
+		<text name="npc_dialog_tone_cold" text="Hmm. You again." />
+		<text name="npc_dialog_tone_cool" text="Oh. Hi." />
+		<text name="npc_dialog_declined" text="I'm alright for now, but thank you." />
+		<text name="npc_dialog_no_work" text="I don't need anything right now, but thanks for asking!" />
+		<text name="npc_dialog_offer" text="I have something for you." />
+		<text name="npc_dialog_offer_waiting" text="I have something for you: %s" />
+		<text name="npc_dialog_accepted" text="Thank you! I really need your help." />
+		<text name="npc_dialog_accepted_short" text="Thank you! I really need your help." />
+		<text name="npc_dialog_completed" text="Thanks so much for your help! Here's your reward." />
+		<text name="npc_dialog_abandoned" text="All right, forget it then." />
+		<text name="npc_dialog_busy" text="I'm already helping another farm with that. Come back later!" />
+		<text name="npc_dialog_come_find_me" text="Come find me at home. I need to see you in person to close this out!" />
+		<text name="npc_dialog_btn_favor_busy" text="Busy with another farm" />
+		<text name="npc_dialog_gift_ok" text="Thank you for the gift!" />
+		<text name="npc_dialog_gift_refused" text="The gift could not be given." />
+		<text name="npc_dialog_ok" text="Done." />
+		<text name="npc_work_view_unavailable" text="Your work list is not available right now." />
+		<text name="npc_work_view_last_confirmed" text="Showing the last confirmed work list; the neighbour has not answered yet." />
+		<text name="npc_work_view_last_confirmed_short" text="last confirmed" />
+		<text name="npc_rf_pda_completed_count" text="%d completed for this farm" />
+		<text name="npc_admin_edit_unavailable_remote" text="Unavailable here: only the host can adjust a neighbour." />
 </texts>
 </l10n>

@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Nu poate fi legată de același vecin"/>
 		<text name="npc_person_server_only" text="Doar gazda poate înregistra un consultant."/>
 		<text name="npc_person_bad_claim" text="Cererea de consultant a fost refuzată: numele sau poziția nu au putut fi folosite."/>
+		<text name="npc_dialog_pending" text="Îl întrebăm pe vecin..."/>
+		<text name="npc_dialog_unavailable" text="Indisponibil momentan."/>
+		<text name="npc_dialog_refused_person" text="Acel vecin nu este aici ca să vorbești cu el."/>
+		<text name="npc_dialog_refused_far" text="Ești prea departe pentru asta."/>
+		<text name="npc_dialog_refused_farm" text="Trebuie să fii la o fermă pentru asta."/>
+		<text name="npc_dialog_refused_stale" text="Oferta aceea s-a schimbat. Lasă-mă să mă uit din nou."/>
+		<text name="npc_dialog_refused_request_reuse" text="Cererea aceea a primit deja alt răspuns."/>
+		<text name="npc_dialog_refused_relationship" text="Acest vecin nu te cunoaște încă destul de bine."/>
+		<text name="npc_dialog_refused_not_ready" text="Munca aceea nu poate fi încheiată încă."/>
+		<text name="npc_dialog_refused_operation" text="Asta nu se poate face aici."/>
+		<text name="npc_dialog_talk_ok" text="Mulțumesc pentru discuție."/>
+		<text name="npc_dialog_talk_limit" text="(Am vorbit deja azi, relația nu se schimbă)"/>
+		<text name="npc_dialog_tone_warm" text="Întotdeauna mă bucur să te văd."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Iar tu."/>
+		<text name="npc_dialog_tone_cool" text="O. Salut."/>
+		<text name="npc_dialog_declined" text="Deocamdată mă descurc, dar mulțumesc."/>
+		<text name="npc_dialog_no_work" text="Nu am nevoie de nimic acum, dar mulțumesc că ai întrebat!"/>
+		<text name="npc_dialog_offer" text="Am ceva pentru tine."/>
+		<text name="npc_dialog_offer_waiting" text="Am ceva pentru tine: %s"/>
+		<text name="npc_dialog_accepted" text="Mulțumesc! Chiar am nevoie de ajutorul tău."/>
+		<text name="npc_dialog_accepted_short" text="Mulțumesc! Chiar am nevoie de ajutorul tău."/>
+		<text name="npc_dialog_completed" text="Mulțumesc mult pentru ajutor! Iată răsplata ta."/>
+		<text name="npc_dialog_abandoned" text="Bine, atunci lasă."/>
+		<text name="npc_dialog_busy" text="Deja ajut o altă fermă cu asta. Revino mai târziu!"/>
+		<text name="npc_dialog_come_find_me" text="Vino la mine acasă. Trebuie să te văd în persoană ca să închidem asta!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Ocupat cu altă fermă"/>
+		<text name="npc_dialog_gift_ok" text="Mulțumesc pentru cadou!"/>
+		<text name="npc_dialog_gift_refused" text="Cadoul nu a putut fi oferit."/>
+		<text name="npc_dialog_ok" text="Gata."/>
+		<text name="npc_work_view_unavailable" text="Lista ta de lucrări nu este disponibilă momentan."/>
+		<text name="npc_work_view_last_confirmed" text="Se afișează ultima listă de lucrări confirmată; vecinul nu a răspuns încă."/>
+		<text name="npc_work_view_last_confirmed_short" text="ultima confirmată"/>
+		<text name="npc_rf_pda_completed_count" text="%d finalizate pentru această fermă"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Indisponibil aici: doar gazda poate ajusta un vecin."/>
 </texts>
 </l10n>

@@ -926,11 +926,8 @@ function NPCFavorSystem:restoreFavor(saved, staging)
             table.insert(self.activeFavors, record)
         else
             table.insert(self.recoveryFavors, record)
-            self:assignRecoveryToken(record)
         end
-        if record.recoveredFromLegacy and collection == "active" then
-            self:assignRecoveryToken(record)
-        end
+        self:assignRecoveryToken(record)
     end
     return record, collection
 end
@@ -1068,11 +1065,11 @@ function NPCFavorSystem:rebuildRecoveryTokens()
         favor.recoveryToken = nil
         self:assignRecoveryToken(favor)
     end
+    -- RSF-F357: every live row carries a session token, so a dialog's accept,
+    -- complete or abandon can name the exact record it showed.
     for _, favor in ipairs(self.activeFavors or {}) do
-        if favor.recoveredFromLegacy then
-            favor.recoveryToken = nil
-            self:assignRecoveryToken(favor)
-        end
+        favor.recoveryToken = nil
+        self:assignRecoveryToken(favor)
     end
     self._recoveryCollectionRevision = (self._recoveryCollectionRevision or 0) + 1
     self._recoveryRequests = {}

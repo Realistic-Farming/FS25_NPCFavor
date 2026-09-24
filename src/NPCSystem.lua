@@ -4145,6 +4145,12 @@ function NPCSystem:update(dt)
         return
     end
 
+    -- RSF-F357 section 9b: the shared 2-second work-page refresh and the farm
+    -- change clear, on both sides (presentation timing, never a favour clock).
+    if self.tickPersonalWork ~= nil then
+        self:tickPersonalWork(dt)
+    end
+
     -- FS25 passes dt in milliseconds - convert to seconds for all timers/movement
     dt = dt / 1000
 
@@ -5448,6 +5454,7 @@ function NPCSystem:onUserRemovedMessage(user)
     local ok, userId = pcall(function() return user:getId() end)
     if ok and userId ~= nil then
         self.favorSystem:onActorDisconnected("user:" .. tostring(userId))
+        if self.clearDialogSession ~= nil then self:clearDialogSession("user:" .. tostring(userId)) end
     end
 end
 
@@ -5478,96 +5485,131 @@ end
 -- Called from NPCInteractionEvent.execute() after validation
 -- =========================================================
 
-function NPCSystem:serverAcceptFavor(npc, farmId)
-    -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
-    if not self:isPersonActionable(npc) then return false end
-    -- Rate limiting: check cooldown
-    if npc.favorCooldown > 0 then
-        if self.settings.debugMode then
-            print(string.format("[NPC Favor] Favor accept blocked: %s has cooldown %.0f", npc.name, npc.favorCooldown))
-        end
-        return false
+--- RSF-F357: resolve the exact record a selection names, for this person.
+--- @return favor|nil, reasonKey
+function NPCSystem:_selectedWorkRecord(npc, selection)
+    local fav = self.favorSystem
+    if fav == nil or type(selection) ~= "table" or fav.getRecoveryRecordByToken == nil then
+        return nil, "npc_dialog_refused_stale"
     end
+    local record = fav:getRecoveryRecordByToken(selection.token)
+    if record == nil or record.npcId ~= npc.id then return nil, "npc_dialog_refused_stale" end
+    if (record.recordRevision or 0) ~= selection.recordRevision then return nil, "npc_dialog_refused_stale" end
+    return record
+end
 
-    -- Delegate to the favor system. acceptFavorForNPC(npcId, farmId) stamps
-    -- favor.ownerFarmId = farmId (the acting farm, validated by NPCInteractionEvent:run)
-    -- and returns the favor table. The old call to a non-existent acceptFavor(npc.id,
-    -- farmId) was dead; this is the real signature.
+function NPCSystem:serverAcceptFavor(npc, farmId, selection)
+    -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
     if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
-        return false
+        return false, "npc_dialog_refused_farm"
     end
-    if self.favorSystem and self.favorSystem.acceptFavorForNPC then
-        local favor = self.favorSystem:acceptFavorForNPC(npc.id, farmId)
-        if favor then
-            self.syncDirty = true
-            return true
-        end
+    local fav = self.favorSystem
+    if fav == nil or fav.acceptFavorForNPC == nil then return false, "npc_dialog_unavailable" end
+
+    -- RSF-F357: the exact offer the player saw. The generation cooldown keeps
+    -- another offer from being created; it is no barrier to accepting the one
+    -- already made. Person, revision, durable proof, pending and unowned and
+    -- payment facts, and that this is the sole eligible pending record for
+    -- the person, are all re-resolved here.
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    if record.personRefKind ~= "durable" then return false, "npc_dialog_refused_stale" end
+    if not (NPCPersonDialog ~= nil and NPCPersonDialog.isPublicOffer(record, TimeHelper.getGameTimeMs())) then
+        return false, "npc_dialog_refused_stale"
     end
-    return false
+    if record.rewardPaidPresent ~= true or record.rewardPaid ~= false then return false, "npc_dialog_refused_stale" end
+    local pendingCount = 0
+    for _, other in ipairs(fav.activeFavors or {}) do
+        if other.npcId == npc.id and other.status == "pending" then pendingCount = pendingCount + 1 end
+    end
+    if pendingCount ~= 1 then return false, "npc_dialog_refused_stale" end
+
+    local accepted = fav:acceptFavorForNPC(npc.id, farmId)
+    if accepted ~= record then
+        return false, "npc_dialog_refused_stale"
+    end
+    self.syncDirty = true
+    return true, "npc_dialog_accepted", record
 end
 
-function NPCSystem:serverCompleteFavor(npc, farmId)
+function NPCSystem:serverCompleteFavor(npc, farmId, selection)
     -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
-    if not self:isPersonActionable(npc) then return false end
-    -- Resolve the NPC's active favor, then complete it by its real favorId.
-    -- completeFavor(favorId) is server-authoritative and pays favor.ownerFarmId once
-    -- (idempotency flags + reward.relationship), so this is the single completion +
-    -- money path. The old completeFavor(npc.id, farmId) passed npc.id as a favorId and
-    -- was dead. No extra relationship boost here; applyFavorRewards owns that.
-    if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.completeFavor then
-        local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
-        if favor then
-            -- RSF-F148: an ordinary completion must be performed by the farm that
-            -- owns the job, and a recovered row completes only through the exact
-            -- token command, never through this NPC-keyed door.
-            if favor.recoveredFromLegacy == true then
-                print(string.format("[NPC Favor] Complete refused: favor %s is a recovered record; use the recovery view",
-                    tostring(favor.id)))
-                return false
-            end
-            if favor.ownerFarmId ~= farmId then
-                print(string.format("[NPC Favor SECURITY] Complete refused: farm %s does not own favor %s (owner %s)",
-                    tostring(farmId), tostring(favor.id), tostring(favor.ownerFarmId)))
-                return false
-            end
-            local success = self.favorSystem:completeFavor(favor.id)
-            if success then
-                self.syncDirty = true
-            end
-            return success
-        end
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    local fav = self.favorSystem
+    if fav == nil or fav.completeFavor == nil then return false, "npc_dialog_unavailable" end
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    -- The selected ordinary active work owned by the verified actor farm, not
+    -- a recovered row (those use the exact F148 token command).
+    local inActive = false
+    for _, candidate in ipairs(fav.activeFavors or {}) do
+        if candidate == record then inActive = true break end
     end
-    return false
+    if not inActive or not (record.status == "active" or record.status == "in_progress") then
+        return false, "npc_dialog_refused_stale"
+    end
+    if record.recoveredFromLegacy == true then
+        return false, "npc_recovery_dialog_use_view"
+    end
+    if record.ownerFarmId ~= farmId then
+        print(string.format("[NPC Favor SECURITY] Complete refused: farm %s does not own favor %s (owner %s)",
+            tostring(farmId), tostring(record.id), tostring(record.ownerFarmId)))
+        return false, "npc_recovery_refused_not_owner"
+    end
+    -- Completion re-derives the dialog condition from the server's record:
+    -- every preceding step done and the current one a dialog or loan-repay
+    -- step, or the awaiting-confirmation condition. Client step flags are
+    -- never accepted; an unfinished travel or task step is not a success.
+    local eligible, step = NPCPersonDialog.completionEligible(record)
+    if not eligible then
+        return false, "npc_dialog_refused_not_ready"
+    end
+    if record.awaitingConfirmation == true then
+        record.awaitingConfirmation = false
+    elseif step ~= nil then
+        step.completed = true
+    end
+    local success = fav:completeFavor(record.id)
+    if success then
+        if fav.bumpRecordRevision then fav:bumpRecordRevision(record) end
+        if fav.retireRecoveryToken then fav:retireRecoveryToken(record) end
+        self.syncDirty = true
+        return true, "npc_dialog_completed"
+    end
+    return false, "npc_dialog_refused_stale"
 end
 
-function NPCSystem:serverAbandonFavor(npc, farmId)
+function NPCSystem:serverAbandonFavor(npc, farmId, selection)
     -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
-    if not self:isPersonActionable(npc) then return false end
-    -- Resolve the favor, then abandon it by its real favorId. abandonFavor(favorId)
-    -- applies its own (half) relationship penalty, so no extra penalty here. The old
-    -- abandonFavor(npc.id, farmId) passed npc.id as a favorId and was dead.
-    if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.abandonFavor then
-        local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
-        if favor then
-            -- RSF-F148: owner-only, and recovered rows abandon only by token command.
-            if favor.recoveredFromLegacy == true then
-                print(string.format("[NPC Favor] Abandon refused: favor %s is a recovered record; use the recovery view",
-                    tostring(favor.id)))
-                return false
-            end
-            if favor.ownerFarmId ~= farmId then
-                print(string.format("[NPC Favor SECURITY] Abandon refused: farm %s does not own favor %s (owner %s)",
-                    tostring(farmId), tostring(favor.id), tostring(favor.ownerFarmId)))
-                return false
-            end
-            local success = self.favorSystem:abandonFavor(favor.id)
-            if success then
-                self.syncDirty = true
-            end
-            return success
-        end
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    local fav = self.favorSystem
+    if fav == nil or fav.abandonFavor == nil then return false, "npc_dialog_unavailable" end
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    local inActive = false
+    for _, candidate in ipairs(fav.activeFavors or {}) do
+        if candidate == record then inActive = true break end
     end
-    return false
+    if not inActive or not (record.status == "active" or record.status == "in_progress") then
+        return false, "npc_dialog_refused_stale"
+    end
+    if record.recoveredFromLegacy == true then
+        return false, "npc_recovery_dialog_use_view"
+    end
+    if record.ownerFarmId ~= farmId then
+        print(string.format("[NPC Favor SECURITY] Abandon refused: farm %s does not own favor %s (owner %s)",
+            tostring(farmId), tostring(record.id), tostring(record.ownerFarmId)))
+        return false, "npc_recovery_refused_not_owner"
+    end
+    local success = fav:abandonFavor(record.id)
+    if success then
+        if fav.bumpRecordRevision then fav:bumpRecordRevision(record) end
+        if fav.retireRecoveryToken then fav:retireRecoveryToken(record) end
+        self.syncDirty = true
+        return true, "npc_dialog_abandoned"
+    end
+    return false, "npc_dialog_refused_stale"
 end
 
 function NPCSystem:serverGiveGift(npc, farmId, giftValue, giftType)
@@ -7332,6 +7374,8 @@ function NPCSystem:delete()
     self:teardownTown(false)
     self._ledgerOriginalState = nil
     self._personLoadFailedNotified = nil
+    if self.clearDialogSession ~= nil then self:clearDialogSession(nil) end
+    if self.clearPrivateViews ~= nil then self:clearPrivateViews() end
 
     -- Clean up subsystems
     if self.interactionUI and self.interactionUI.delete then

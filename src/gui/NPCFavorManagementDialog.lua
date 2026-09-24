@@ -23,7 +23,7 @@ NPCFavorManagementDialog.BTN_COLORS = {
     red   = { BG = {0.35,0.12,0.12,0.95}, BG_H = {0.45,0.18,0.18,1}, TXT = {1,0.7,0.7,1}, TXT_H = {1,0.9,0.9,1} },
     green = { BG = {0.12,0.35,0.12,0.95}, BG_H = {0.18,0.45,0.18,1}, TXT = {0.7,1,0.7,1}, TXT_H = {0.9,1,0.9,1} },
 }
-NPCFavorManagementDialog.BTN_TYPE_MAP = { view="blue", cancel="red", goto="blue", complete="green",
+NPCFavorManagementDialog.BTN_TYPE_MAP = { view="blue", cancel="red", ["goto"]="blue", complete="green",
     modetoggle="blue", pageprev="blue", pagenext="blue", farmprev="blue", farmnext="blue" }
 
 -- Mod-scoped i18n with Missing-reject (same shape as NPCDialog.getModText).
@@ -115,6 +115,14 @@ function NPCFavorManagementDialog:onOpen()
     self.selectedFarmId = nil
     self.landOnLastPage = false
     self.footerMessage = nil
+    -- RSF-F357: watch the shared work page while open and ask for it now.
+    if self.npcSystem and self.npcSystem.watchPersonalWork and not self._watchingWork then
+        self._watchingWork = true
+        self.npcSystem:watchPersonalWork(true)
+    end
+    if self.npcSystem and self.npcSystem.requestPersonalWorkView then
+        self.npcSystem:requestPersonalWorkView("")
+    end
     self:updateDisplay()
     -- Ask for the recovery count so the toggle can show it.
     self:requestRecoveryView("")
@@ -217,14 +225,48 @@ function NPCFavorManagementDialog:setButtonVisible(name, visible)
     setVisible(self[name .. "txt"], visible)
 end
 
+--- RSF-F357 section 9b: active mode lists the owner's copied work page (this
+--- farm's accepted work and the public offers), never the local favour
+--- collections. Each row keeps the fields the row painter reads.
 function NPCFavorManagementDialog:getPageItems()
     if self.mode == "recovery" then
         local view = self.recoveryView
         return (view and view.rows) or {}
     end
     local sys = self.npcSystem
-    if not sys or not sys.favorSystem then return {} end
-    return sys.favorSystem.activeFavors or {}
+    if not sys or sys.getPersonalWorkView == nil then return {} end
+    local view = sys:getPersonalWorkView()
+    self.workView = view
+    if view == nil or (view.state ~= "CURRENT" and view.state ~= "LAST_CONFIRMED") then return {} end
+    local items = {}
+    for _, r in ipairs(view.rows or {}) do
+        r.npcId = r.personIdPresent and r.personId or nil
+        r.timeRemaining = r.timeRemainingMs
+        r.reward = r.rewardMoney
+        items[#items + 1] = r
+    end
+    return items
+end
+
+--- Static entry: the shared page changed (a reply arrived); repaint if open.
+function NPCFavorManagementDialog.onPersonalWorkView()
+    local dlg = NPCFavorManagementDialog.INSTANCE
+    if dlg == nil or dlg.mode ~= "active" then return end
+    dlg:updateDisplay()
+end
+
+--- Static entry: a work action from this dialog came back.
+function NPCFavorManagementDialog.onWorkActionResult(reply)
+    local dlg = NPCFavorManagementDialog.INSTANCE
+    if dlg == nil or reply == nil then return end
+    local key = reply.messageKey
+    if key ~= nil and key ~= "" then
+        dlg.footerMessage = getModText(key, key)
+    end
+    if dlg.npcSystem and dlg.npcSystem.requestPersonalWorkView then
+        dlg.npcSystem:requestPersonalWorkView("")
+    end
+    dlg:updateDisplay()
 end
 
 function NPCFavorManagementDialog:getPageCount()
@@ -365,9 +407,11 @@ function NPCFavorManagementDialog:fillFavorRow(rowNum, favor, sys)
     setVisible(self[prefix .. "border"], true)
     setVisible(self[prefix .. "bg"], true)
 
-    local npc = sys:getNPCById(favor.npcId)
-    local npcName = npc and npc.name or "Unknown NPC"
-    local relationship = npc and npc.relationship or 0
+    -- RSF-F357: the saved name from the row; trust only for a live durable
+    -- person, never a zero for a waiting or unproven one.
+    local npc = favor.npcId and sys:getNPCById(favor.npcId) or nil
+    local npcName = (npc and npc.name) or favor.npcName or "Unknown NPC"
+    local relationship = npc and npc.relationship or nil
 
     local npcElem = self[prefix .. "npc"]
     if npcElem then
@@ -377,10 +421,12 @@ function NPCFavorManagementDialog:fillFavorRow(rowNum, favor, sys)
         elseif favor.status == "pending" then
             tag = "  [" .. getModText("npc_recovery_tag_pending", "Offer") .. "]"
         end
-        setText(npcElem, string.format("%s (Rel: %d)%s", npcName, relationship, tag))
+        local relText = relationship ~= nil and string.format("Rel: %d", relationship) or getModText("npc_recovery_unknown", "unknown")
+        setText(npcElem, string.format("%s (%s)%s", npcName, relText, tag))
         setVisible(npcElem, true)
         if npcElem.setTextColor then
-            local r, g, b = self:getRelationshipColor(relationship)
+            local r, g, b = self:getRelationshipColor(relationship or 0)
+            if relationship == nil then r, g, b = 0.6, 0.6, 0.65 end
             npcElem:setTextColor(r, g, b, 1)
         end
     end
@@ -430,9 +476,11 @@ function NPCFavorManagementDialog:fillFavorRow(rowNum, favor, sys)
     self:setButtonVisible(prefix .. "goto", true)
     setText(self[prefix .. "canceltxt"], getModText("npc_mgmt_btn_cancel", "Cancel"))
     setText(self[prefix .. "completetxt"], getModText("npc_mgmt_btn_done", "Done"))
+    -- The row's own flags for this actor decide the buttons; a recovered row
+    -- keeps its F148 door (the handlers redirect).
     local accepted = favor.status == "active" or favor.status == "in_progress"
-    self:setButtonVisible(prefix .. "cancel", accepted)
-    self:setButtonVisible(prefix .. "complete", accepted)
+    self:setButtonVisible(prefix .. "cancel", accepted and (favor.canAbandon == true or favor.recoveredFromLegacy == true))
+    self:setButtonVisible(prefix .. "complete", accepted and (favor.canComplete == true or favor.recoveredFromLegacy == true))
 end
 
 --- Format a frozen game-millisecond duration directly (no mission clock).
@@ -839,26 +887,26 @@ for i = 1, NPCFavorManagementDialog.MAX_FAVORS do
             return
         end
 
-        local npc = self.npcSystem:getNPCById(favor.npcId)
-        if npc then
-            local farmId = NPCFarmIdentity.localClaimFarmId()
-            if farmId == nil then
-                self.footerMessage = getModText("npc_recovery_no_local_farm", "You need to be on a farm to accept a favor.")
-                self:updateDisplay()
-                return
+        -- RSF-F357: bound to the work shown (token and revision), sent through
+        -- the adapter; the server re-resolves person, owner and record.
+        if favor.npcId ~= nil and self.npcSystem.requestWorkAction ~= nil then
+            local sent, why = self.npcSystem:requestWorkAction("ABANDON_WORK", favor.npcId,
+                { token = favor.token, recordRevision = favor.recordRevision })
+            if not sent then
+                self.footerMessage = getModText(why or "npc_dialog_unavailable", "Unavailable right now.")
+            else
+                self.footerMessage = getModText("npc_dialog_pending", "Asking the neighbour...")
             end
-            NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_ABANDON, npc.id, farmId, 0, "")
-            print(string.format("[NPC Favor] Requested server-authoritative cancel of favor from %s", npc.name))
         end
         self:updateDisplay()
     end
 
-    -- Go To NPC
+    -- Go To NPC: only a live durable person named by number has a position
     NPCFavorManagementDialog["onClickFavor" .. i .. "Goto"] = function(self)
         local favor = self.favorIndices[i]
-        if not favor then return end
+        if not favor or favor.npcId == nil then return end
         local npc = self.npcSystem:getNPCById(favor.npcId)
-        if not npc or not npc.position then
+        if not npc or not npc.position or (self.npcSystem.isPersonActionable ~= nil and not self.npcSystem:isPersonActionable(npc)) then
             print("[NPC Favor] Cannot teleport - NPC not found")
             return
         end
@@ -899,19 +947,16 @@ for i = 1, NPCFavorManagementDialog.MAX_FAVORS do
             return
         end
 
-        local npc = self.npcSystem:getNPCById(favor.npcId)
-        if npc then
-            -- Server-authoritative completion: the server completes the NPC's active
-            -- favor and pays favor.ownerFarmId exactly once. RSF-F148: the farm is a
-            -- validated local claim, never farm 0.
-            local farmId = NPCFarmIdentity.localClaimFarmId()
-            if farmId == nil then
-                self.footerMessage = getModText("npc_recovery_no_local_farm", "You need to be on a farm to accept a favor.")
-                self:updateDisplay()
-                return
+        -- RSF-F357: bound to the work shown; the server re-derives the
+        -- completion condition from its own record.
+        if favor.npcId ~= nil and self.npcSystem.requestWorkAction ~= nil then
+            local sent, why = self.npcSystem:requestWorkAction("COMPLETE_WORK", favor.npcId,
+                { token = favor.token, recordRevision = favor.recordRevision })
+            if not sent then
+                self.footerMessage = getModText(why or "npc_dialog_unavailable", "Unavailable right now.")
+            else
+                self.footerMessage = getModText("npc_dialog_pending", "Asking the neighbour...")
             end
-            NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_COMPLETE, npc.id, farmId, 0, "")
-            print(string.format("[NPC Favor] Requested server-authoritative completion of favor from %s", npc.name))
         end
         self:updateDisplay()
     end
@@ -967,6 +1012,10 @@ end
 function NPCFavorManagementDialog:onClose()
     if NPCFavorManagementDialog.INSTANCE == self then
         NPCFavorManagementDialog.INSTANCE = nil
+    end
+    if self._watchingWork and self.npcSystem and self.npcSystem.watchPersonalWork then
+        self._watchingWork = false
+        self.npcSystem:watchPersonalWork(false)
     end
     NPCFavorManagementDialog:superClass().onClose(self)
 end
