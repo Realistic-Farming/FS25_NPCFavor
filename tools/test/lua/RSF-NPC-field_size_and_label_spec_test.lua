@@ -256,6 +256,47 @@ group("C", function()
     math.random = origRandom
     sys.fieldWork:releaseWorker(rec.id, 4)
 
+    -- A U-shaped field: a 100 m square with a 40 m wide gap cut in from the south
+    -- up to z 120, two arms x 50..80 and 120..150 joined across the top. Its label
+    -- point is in the top bar at (100, 135), so the work square around it reaches
+    -- both arms. A row through the arms is two stretches, and the gap between them
+    -- is never crossed.
+    local U = { { 50, 50 }, { 80, 50 }, { 80, 120 }, { 120, 120 }, { 120, 50 }, { 150, 50 }, { 150, 150 }, { 50, 150 } }
+    g_fieldManager = { fields = { engineField(10, 100, 135, 0.72, U, 12) } }
+    rec = sys:findNearestField(95, 130, 1)
+    local wu = { id = 7, personality = "hardworking" }
+    wps = sys.fieldWork:getWorkPattern(wu, rec)
+    local gapHit, twoStretches, midpoints = false, 0, 0
+    for i = 1, #wps - 1, 2 do
+        local a, b = wps[i], wps[i + 1]
+        local mx = (a.x + b.x) * 0.5
+        if a.z < 120 and mx > 80 and mx < 120 then gapHit = true end
+        if a.z < 120 then midpoints = midpoints + 1 end
+    end
+    local rowsBelow = {}
+    for i = 1, #wps - 1, 2 do if wps[i].z < 120 then rowsBelow[wps[i].z] = (rowsBelow[wps[i].z] or 0) + 1 end end
+    for _, n in pairs(rowsBelow) do if n == 2 then twoStretches = twoStretches + 1 end end
+    T.eq("C10 a U-shaped field: each of the nine rows through the arms is two stretches, no stretch's midpoint lies in the gap, and every waypoint stays inside the U's box",
+        tostring(gapHit) .. "/" .. tostring(twoStretches) .. "/" .. tostring(allInside(wps, 50, 150, 50, 150)), "false/9/true")
+    sys.fieldWork:releaseWorker(rec.id, 7)
+    -- A spot-check whose every draw lands in the gap falls to the label point, in the
+    -- west arm, not to the box centre in the gap.
+    math.random = function(n, m) if n == 100 and m == nil then return 10 end if n == nil then return 0.4 end if m == nil then return origRandom(n) end return origRandom(n, m) end
+    local gapSpots = sys.fieldWork:getWorkPattern({ id = 8, personality = "lazy" }, rec)
+    math.random = origRandom
+    T.eq("C11 a spot-check aimed at the gap of a U falls to the field's label point inside the top bar, never to the box centre in the gap",
+        tostring(anyInside(gapSpots, 80, 120, 50, 120)) .. "/" .. tostring(#gapSpots >= 4) .. "/" .. tostring(NPCFieldWork.pointInPolygon(gapSpots[1].x, gapSpots[1].z, rec.extent.polygon)) .. "/" .. num(gapSpots[1].x) .. "," .. num(gapSpots[1].z), "false/true/true/100,135")
+    sys.fieldWork:releaseWorker(rec.id, 8)
+    T.eq("C12 clipRowToPolygon on the U at z 100 gives the two stretches, exact at the row's ends, and at z 130 one stretch across the top",
+        (function()
+            local function show(segs)
+                local parts = {}
+                for i = 1, #segs do parts[i] = num(segs[i][1]) .. "-" .. num(segs[i][2]) end
+                return #segs .. ":" .. table.concat(parts, ",")
+            end
+            return show(NPCFieldWork.clipRowToPolygon(100, 50, 150, rec.extent.polygon, 1.5)) .. "/" .. show(NPCFieldWork.clipRowToPolygon(130, 50, 150, rec.extent.polygon, 1.5))
+        end)(), "2:50-78.5,120.5-150/1:50-150")
+
     -- Two workers on a large field: the code's written intent, now reachable.
     g_fieldManager = { fields = { engineField(10, 100, 100, 3, square(100, 100, side), 11) } }
     rec = sys:findNearestField(90, 90, 1)

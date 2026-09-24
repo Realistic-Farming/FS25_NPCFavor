@@ -68,6 +68,11 @@ function NPCFieldWork:estimateBounds(field)
         centerX = (minX + maxX) * 0.5,
         centerZ = (minZ + maxZ) * 0.5,
         polygon = polygon,
+        -- The field's own label point (the engine's getPolygonLabel, inside the
+        -- polygon by construction): the fallback for a draw that cannot land inside,
+        -- where the box centre of a U or C shaped field lies in the gap.
+        labelX = field.center.x,
+        labelZ = field.center.z,
     }
 end
 
@@ -88,32 +93,42 @@ function NPCFieldWork.pointInPolygon(x, z, polygon)
     return inside
 end
 
---- The part of a row at `rowZ` between xA and xB that lies inside the polygon. An
---- endpoint that is itself inside (tested a hair inward, since a clipped work square
---- puts endpoints on the field's edge) is kept exactly; an endpoint outside is
---- pulled in to the first inside sample at `step` metres. nil when no sample is
+--- The parts of a row at `rowZ` between xA and xB that lie inside the polygon, as a
+--- list of { xStart, xEnd } in ascending x, sampled at `step` metres along the whole
+--- row: a field with two stretches on one row (a U or a C, a field wrapped around a
+--- yard) gives two segments, never one span across the gap between them. The
+--- segment touching an end of the row keeps that end exactly when the end is itself
+--- inside (tested a hair inward, since a clipped work square puts endpoints on the
+--- field's edge). A sliver shorter than a step is dropped. Empty when no sample is
 --- inside (the row leaves the field entirely).
 function NPCFieldWork.clipRowToPolygon(rowZ, xA, xB, polygon, step)
-    if type(polygon) ~= "table" or #polygon < 3 then return xA, xB end
     local lo, hi = math.min(xA, xB), math.max(xA, xB)
+    if type(polygon) ~= "table" or #polygon < 3 then return { { lo, hi } } end
     step = math.max(0.5, step or 1)
     local eps = 0.01
-    local first = NPCFieldWork.pointInPolygon(lo + eps, rowZ, polygon) and lo or nil
-    local last = NPCFieldWork.pointInPolygon(hi - eps, rowZ, polygon) and hi or nil
-    if first == nil or last == nil then
-        local x = lo
-        while x <= hi + 1e-6 do
-            if NPCFieldWork.pointInPolygon(x, rowZ, polygon) then
-                if first == nil then first = x end
-                if last == nil or x > last then last = x end
-            end
-            x = x + step
+    local segments = {}
+    local segStart, segEnd = nil, nil
+    local x = lo
+    while x <= hi + 1e-6 do
+        if NPCFieldWork.pointInPolygon(x, rowZ, polygon) then
+            if segStart == nil then segStart = x end
+            segEnd = x
+        elseif segStart ~= nil then
+            segments[#segments + 1] = { segStart, segEnd }
+            segStart, segEnd = nil, nil
         end
-        if last ~= nil and NPCFieldWork.pointInPolygon(hi - eps, rowZ, polygon) then last = hi end
+        x = x + step
     end
-    if first == nil then return nil end
-    if last == nil then last = first end
-    return first, last
+    if segStart ~= nil then segments[#segments + 1] = { segStart, segEnd } end
+    if #segments > 0 then
+        if NPCFieldWork.pointInPolygon(lo + eps, rowZ, polygon) then segments[1][1] = lo end
+        if NPCFieldWork.pointInPolygon(hi - eps, rowZ, polygon) then segments[#segments][2] = hi end
+    end
+    local kept = {}
+    for _, s in ipairs(segments) do
+        if s[2] - s[1] >= step then kept[#kept + 1] = s end
+    end
+    return kept
 end
 
 -- =========================================================
@@ -308,22 +323,27 @@ function NPCFieldWork:generateRowPattern(bounds, config)
     local numRows = math.floor(fieldDepth / spacing)
     numRows = math.max(1, math.min(numRows, 60))  -- cap for performance
 
-    -- One row: its two endpoints in the walking direction, clipped to the field's
-    -- polygon when the bounds carry one (a row that leaves the field entirely is
-    -- dropped). Without a polygon the row spans the work area as before.
+    -- One row: its endpoints in the walking direction, clipped to the field's
+    -- polygon when the bounds carry one: each inside stretch of the row is its own
+    -- pair of waypoints, walked in the row's direction (a U shaped field gives two
+    -- stretches with the gap skipped; a row that leaves the field entirely gives
+    -- none). Without a polygon the row spans the work area as before.
     local polygon = bounds.polygon
     local function addRow(rowZ, leftToRight)
-        local xStart, xEnd = workMinX, workMaxX
+        local segments = { { workMinX, workMaxX } }
         if polygon ~= nil then
-            xStart, xEnd = NPCFieldWork.clipRowToPolygon(rowZ, workMinX, workMaxX, polygon, math.max(1, spacing * 0.5))
-            if xStart == nil then return end
+            segments = NPCFieldWork.clipRowToPolygon(rowZ, workMinX, workMaxX, polygon, math.max(1, spacing * 0.5))
         end
         if leftToRight then
-            table.insert(waypoints, {x = xStart, z = rowZ})
-            table.insert(waypoints, {x = xEnd, z = rowZ})
+            for i = 1, #segments do
+                table.insert(waypoints, {x = segments[i][1], z = rowZ})
+                table.insert(waypoints, {x = segments[i][2], z = rowZ})
+            end
         else
-            table.insert(waypoints, {x = xEnd, z = rowZ})
-            table.insert(waypoints, {x = xStart, z = rowZ})
+            for i = #segments, 1, -1 do
+                table.insert(waypoints, {x = segments[i][2], z = rowZ})
+                table.insert(waypoints, {x = segments[i][1], z = rowZ})
+            end
         end
     end
 
@@ -428,14 +448,15 @@ function NPCFieldWork:generateSpotcheckPattern(bounds)
     local polygon = bounds.polygon
     for _ = 1, numPoints do
         -- Inside the field's polygon when the bounds carry one: up to ten draws,
-        -- then the box centre, which the clipped bounds keep on the field.
+        -- then the field's label point, which the engine places inside the polygon
+        -- (the box centre of a U or C shaped field lies in its gap).
         local px, pz = nil, nil
         for _ = 1, 10 do
             local x = bounds.minX + margin + math.random() * (bounds.width - margin * 2)
             local z = bounds.minZ + margin + math.random() * (bounds.height - margin * 2)
             if polygon == nil or NPCFieldWork.pointInPolygon(x, z, polygon) then px, pz = x, z break end
         end
-        if px == nil then px, pz = bounds.centerX, bounds.centerZ end
+        if px == nil then px, pz = bounds.labelX or bounds.centerX, bounds.labelZ or bounds.centerZ end
         table.insert(waypoints, { x = px, z = pz })
     end
 
