@@ -617,7 +617,13 @@ function NPCDialog.onPersonDialogReply(reply)
         if reply.toneKey ~= nil and reply.toneKey ~= "" then
             tone = getModText(reply.toneKey, "") .. " "
         end
-        text = name .. ": \"" .. tone .. (reply.text or "") .. "\""
+        -- The topic is resolved HERE, in this reader's language; the host sent
+        -- its key (and the English for a keyless context topic).
+        local line = reply.text or ""
+        if reply.topicKey ~= nil and reply.topicKey ~= "" then
+            line = getModText(reply.topicKey, line)
+        end
+        text = name .. ": \"" .. tone .. line .. "\""
         if result == R.RESULT_LIMIT then
             text = text .. "\n" .. getModText("npc_dialog_talk_limit", "(Already chatted today, no relationship change)")
         end
@@ -658,7 +664,7 @@ function NPCDialog.onPersonDialogReply(reply)
     elseif reply.kind == R.KIND_ACTION and result == R.RESULT_OK then
         local key = reply.messageKey
         if key == "npc_dialog_completed" then
-            text = name .. ": \"" .. getModText("npc_dialog_favor_completed_confirm", "Thanks so much for your help! Here's your reward.") .. "\""
+            text = name .. ": \"" .. getModText("npc_dialog_completed", "Thanks so much for your help! Here's your reward.") .. "\""
         elseif key == "npc_dialog_gift_ok" then
             text = name .. ": \"" .. getModText("npc_dialog_gift_thanks", "Thank you for the gift!") .. "\""
         else
@@ -819,11 +825,9 @@ function NPCDialog:executeGift(amount)
         c.pending = { requestId = "", op = "GIFT", personId = self.npc.id }
     end
     local sent = NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_GIFT, self.npc.id, farmId, amount, "money")
-    if sent == false then
-        self:setResponse(getModText("npc_dialog_unavailable", "Unavailable right now."))
-    else
-        self:setResponse(getModText("npc_dialog_pending", "Asking the neighbour..."))
-    end
+    -- A listen host answers inside the call and its reply has painted the real
+    -- line already; the pending line is painted only while the reply is out.
+    self:paintOutcome(sent ~= false, "npc_dialog_unavailable")
 
     self:hideGiftPanel()
     self:updateDisplay()

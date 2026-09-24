@@ -22,10 +22,10 @@
 #   - retireRecoveryToken after completeFavor and abandonFavor in the two server commands:
 #     the favour owner retires the token itself on every terminal status (K18, K22 pin that),
 #     so the second call is belt and braces. Declared equivalent.
-#   - the CURRENT/LAST_CONFIRMED gate in NPCFavorHUD.visibleWork and
+#   - the CURRENT/LAST_CONFIRMED display gate in NPCFavorHUD.visibleWork and
 #     NPCFavorManagementDialog.getPageItems: getPersonalWorkView hands out rows only in those
-#     two states already (A33 and A34 pin the states), so the readers' own gate is redundant.
-#     Declared equivalent.
+#     two states already (A33 and A34 pin the states), so the readers' display gate is
+#     redundant. Declared equivalent. The ACTION gate is not: B06 and B07 run it.
 #   - the SCS floor and its rel > 0 gate: PR 3 of this brief.
 #
 # Anchors are written with "\n"; in a CRLF file they are matched after normalising.
@@ -52,6 +52,7 @@ ADM = "src/gui/NPCAdminEditDialog.lua"
 GUI = "src/settings/NPCFavorGUI.lua"
 LST = "src/gui/NPCListDialog.lua"
 HUD = "src/scripts/NPCFavorHUD.lua"
+MGD = "src/gui/NPCFavorManagementDialog.lua"
 
 MUTATIONS = [
  # ── the exact acting player ─────────────────────────────────────────────────
@@ -112,9 +113,11 @@ MUTATIONS = [
  ("A10-eligibility-not-rederived", SYS,
   [("    local eligible, step = NPCPersonDialog.completionEligible(record)\n    if not eligible then\n"
     "        return false, \"npc_dialog_refused_not_ready\"\n    end\n"
-    "    if record.awaitingConfirmation == true then\n        record.awaitingConfirmation = false\n"
-    "    elseif step ~= nil then\n        step.completed = true\n    end\n",
-    "    for _, s in ipairs(record.steps or {}) do s.completed = true end\n    record.awaitingConfirmation = false\n", 1)],
+    "    local clearedConfirmation, markedStep = false, nil\n"
+    "    if record.awaitingConfirmation == true then\n        record.awaitingConfirmation = false\n        clearedConfirmation = true\n"
+    "    elseif step ~= nil then\n        step.completed = true\n        markedStep = step\n    end\n",
+    "    for _, s in ipairs(record.steps or {}) do s.completed = true end\n    record.awaitingConfirmation = false\n"
+    "    local clearedConfirmation, markedStep = false, nil\n", 1)],
   "completion accepts the client's word and finishes an open travel step"),
  ("A11-other-farm-completes", SYS,
   [("    if record.ownerFarmId ~= farmId then\n"
@@ -284,7 +287,9 @@ MUTATIONS = [
     "        view.state = (w.pendingRequestId ~= nil) and \"CURRENT\" or \"UNAVAILABLE\"\n", 1)],
   "a page that has not arrived reads CURRENT"),
  ("A34-never-last-confirmed", DLG,
-  [("    elseif view.ageMs > NPCPersonDialog.STALE_AFTER_MS and w.pendingRequestId ~= nil then\n"
+  [("    elseif view.ageMs > NPCPersonDialog.STALE_AFTER_MS then\n"
+    "        -- Older than two refresh intervals: last-confirmed, whatever the request\n"
+    "        -- state (a lost id that was released does not make the old page current).\n"
     "        view.state = \"LAST_CONFIRMED\"\n        view.reasonKey = \"npc_work_view_last_confirmed\"\n    else\n",
     "    else\n", 1)],
   "an old page with a missing reply still reads CURRENT"),
@@ -335,6 +340,84 @@ MUTATIONS = [
   [("    if wantWatch and not self._watchingWork then\n        self._watchingWork = true\n        self.npcSystem:watchPersonalWork(true)\n",
     "    if wantWatch and not self._watchingWork then\n        self._watchingWork = true\n", 1)],
   "the HUD shows the list but never asks for the page"),
+ # ── Bob's #116 verdict at 07aabe72 ──────────────────────────────────────────
+ ("B01-topic-resolved-on-the-server", DLG,
+  [("""            if ok and type(t) == "table" then
+                topic = type(t.text) == "string" and t.text or ""
+                topicKey = type(t.key) == "string" and t.key or ""
+            end
+""",
+    """            if ok and type(t) == "table" then
+                topic = self.interactionUI:getRandomConversationTopic(npc)
+                topicKey = ""
+            end
+""", 1)],
+  "the host resolves the topic in its own language and sends the text"),
+ ("B02-topic-key-off-the-wire", EVT,
+  [("    streamWriteString(streamId, textString(r.topicKey))\n", "", 1),
+   ("    r.topicKey = textString(streamReadString(streamId))\n", "", 1)],
+  "a remote client never receives the topic key"),
+ ("B10-client-paints-the-host-text", UI,
+  [("""        local line = reply.text or ""
+        if reply.topicKey ~= nil and reply.topicKey ~= "" then
+            line = getModText(reply.topicKey, line)
+        end
+""",
+    """        local line = reply.text or ""
+""", 1)],
+  "the reader ignores the key and paints the host's text"),
+ ("B03-host-entry-returns-the-outcome", IEV,
+  [("""            NPCPersonDialogReplyEvent.dispatch(reply)
+            -- The reply has already told the adapter the outcome, refused or not:
+            -- "issued" here means exactly what a remote send means.
+            return true
+        end
+        return ok
+""",
+    """            NPCPersonDialogReplyEvent.dispatch(reply)
+        end
+        return ok
+""", 1)],
+  "a refused action on the host reads as not sent, and the unavailable line paints over the reply"),
+ ("B04-gift-paints-pending-unconditionally", UI,
+  [("""    self:paintOutcome(sent ~= false, "npc_dialog_unavailable")
+""",
+    """    if sent == false then
+        self:setResponse(getModText("npc_dialog_unavailable", "Unavailable right now."))
+    else
+        self:setResponse(getModText("npc_dialog_pending", "Asking the neighbour..."))
+    end
+""", 1)],
+  "every host gift ends on the pending line"),
+ ("B05-current-regardless-of-age", DLG,
+  [("""    elseif view.ageMs > NPCPersonDialog.STALE_AFTER_MS then
+""",
+    """    elseif view.ageMs > NPCPersonDialog.STALE_AFTER_MS and w.pendingRequestId ~= nil then
+""", 1)],
+  "an old page with no request out reads CURRENT (and a released lost id revives it)"),
+ ("B06-buttons-on-a-last-confirmed-page", MGD,
+  [("""    local current = self.workView ~= nil and self.workView.state == "CURRENT"
+""",
+    """    local current = true
+""", 1)],
+  "Cancel and Done stay on a last-confirmed page"),
+ ("B07-context-free-action-on-a-stale-page", DLG,
+  [("""    if c.context == nil and self:getPersonalWorkView().state ~= "CURRENT" then
+        return false, "npc_work_view_last_confirmed"
+    end
+""", "", 1)],
+  "a reader acts from a page it has not confirmed"),
+ ("B08-refused-completion-keeps-the-mark", SYS,
+  [("""    if clearedConfirmation then record.awaitingConfirmation = true end
+    if markedStep ~= nil then markedStep.completed = false end
+""", "", 1)],
+  "a completion the owner refused leaves the step marked done"),
+ ("B09-replay-success-is-ok-only", IEV,
+  [("""            local okResult = cached ~= nil and (cached.result == NPCPersonDialog.RESULT_OK or cached.result == NPCPersonDialog.RESULT_ACCEPTED)
+""",
+    """            local okResult = cached ~= nil and cached.result == NPCPersonDialog.RESULT_OK
+""", 1)],
+  "a replayed successful accept reports failure to a host caller"),
  # ── the money read and the gift ─────────────────────────────────────────────
  ("A49-gift-without-balance", SYS,
   [("            local farm = g_farmManager and g_farmManager:getFarmById(farmId)\n"

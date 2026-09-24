@@ -106,6 +106,9 @@ function NPCInteractionEvent.sendToServer(actionType, npcId, farmId, value, data
         local ok, reply = NPCInteractionEvent.execute(actionType, npcId, farmId, value, data, actor)
         if reply ~= nil and NPCPersonDialogReplyEvent ~= nil then
             NPCPersonDialogReplyEvent.dispatch(reply)
+            -- The reply has already told the adapter the outcome, refused or not:
+            -- "issued" here means exactly what a remote send means.
+            return true
         end
         return ok
     end
@@ -308,7 +311,8 @@ function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data, act
             tostring(selection.token), tostring(selection.recordRevision) }, "|")
         gate, cached = sys:dialogRequestGate(actor, selection.requestId, fingerprint)
         if gate == "replay" then
-            return cached ~= nil and cached.result == (NPCPersonDialog and NPCPersonDialog.RESULT_OK or 1), cached
+            local okResult = cached ~= nil and (cached.result == NPCPersonDialog.RESULT_OK or cached.result == NPCPersonDialog.RESULT_ACCEPTED)
+            return okResult, cached
         elseif gate == "stale" then
             return false, nil
         elseif gate == "changed" then
@@ -341,10 +345,19 @@ function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data, act
         return finish(false, isWorkAction and reply(NPCPersonDialog.RESULT_REFUSED, "npc_dialog_refused_far") or nil)
     end
 
+    -- A refused work action names its reason: STALE only when the selection no
+    -- longer matches (the dialog refreshes its view on that one), REFUSED with
+    -- the reason key for everything else (not ready, not the owner, no person).
+    local function resultFor(ok, okResult, key)
+        if ok then return okResult end
+        if key == "npc_dialog_refused_stale" then return NPCPersonDialog.RESULT_STALE end
+        return NPCPersonDialog.RESULT_REFUSED
+    end
+
     -- Dispatch to appropriate handler
     if actionType == NPCInteractionEvent.ACTION_FAVOR_ACCEPT then
         local ok, key, record = sys:serverAcceptFavor(npc, farmId, selection)
-        local r = reply(ok and NPCPersonDialog.RESULT_ACCEPTED or NPCPersonDialog.RESULT_STALE, key)
+        local r = reply(resultFor(ok, NPCPersonDialog.RESULT_ACCEPTED, key), key)
         -- The accepted row rides with the answer so the dialog shows the work
         -- without a second request.
         if ok and record ~= nil and sys.describeWorkRow ~= nil then
@@ -354,11 +367,11 @@ function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data, act
 
     elseif actionType == NPCInteractionEvent.ACTION_FAVOR_COMPLETE then
         local ok, key = sys:serverCompleteFavor(npc, farmId, selection)
-        return finish(ok, reply(ok and NPCPersonDialog.RESULT_OK or NPCPersonDialog.RESULT_STALE, key))
+        return finish(ok, reply(resultFor(ok, NPCPersonDialog.RESULT_OK, key), key))
 
     elseif actionType == NPCInteractionEvent.ACTION_FAVOR_ABANDON then
         local ok, key = sys:serverAbandonFavor(npc, farmId, selection)
-        return finish(ok, reply(ok and NPCPersonDialog.RESULT_OK or NPCPersonDialog.RESULT_STALE, key))
+        return finish(ok, reply(resultFor(ok, NPCPersonDialog.RESULT_OK, key), key))
 
     elseif actionType == NPCInteractionEvent.ACTION_GIFT then
         local ok = sys:serverGiveGift(npc, farmId, value, data)

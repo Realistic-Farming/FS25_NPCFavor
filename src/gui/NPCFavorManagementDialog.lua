@@ -478,9 +478,12 @@ function NPCFavorManagementDialog:fillFavorRow(rowNum, favor, sys)
     setText(self[prefix .. "completetxt"], getModText("npc_mgmt_btn_done", "Done"))
     -- The row's own flags for this actor decide the buttons; a recovered row
     -- keeps its F148 door (the handlers redirect).
+    -- A last-confirmed page is for looking at: no Cancel or Done until a
+    -- fresh page arrives (brief 9b: unavailable for action after two missed intervals).
     local accepted = favor.status == "active" or favor.status == "in_progress"
-    self:setButtonVisible(prefix .. "cancel", accepted and (favor.canAbandon == true or favor.recoveredFromLegacy == true))
-    self:setButtonVisible(prefix .. "complete", accepted and (favor.canComplete == true or favor.recoveredFromLegacy == true))
+    local current = self.workView ~= nil and self.workView.state == "CURRENT"
+    self:setButtonVisible(prefix .. "cancel", current and accepted and (favor.canAbandon == true or favor.recoveredFromLegacy == true))
+    self:setButtonVisible(prefix .. "complete", current and accepted and (favor.canComplete == true or favor.recoveredFromLegacy == true))
 end
 
 --- Format a frozen game-millisecond duration directly (no mission clock).

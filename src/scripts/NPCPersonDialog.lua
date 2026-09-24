@@ -387,10 +387,15 @@ function NPCSystem:_serverPersonScopedRequest(actor, op, personId, requestId, re
         if rm ~= nil and rm.updateRelationship ~= nil then
             applied = rm:updateRelationship(npc.id, 1, "daily_interaction") == true
         end
-        local topic = ""
-        if self.interactionUI ~= nil and self.interactionUI.getRandomConversationTopic ~= nil then
-            local ok, t = pcall(self.interactionUI.getRandomConversationTopic, self.interactionUI, npc)
-            if ok and type(t) == "string" then topic = t end
+        -- The topic travels as a key (M1 of Bob's verdict): the reader resolves it
+        -- in its own language; a keyless context topic travels as its text.
+        local topic, topicKey = "", ""
+        if self.interactionUI ~= nil and self.interactionUI.getRandomConversationTopicKey ~= nil then
+            local ok, t = pcall(self.interactionUI.getRandomConversationTopicKey, self.interactionUI, npc)
+            if ok and type(t) == "table" then
+                topic = type(t.text) == "string" and t.text or ""
+                topicKey = type(t.key) == "string" and t.key or ""
+            end
         end
         local toneKey = ""
         if self.favorSystem ~= nil and self.favorSystem.analyzeEncounterHistory ~= nil then
@@ -406,6 +411,7 @@ function NPCSystem:_serverPersonScopedRequest(actor, op, personId, requestId, re
         reply.result = applied and NPCPersonDialog.RESULT_OK or NPCPersonDialog.RESULT_LIMIT
         reply.messageKey = applied and "npc_dialog_talk_ok" or "npc_dialog_talk_limit"
         reply.text = textString(topic)
+        reply.topicKey = topicKey
         reply.toneKey = toneKey
         reply.trustPresent = isFiniteNumber(npc.relationship)
         reply.trust = isFiniteNumber(npc.relationship) and npc.relationship or 0
@@ -526,6 +532,11 @@ function NPCSystem:requestWorkAction(operation, personId, selection)
     local farmId = NPCFarmIdentity.localClaimFarmId()
     if farmId == nil then return false, "npc_dialog_refused_farm" end
     if self.people == nil or not self.people:isReady() then return false, "npc_person_loading" end
+    -- A reader acting from the shared page (no dialog context) acts only on a
+    -- CURRENT page; a last-confirmed page is for looking at.
+    if c.context == nil and self:getPersonalWorkView().state ~= "CURRENT" then
+        return false, "npc_work_view_last_confirmed"
+    end
     if type(selection) ~= "table" or not NPCFarmIdentity.validToken(tostring(selection.token or ""))
         or not NPCFarmIdentity.validWireNumber(tostring(selection.recordRevision or "")) then
         return false, "npc_dialog_refused_stale"
@@ -638,7 +649,9 @@ function NPCSystem:getPersonalWorkView()
     view.ageMs = nowMs() - w.receivedAt
     if w.state == "UNAVAILABLE" then
         view.state = "UNAVAILABLE"
-    elseif view.ageMs > NPCPersonDialog.STALE_AFTER_MS and w.pendingRequestId ~= nil then
+    elseif view.ageMs > NPCPersonDialog.STALE_AFTER_MS then
+        -- Older than two refresh intervals: last-confirmed, whatever the request
+        -- state (a lost id that was released does not make the old page current).
         view.state = "LAST_CONFIRMED"
         view.reasonKey = "npc_work_view_last_confirmed"
     else
@@ -673,6 +686,7 @@ function NPCSystem:getPersonDialogView(personId)
     view.available = true
     view.lastRequestId = r.requestId
     view.result, view.messageKey, view.text, view.toneKey = r.result, r.messageKey or "", r.text or "", r.toneKey or ""
+    view.topicKey = r.topicKey or ""
     view.trust = r.trustPresent and r.trust or nil
     local rows = copyRows(r.rows)
     local row = rows[1]

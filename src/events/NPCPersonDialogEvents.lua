@@ -36,7 +36,7 @@ NPCPersonDialog.OP_NAME = { "TALK", "OFFER_HELP", "VIEW", "VIEW_WORK" }
 NPCPersonDialog.OP_CODE = { TALK = 1, OFFER_HELP = 2, VIEW = 3, VIEW_WORK = 4 }
 
 -- Reply layout: header (requestId, kind, op, personId, farmId, result, messageKey, text, toneKey,
--- trust), the page fields, then at most 20 work rows.
+-- topicKey, trust), the page fields, then at most 20 work rows.
 -- Reply kinds
 NPCPersonDialog.KIND_DIALOG    = 1
 NPCPersonDialog.KIND_WORK_PAGE = 2
@@ -253,6 +253,7 @@ function NPCPersonDialogReplyEvent:writeStream(streamId, connection)
     streamWriteString(streamId, textString(r.messageKey))
     streamWriteString(streamId, textString(r.text))
     streamWriteString(streamId, textString(r.toneKey))
+    streamWriteString(streamId, textString(r.topicKey))
     streamWriteBool(streamId, r.trustPresent == true)
     streamWriteFloat32(streamId, r.trust or 0)
     -- Work page fields (zero for a dialog reply)
@@ -280,6 +281,7 @@ function NPCPersonDialogReplyEvent:readStream(streamId, connection)
     r.messageKey = textString(streamReadString(streamId))
     r.text = textString(streamReadString(streamId))
     r.toneKey = textString(streamReadString(streamId))
+    r.topicKey = textString(streamReadString(streamId))
     r.trustPresent = streamReadBool(streamId)
     r.trust = streamReadFloat32(streamId)
     r.cursor = wireString(streamReadString(streamId))

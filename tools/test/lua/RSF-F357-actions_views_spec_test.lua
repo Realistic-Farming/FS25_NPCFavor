@@ -1,5 +1,5 @@
 -- RSF-F357 actions and private views: remote dialogs carry intent, host state alone mutates.
---!load: src/utils/NPCFarmIdentity.lua, src/settings/NPCSettings.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCRelationshipManager.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/scripts/NPCFieldWork.lua, src/scripts/NPCAI.lua, src/scripts/ContractorModBridge.lua, src/events/NPCStateSyncEvent.lua, src/events/NPCInteractionEvent.lua, src/events/NPCPersonDialogEvents.lua, src/integrations/NPCStateLedgerBridge.lua, src/integrations/NPCNetworkSyncBridge.lua, src/NPCSystem.lua, src/scripts/NPCPersonDialog.lua, src/gui/NPCDialog.lua, src/gui/NPCListDialog.lua, src/gui/NPCAdminEditDialog.lua, src/gui/NPCFavorManagementDialog.lua, src/scripts/NPCFavorHUD.lua, src/settings/NPCFavorGUI.lua
+--!load: src/utils/NPCFarmIdentity.lua, src/settings/NPCSettings.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCRelationshipManager.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/scripts/NPCFieldWork.lua, src/scripts/NPCAI.lua, src/scripts/ContractorModBridge.lua, src/scripts/NPCInteractionUI.lua, src/events/NPCStateSyncEvent.lua, src/events/NPCInteractionEvent.lua, src/events/NPCPersonDialogEvents.lua, src/integrations/NPCStateLedgerBridge.lua, src/integrations/NPCNetworkSyncBridge.lua, src/NPCSystem.lua, src/scripts/NPCPersonDialog.lua, src/gui/NPCDialog.lua, src/gui/NPCListDialog.lua, src/gui/NPCAdminEditDialog.lua, src/gui/NPCFavorManagementDialog.lua, src/scripts/NPCFavorHUD.lua, src/settings/NPCFavorGUI.lua
 --
 -- THE ENTRY-POINT BAR. Every request enters where production enters it: a
 -- client's NPCPersonDialogRequestEvent or NPCInteractionEvent goes through
@@ -72,8 +72,11 @@ NPCScheduler = { new = function()
         getCurrentDay = function() return 1 end, getWeatherFactor = function() return 1 end,
         update = function() end, scheduledNPCInteractions = {} }
 end }
-NPCInteractionUI = { new = function() return { update = function() end, delete = function() end, updateFavorList = function() end,
-    getRandomConversationTopic = function(_, npc) return "The weather has been kind to " .. (npc.name or "?") .. " lately." end } end }
+-- The interaction UI's topic chooser is the real one (the module is loaded); only the
+-- constructor the boot calls is replaced, and it hands the real chooser to the object.
+local realTopicKey, realTopic = NPCInteractionUI.getRandomConversationTopicKey, NPCInteractionUI.getRandomConversationTopic
+NPCInteractionUI.new = function(sys) return { npcSystem = sys, update = function() end, delete = function() end, updateFavorList = function() end,
+    getRandomConversationTopicKey = realTopicKey, getRandomConversationTopic = realTopic } end
 NPCFavorHUD.new = function(sys) return { npcSystem = sys, loadFromSettings = function() end, flashFavor = function() end, update = function() end, delete = function() end } end
 NPCSettingsIntegration = { new = function() return { initialize = function() end } end }
 NPCSettingsPanel = { new = function() return { initialize = function() end, update = function() end, delete = function() end } end }
@@ -364,7 +367,7 @@ do
     local rows = {}
     for i = 1, 25 do rows[i] = row end
     local reply = { requestId = "7", kind = R.KIND_WORK_PAGE, op = R.OP_VIEW_WORK, personId = 0, farmId = 1, result = R.RESULT_OK,
-        messageKey = "npc_dialog_ok", text = long, toneKey = "npc_dialog_tone_warm", trustPresent = true, trust = 31.5, cursor = "", nextCursor = "20",
+        messageKey = "npc_dialog_ok", text = long, toneKey = "npc_dialog_tone_warm", topicKey = "npc_topic_weather", trustPresent = true, trust = 31.5, cursor = "", nextCursor = "20",
         total = 25, totalKnown = true, sampledTime = 1000, completedCount = 4, completedKnown = true, rows = rows }
     local s3 = _sfMockStream()
     NPCPersonDialogReplyEvent.new(reply):writeStream(s3, nil)
@@ -373,7 +376,7 @@ do
     local got = rx3.reply
     T.eq("W4 the reply stream drained exactly, no type errors", (s3.r - 1) .. "/" .. s3.typeErrors .. "/" .. s3.underflows, #s3.q .. "/0/0")
     T.eq("W5 header fields travel", got.requestId .. "/" .. got.kind .. "/" .. got.op .. "/" .. got.farmId .. "/" .. got.result .. "/" .. got.messageKey, "7/2/4/1/1/npc_dialog_ok")
-    T.eq("W6 trust and tone travel", tostring(got.trust) .. "/" .. tostring(got.toneKey), "31.5/npc_dialog_tone_warm")
+    T.eq("W6 trust, tone and the topic key travel", tostring(got.trust) .. "/" .. tostring(got.toneKey) .. "/" .. tostring(got.topicKey), "31.5/npc_dialog_tone_warm/npc_topic_weather")
     T.eq("W7 the page fields travel", got.nextCursor .. "/" .. got.total .. "/" .. tostring(got.totalKnown) .. "/" .. got.completedCount .. "/" .. tostring(got.completedKnown), "20/25/true/4/true")
     T.eq("W8 a page never carries more than 20 rows on the wire", #got.rows, 20)
     T.eq("W9 text is cut at 256 bytes on a character boundary (the 2-byte character is dropped whole)", #got.text .. "/" .. tostring(got.text:sub(-1) == "a"), "255/true")
@@ -520,7 +523,7 @@ do
     p2.encounters = { { type = "gift_given", sentiment = "positive", time = 1000 } }
     local talk = request(A, R.OP_TALK, 2, "1")
     T.eq("T1 Talk applies the +1 daily input and reports the trust", talk.result .. "/" .. tostring(talk.trust) .. "/" .. p2.relationship, R.RESULT_OK .. "/31/31")
-    T.ok("T2 the reply carries the topic", talk.text:find("The weather") ~= nil)
+    T.eq("T2 the reply carries the topic as a key with its English fallback; the host resolved nothing", tostring(talk.topicKey):match("^npc_topic_") ~= nil and talk.text ~= "" and talk.text:find("^npc_topic_") == nil, true)
     T.eq("T3 the tone key travels from the encounter memory", talk.toneKey, "npc_dialog_tone_warm")
     local limit = request(A, R.OP_TALK, 2, "2")
     T.eq("T4 a second Talk the same day is the day's limit, trust unchanged", limit.result .. "/" .. limit.messageKey .. "/" .. p2.relationship, R.RESULT_LIMIT .. "/npc_dialog_talk_limit/31")
@@ -609,6 +612,11 @@ do
     T.eq("K6 the reply names the request it answers", accepted.requestId .. "/" .. accepted.kind, "5/" .. R.KIND_ACTION)
     local replay = workAction(A, IE.ACTION_FAVOR_ACCEPT, 1, 1, sel("5", row))
     T.eq("K7 the same accept replays its result without a second accept", replay.result .. "/" .. favor.recordRevision, R.RESULT_ACCEPTED .. "/1")
+    do
+        local actorA = NPCFarmIdentity.resolveActor(A)
+        local okR, cachedR = NPCInteractionEvent.execute(IE.ACTION_FAVOR_ACCEPT, 1, 1, 0, sel("5", row), actorA)
+        T.eq("K7b the replayed accept reports success to a host caller (ACCEPTED is a success)", tostring(okR) .. "/" .. tostring(cachedR and cachedR.result), "true/" .. R.RESULT_ACCEPTED)
+    end
     local twice = workAction(A, IE.ACTION_FAVOR_ACCEPT, 1, 1, sel("6", row))
     T.eq("K8 accepting again with the old revision is stale", twice.result .. "/" .. favor.status, R.RESULT_STALE .. "/active")
     T.eq("K9 only the requester got the replies", #A.sent .. "/" .. #B.sent .. "/" .. BROADCASTS, "5/1/0")
@@ -622,9 +630,9 @@ do
     -- Complete: the server re-derives the step condition; client flags mean nothing.
     local current = mine.rows[1]
     local early = workAction(A, IE.ACTION_FAVOR_COMPLETE, 1, 1, sel("8", current))
-    T.eq("K13 completion before the travel step is done is not ready", early.result .. "/" .. early.messageKey .. "/" .. favor.status, R.RESULT_STALE .. "/npc_dialog_refused_not_ready/active")
+    T.eq("K13 completion before the travel step is done is refused as not ready (not stale: the selection still matches)", early.result .. "/" .. early.messageKey .. "/" .. favor.status, R.RESULT_REFUSED .. "/npc_dialog_refused_not_ready/active")
     local notOwner = workAction(C, IE.ACTION_FAVOR_COMPLETE, 1, 2, sel("3", current))
-    T.eq("K14 another farm cannot complete it", notOwner.messageKey .. "/" .. favor.status, "npc_recovery_refused_not_owner/active")
+    T.eq("K14 another farm cannot complete it", notOwner.result .. "/" .. notOwner.messageKey .. "/" .. favor.status, R.RESULT_REFUSED .. "/npc_recovery_refused_not_owner/active")
     local notOwnerAbandon = workAction(C, IE.ACTION_FAVOR_ABANDON, 1, 2, sel("4", current))
     T.eq("K15 nor abandon it", notOwnerAbandon.messageKey .. "/" .. favor.status, "npc_recovery_refused_not_owner/active")
     standAt(B, p2.position.x, p2.position.z)
@@ -633,6 +641,14 @@ do
     favor.steps[1].completed = true   -- the player arrived (the progress tracker's own fact)
     local view2 = request(A, R.OP_VIEW, 1, "9")
     T.eq("K16 with the travel step done the dialog step is next and Complete is on", view2.rows[1].nextStepText .. "/" .. tostring(view2.rows[1].isDialogStep) .. "/" .. tostring(view2.rows[1].canComplete), "Talk to NPC to complete the watch/true/true")
+    -- The owner refuses after the dialog condition passed (here: no server): the step it marked is unmarked again.
+    do
+        local savedServer = g_server
+        g_server = nil
+        local okC, whyC = server:serverCompleteFavor(p1, 1, { token = tonumber(row.token), recordRevision = favor.recordRevision })
+        g_server = savedServer
+        T.eq("K16b when the owner refuses the completion the record keeps the facts it had", tostring(okC) .. "/" .. whyC .. "/" .. tostring(favor.steps[2].completed) .. "/" .. favor.status, "false/npc_dialog_refused_stale/false/active")
+    end
     local reward = favor.reward.money or 0
     local rel = p1.relationship
     local done = workAction(A, IE.ACTION_FAVOR_COMPLETE, 1, 1, sel("10", view2.rows[1]))
@@ -761,6 +777,18 @@ do
     local v2 = client:getPersonDialogView(1)
     T.eq("C5 the reply landed through the stream on the adapter", nreq .. "/" .. nrep .. "/" .. tostring(v2.available) .. "/" .. tostring(v2.pending) .. "/" .. tostring(v2.result), "1/1/true/false/" .. R.RESULT_NO_WORK)
     T.eq("C6 the first client request id is 1", v2.lastRequestId, "1")
+    -- Talk in the client's own language: the host sends the key, this reader resolves it.
+    local dlgC = setmetatable({ npc = client:getNPCById(1), npcSystem = client, buttonEnabled = {}, responseText = el(), responseBg = el() }, { __index = NPCDialog })
+    NPCDialog.INSTANCE = dlgC
+    local origGetText = g_i18n.getText
+    g_i18n.getText = function(_, key) if tostring(key):find("^npc_topic_") then return "FR:" .. key end return key end
+    client:requestPersonDialogAction("TALK", 1, nil)
+    exchange(A)
+    local vt = client:getPersonDialogView(1)
+    T.eq("C6b Talk: the host sent the topic key, the client painted it in its own language, never the host's text",
+        tostring(vt.topicKey):match("^npc_topic_") ~= nil and dlgC.responseText.text:find("FR:npc_topic_", 1, true) ~= nil and dlgC.responseText.text:find(vt.text, 1, true) == nil, true)
+    g_i18n.getText = origGetText
+    NPCDialog.INSTANCE = nil
     client:requestPersonDialogAction("OFFER_HELP", 1, nil)
     useServer()
     p1.relationship = 45
@@ -824,6 +852,14 @@ do
     exchange(A)
     local w1 = client:getPersonalWorkView()
     T.eq("C24 the page is CURRENT with farm 1's work", w1.state .. "/" .. #w1.rows .. "/" .. w1.total .. "/" .. w1.rows[1].status .. "/" .. tostring(w1.ageMs), "CURRENT/1/1/active/0")
+    advance(4001)
+    T.eq("C24b older than two intervals with NO request out it is LAST_CONFIRMED all the same (the age rules, not the pending state)", client:getPersonalWorkView().state .. "/" .. #client:getPersonalWorkView().rows, "LAST_CONFIRMED/1")
+    local rowC = client:getPersonalWorkView().rows[1]
+    local sentC, whyC = client:requestWorkAction("ABANDON_WORK", 1, { token = rowC.token, recordRevision = rowC.recordRevision })
+    T.eq("C24c a reader acting from a last-confirmed page is refused; the page is for looking at", tostring(sentC) .. "/" .. whyC .. "/" .. #OUTBOX, "false/npc_work_view_last_confirmed/0")
+    client:requestPersonalWorkView("")
+    exchange(A)
+    T.eq("C24d a fresh page is CURRENT again", client:getPersonalWorkView().state, "CURRENT")
     client:requestPersonalWorkView("")
     advance(4001)
     T.eq("C25 a page older than two intervals with a request out is LAST_CONFIRMED, rows kept", client:getPersonalWorkView().state .. "/" .. #client:getPersonalWorkView().rows, "LAST_CONFIRMED/1")
@@ -831,6 +867,7 @@ do
     advance(4001)
     client:tickPersonalWork(2000)
     T.eq("C26 a request that never came back is released after the grace, watcher or not", tostring(client.dialogClient.work.pendingRequestId), "nil")
+    T.eq("C26b the release does not make the old page current: it stays last-confirmed until a reply lands", client:getPersonalWorkView().state, "LAST_CONFIRMED")
     -- Watchers drive the refresh through the system's own update.
     client:watchPersonalWork(true)
     local ok, err = pcall(function() client:update(2000) end)
@@ -886,6 +923,17 @@ do
     exchange(A)
     local row = mdlg:getPageItems()[1]
     T.eq("M3 the refreshed row is the accepted work with Cancel on", row.status .. "/" .. tostring(row.canAbandon) .. "/" .. tostring(row.canComplete), "active/true/false")
+    mdlg.favorIndices = {}
+    mdlg.favor1cancel, mdlg.favor1complete = el(), el()
+    mdlg:fillFavorRow(1, row, client)
+    T.eq("M3b on a CURRENT page the row's Cancel is shown", tostring(mdlg.favor1cancel.visible) .. "/" .. tostring(mdlg.favor1complete.visible), "true/false")
+    advance(4001)
+    local stale = mdlg:getPageItems()[1]
+    mdlg:fillFavorRow(1, stale, client)
+    T.eq("M3c on a LAST_CONFIRMED page the same row shows no Cancel or Done", mdlg.workView.state .. "/" .. tostring(mdlg.favor1cancel.visible) .. "/" .. tostring(mdlg.favor1complete.visible), "LAST_CONFIRMED/false/false")
+    client:requestPersonalWorkView("")
+    exchange(A)
+    row = mdlg:getPageItems()[1]
     client:requestWorkAction("ABANDON_WORK", row.npcId, { token = row.token, recordRevision = row.recordRevision })
     exchange(A)
     exchange(A)
@@ -915,7 +963,8 @@ do
     T.eq("U2 with nothing to show the Favor button offers help at 45 trust", tostring(dlg.buttonEnabled.Favor) .. "/" .. dlg.btnFavorText.text, "true/Offer help")
     T.eq("U3 nothing is painted for a silent view reply", tostring(dlg.responseText.text), "nil")
     dlg:onClickTalk()
-    T.ok("U4 Talk paints the neighbour's line", dlg.responseText.text:find("The weather") ~= nil)
+    local vTalk = server:getPersonDialogView(p1.id)
+    T.ok("U4 Talk paints the neighbour's line, the topic resolved by this reader from its key", tostring(vTalk.topicKey):match("^npc_topic_") ~= nil and dlg.responseText.text:find(vTalk.text, 1, true) ~= nil)
     T.eq("U5 and the trust moved", p1.relationship, 46)
     dlg:onClickTalk()
     T.ok("U6 the second Talk paints the day's limit", dlg.responseText.text:find("Already chatted") ~= nil)
@@ -939,10 +988,25 @@ do
     dlg.npc = p1
     dlg:onOpen()
     T.eq("U15 reopened, the button reads Complete favor", dlg.btnFavorText.text, "Complete favor")
+    -- A refused Complete on the host: the reply's own line stays, nothing paints over it.
+    local origGetText = g_i18n.getText
+    g_i18n.getText = function(_, key) return "T:" .. tostring(key) end
+    favor.steps[1].completed = false   -- the tracker's fact moved under the open dialog
+    dlg:onClickFavor()
+    T.eq("U15b the host's refusal line is what the player reads, not the pending or the unavailable line", tostring(dlg.responseText.text) .. "/" .. favor.status, "T:npc_dialog_refused_not_ready/active")
+    g_i18n.getText = origGetText
+    favor.steps[1].completed = true
+    dlg:onOpen()
     MONEY = {}
     dlg:onClickFavor()
     T.eq("U16 Complete pays once and paints the reward line", favor.status .. "/" .. tostring(MONEY[1]) .. "/" .. tostring(dlg.responseText.text:find("Here's your reward") ~= nil), "completed/" .. (favor.reward.money or 0) .. "/true")
-    T.eq("U17 every local request went through the dispatcher's gate", server.dialogSessions["local"].highWater, 7)
+    T.eq("U17 every local request went through the dispatcher's gate", server.dialogSessions["local"].highWater, 9)
+    -- A gift on the host: the thanks line, and the money moved once.
+    g_i18n.getText = function(_, key) return "T:" .. tostring(key) end
+    local moneyBefore = LIVE_FARMS[1].money
+    dlg:executeGift(200)
+    T.eq("U16b a gift on the host ends on the thanks line with the money moved once", tostring(dlg.responseText.text):find("T:npc_dialog_gift_thanks", 1, true) ~= nil and (moneyBefore - LIVE_FARMS[1].money) == 200, true)
+    g_i18n.getText = origGetText
     T.eq("U18 the legacy completion path is closed for ordinary work", dlg:sendCompletion({ recoveredFromLegacy = false }, nil, false), "unavailable")
     dlg:onClose()
     NPCDialog.superClass = nil

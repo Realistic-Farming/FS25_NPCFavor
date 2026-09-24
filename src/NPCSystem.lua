@@ -5565,10 +5565,13 @@ function NPCSystem:serverCompleteFavor(npc, farmId, selection)
     if not eligible then
         return false, "npc_dialog_refused_not_ready"
     end
+    local clearedConfirmation, markedStep = false, nil
     if record.awaitingConfirmation == true then
         record.awaitingConfirmation = false
+        clearedConfirmation = true
     elseif step ~= nil then
         step.completed = true
+        markedStep = step
     end
     local success = fav:completeFavor(record.id)
     if success then
@@ -5577,6 +5580,9 @@ function NPCSystem:serverCompleteFavor(npc, farmId, selection)
         self.syncDirty = true
         return true, "npc_dialog_completed"
     end
+    -- The owner refused: the record keeps the facts it had before this call.
+    if clearedConfirmation then record.awaitingConfirmation = true end
+    if markedStep ~= nil then markedStep.completed = false end
     return false, "npc_dialog_refused_stale"
 end
 
