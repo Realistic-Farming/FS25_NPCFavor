@@ -27,12 +27,23 @@ NPCFavorRecovery.REASON_LEGACY_ACCEPTANCE_UNKNOWN = "legacy_acceptance_unknown"
 NPCFavorRecovery.REASON_OWNER_UNRESOLVED          = "owner_unresolved"
 NPCFavorRecovery.REASON_INVALID_RECORD            = "invalid_record"
 NPCFavorRecovery.REASON_OWNER_FARM_DELETED        = "owner_farm_deleted"
+-- RSF-F357: two more. New durable work whose person is saved but not live
+-- waits (its owning farm may resume it once she is); a row that cannot be
+-- linked to the same person is unproven evidence, inspect-only permanently.
+NPCFavorRecovery.REASON_NEIGHBOUR_UNAVAILABLE     = "neighbour_unavailable"
+NPCFavorRecovery.REASON_PERSON_UNPROVEN           = "person_unproven"
+
+-- RSF-F357: the mark a favour saves beside npcId once its person is a durable
+-- number. Missing, malformed or unsupported marks read as unproven.
+NPCFavorRecovery.REF_DURABLE = "durable"
 
 NPCFavorRecovery.KNOWN_REASONS = {
     legacy_acceptance_unknown = true,
     owner_unresolved = true,
     invalid_record = true,
     owner_farm_deleted = true,
+    neighbour_unavailable = true,
+    person_unproven = true,
 }
 
 -- Only an orphaned row may be assigned to a new farm by a verified host or
@@ -165,11 +176,14 @@ function NPCFavorRecovery.isPaused(favor)
     return type(favor) == "table" and favor.status == NPCFavorRecovery.STATUS_PAUSED
 end
 
---- True when the record's neighbour resolves in the live NPC set (by id, then name).
+--- True when the record's neighbour is the unique retained person of that
+--- number AND is live. By number only (RSF-F357): a name is never a witness.
 function NPCFavorSystem:favorNPCExists(favor)
     if type(favor) ~= "table" then return false end
-    return self:resolveRestoredNPC({ npcId = favor.npcId, npcName = favor.npcName }) ~= nil
+    local npc = self:resolveRestoredNPC({ npcId = favor.npcId })
+    return npc ~= nil and npc.live ~= false and npc.isActive ~= false
 end
+
 
 --- True when a paused row is structurally actionable: its neighbour and type
 --- resolve, its time is known, its required payment facts are complete, and
@@ -177,6 +191,8 @@ end
 --- reservation test uses this and never the resumable flag alone.
 function NPCFavorSystem:isRecoveryRecordActionable(favor)
     if not NPCFavorRecovery.isPaused(favor) then return false end
+    -- RSF-F357: a row that could not be linked to the same person never acts.
+    if favor.personUnproven == true then return false end
     if self:getFavorTypeById(favor.type) == nil then return false end
     if favor.timeRemainingRaw ~= nil or not isFiniteNumber(favor.timeRemaining) then return false end
     if not self:favorNPCExists(favor) then return false end
@@ -200,9 +216,14 @@ end
 --- Reason a paused row cannot be acted on, as a localisation key, or nil.
 function NPCFavorSystem:getRecoveryUnavailableKey(favor)
     if not NPCFavorRecovery.isPaused(favor) then return nil end
+    if favor.personUnproven == true then return "npc_recovery_unavail_person" end
     if self:getFavorTypeById(favor.type) == nil then return "npc_recovery_unavail_type" end
     if favor.timeRemainingRaw ~= nil or not isFiniteNumber(favor.timeRemaining) then return "npc_recovery_unavail_time" end
-    if not self:favorNPCExists(favor) then return "npc_recovery_unavail_npc" end
+    if not self:favorNPCExists(favor) then
+        local retained = self:resolveRestoredNPC({ npcId = favor.npcId })
+        if retained ~= nil then return "npc_recovery_unavail_waiting" end
+        return "npc_recovery_unavail_npc"
+    end
     if not NPCFavorRecovery.paymentFactsKnown(favor) then return "npc_recovery_unavail_facts" end
     if NPCFavorRecovery.KNOWN_REASONS[favor.recoveryReason] ~= true then return "npc_recovery_unavail_reason" end
     if favor.recoveryReason == NPCFavorRecovery.REASON_INVALID_RECORD then return "npc_recovery_unavail_reason" end
@@ -366,6 +387,9 @@ function NPCFavorSystem:exportFavorRecord(favor)
         originalStatus = favor.originalStatus,
         originalOwnerFarmIdPresent = favor.originalOwnerFarmId ~= nil,
         originalOwnerFarmId = favor.originalOwnerFarmId,
+
+        -- RSF-F357: the durable mark rides beside npcId; absent stays absent.
+        personRefKind = (favor.personRefKind == NPCFavorRecovery.REF_DURABLE) and NPCFavorRecovery.REF_DURABLE or nil,
     }
     -- Keep raw inspect-only values a legacy row carried but could not use.
     if favor.taskFieldIdRaw ~= nil and td.fieldId == nil then
@@ -438,21 +462,113 @@ function NPCFavorRecovery.decodeFieldId(present, raw)
     return raw
 end
 
---- Resolve the neighbour for a saved row: by id first, then by name.
+--- Resolve the neighbour for a saved row by durable number ONLY (RSF-F357).
+--- The persistence owner asks the host's retained-person lookup, which knows
+--- waiting people and refuses a number two saved rows carried; a plain host
+--- (the offline bench) is scanned by number. There is no name fallback: a
+--- namesake is never a witness.
 function NPCFavorSystem:resolveRestoredNPC(saved)
-    local npcs = self.npcSystem and self.npcSystem.activeNPCs
-    if not npcs then return nil end
-    if saved.npcId ~= nil then
-        for _, candidate in ipairs(npcs) do
-            if candidate.id == saved.npcId then return candidate end
-        end
+    if type(saved) ~= "table" then return nil end
+    local id = saved.npcId
+    if not NPCFarmIdentity.isInteger(id) or id <= 0 then return nil end
+    local sys = self.npcSystem
+    if sys == nil then return nil end
+    if sys.resolveRetainedPerson ~= nil then
+        return sys:resolveRetainedPerson(id)
     end
-    if saved.npcName and saved.npcName ~= "" then
-        for _, candidate in ipairs(npcs) do
-            if candidate.name == saved.npcName then return candidate end
-        end
+    for _, candidate in ipairs(sys.activeNPCs or {}) do
+        if candidate.id == id then return candidate end
     end
     return nil
+end
+
+--- RSF-F357: what a saved row's person reference proves. "proved" needs the
+--- durable mark, a valid number and the unique retained person live; "waiting"
+--- is the same person saved but not live, or absent; a missing mark or a
+--- number two saved rows carried is "unproven".
+function NPCFavorSystem:personProofFor(saved)
+    if type(saved) ~= "table" then return "unproven" end
+    if saved.personRefKind ~= NPCFavorRecovery.REF_DURABLE then return "unproven" end
+    local id = saved.npcId
+    if not NPCFarmIdentity.isInteger(id) or id <= 0 then return "unproven" end
+    local person, why = self:resolveRestoredNPC({ npcId = id })
+    if person == nil then
+        -- A number two saved rows carried proves nothing; a number no retained
+        -- person has is the same person absent: the work waits for her.
+        if why == "unproven" then return "unproven" end
+        return "waiting"
+    end
+    if person.live == false or person.isActive == false then return "waiting" end
+    return "proved"
+end
+
+--- RSF-F357: after the F148 classification, apply the person proof. A proved
+--- row keeps its F148 collection. Otherwise: a positively clean unaccepted
+--- offer is withdrawn; accepted work of a waiting person pauses as
+--- neighbour_unavailable (its owning farm may resume it once she is live);
+--- everything else is unproven evidence: paused, its existing reason and
+--- original status kept, the timer frozen, never paid, penalised or resumed.
+function NPCFavorSystem:applyPersonProof(record, saved, collection)
+    local proof = self:personProofFor(saved)
+    record.personRefKind = (saved.personRefKind == NPCFavorRecovery.REF_DURABLE) and NPCFavorRecovery.REF_DURABLE or nil
+    record.personProof = proof
+    if proof == "proved" then return collection end
+
+    if collection == "active" and record.status == "pending" then
+        return "withdrawn"
+    end
+    local wasLive = collection == "active"
+    if proof == "waiting" then
+        if wasLive then
+            record.originalStatus = record.status
+            record.status = NPCFavorRecovery.STATUS_PAUSED
+            record.recoveryReason = NPCFavorRecovery.REASON_NEIGHBOUR_UNAVAILABLE
+            record.resumable = NPCFarmIdentity.isOrdinaryFarmId(record.ownerFarmId)
+            record.expirationGameTime = nil
+        end
+        return "recovery"
+    end
+    record.personUnproven = true
+    record.resumable = false
+    if wasLive then
+        record.originalStatus = record.status
+        record.status = NPCFavorRecovery.STATUS_PAUSED
+        record.recoveryReason = NPCFavorRecovery.REASON_PERSON_UNPROVEN
+        record.expirationGameTime = nil
+    end
+    return "recovery"
+end
+
+--- RSF-F357: a live person went waiting. Her durable accepted work pauses as
+--- neighbour_unavailable with its status and remaining time preserved; her
+--- unaccepted offers are withdrawn. Nothing is paid or penalised.
+function NPCFavorSystem:pauseWorkForPerson(personId)
+    local paused = 0
+    for i = #(self.activeFavors or {}), 1, -1 do
+        local favor = self.activeFavors[i]
+        if favor.npcId == personId then
+            if favor.status == "pending" then
+                table.remove(self.activeFavors, i)
+            elseif ACTIVE_STATUS[favor.status] then
+                table.remove(self.activeFavors, i)
+                favor.originalStatus = favor.status
+                favor.originalOwnerFarmId = favor.originalOwnerFarmId or favor.ownerFarmId
+                if favor.expirationGameTime ~= nil then
+                    favor.timeRemaining = favor.expirationGameTime - nowMs()
+                end
+                favor.expirationGameTime = nil
+                favor.status = NPCFavorRecovery.STATUS_PAUSED
+                favor.recoveryReason = NPCFavorRecovery.REASON_NEIGHBOUR_UNAVAILABLE
+                favor.resumable = NPCFarmIdentity.isOrdinaryFarmId(favor.ownerFarmId)
+                self:bumpRecordRevision(favor)
+                table.insert(self.recoveryFavors, favor)
+                self:assignRecoveryToken(favor)
+                paused = paused + 1
+            end
+        end
+    end
+    if paused > 0 and self.npcSystem ~= nil then self.npcSystem.syncDirty = true end
+    return paused
 end
 
 --- Build the in-memory record from a flat saved row. Presence and value are
@@ -639,6 +755,8 @@ function NPCFavorSystem:buildRestoredRecord(saved, schema)
         awaitingConfirmation = saved.awaitingConfirmation == true,
 
         recoveredFromLegacy = saved.recoveredFromLegacy == true,
+        personRefKind = nil,
+        personUnproven = false,
         recoveryReason = nil,
         resumable = nil,
         originalStatus = nil,
@@ -690,7 +808,8 @@ function NPCFavorSystem:classifyRestoredRecord(record, saved, schema)
             record.originalOwnerFarmId = saved.originalOwnerFarmId
         end
         record.expirationGameTime = nil
-        if reason ~= NPCFavorRecovery.REASON_LEGACY_ACCEPTANCE_UNKNOWN or not ownerOrdinary then
+        if (reason ~= NPCFavorRecovery.REASON_LEGACY_ACCEPTANCE_UNKNOWN
+            and reason ~= NPCFavorRecovery.REASON_NEIGHBOUR_UNAVAILABLE) or not ownerOrdinary then
             -- resumable is the known-owner gate and nothing else.
             record.resumable = false
         end
@@ -771,6 +890,11 @@ function NPCFavorSystem:restoreFavor(saved, staging)
 
     local record = self:buildRestoredRecord(saved, schema)
     local collection = self:classifyRestoredRecord(record, saved, schema)
+    -- RSF-F357: the person proof decides last. A withdrawn offer is not staged.
+    collection = self:applyPersonProof(record, saved, collection)
+    if collection == "withdrawn" then
+        return nil, "withdrawn"
+    end
 
     local savedId = saved.favorId
     if NPCFarmIdentity.isInteger(savedId) and savedId > 0 then
@@ -967,6 +1091,14 @@ end
 
 --- Move a paused record back to the live list once. No money moves here.
 function NPCFavorSystem:resumeRecoveryRecord(favor, targetFarmId)
+    -- RSF-F357: only the same unique live person's proved work resumes; an
+    -- unproven row never does, whoever calls.
+    if type(favor) ~= "table" or favor.personUnproven == true then
+        return false
+    end
+    if not self:favorNPCExists(favor) then
+        return false
+    end
     if not removeIdentity(self.recoveryFavors, favor) then
         return false
     end

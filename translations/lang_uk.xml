@@ -418,5 +418,27 @@
 		<text name="npc_mgmt_btn_goto" text="Перейти"/>
 		<text name="npc_mgmt_btn_cancel" text="Скасувати"/>
 		<text name="npc_mgmt_btn_done" text="Готово"/>
+		<text name="npc_person_loading" text="Ваші сусіди ще завантажуються."/>
+		<text name="npc_person_failed" text="Збережених сусідів не вдалося прочитати; їх залишено на диску без змін."/>
+		<text name="npc_person_waiting_count" text="Очікування: селище заповнене за поточної кількості сусідів."/>
+		<text name="npc_person_waiting_home" text="Очікує на житло."/>
+		<text name="npc_person_waiting_companion" text="Очікує на мод-компаньйон консультанта."/>
+		<text name="npc_person_kept_legacy" text="Збережено до оновлення; ще не підтверджений сусід."/>
+		<text name="npc_person_identity_conflict" text="Конфлікт особи: на цю людину претендує більше ніж один збережений запис."/>
+		<text name="npc_person_presence" text="Найнятий працівник, лише спостереження."/>
+		<text name="npc_person_presence_unavailable" text="Найнятий працівник, востаннє був тут; список працівників зараз неможливо прочитати."/>
+		<text name="npc_person_opaque" text="Збережений запис, залишений як свідчення; він не називає сусіда."/>
+		<text name="npc_person_exhausted" text="Не можна створити нового сусіда: номери осіб вичерпано."/>
+		<text name="npc_person_snapshot_too_large" text="Список сусідів завеликий для надсилання іншим гравцям."/>
+		<text name="npc_person_snapshot_partial" text="Список сусідів надійшов неповним; показано останній підтверджений."/>
+		<text name="npc_person_names_exhausted" text="Для нового сусіда не залишилося вільного імені; місце залишається порожнім."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: збережених сусідів не вдалося прочитати; їх залишено на диску без змін. Селище недоступне, і в цій сесії нічого не зберігається."/>
+		<text name="npc_person_consultant_absent" text="Консультант відсутній."/>
+		<text name="npc_recovery_unavail_person" text="Цю роботу не можна пов'язати з тим самим сусідом; збережено лише для перегляду."/>
+		<text name="npc_recovery_unavail_waiting" text="Цей сусід збережений, але зараз відсутній; робота чекає."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Сусід збережений, але відсутній"/>
+		<text name="npc_recovery_reason_person_unproven" text="Не можна пов'язати з тим самим сусідом"/>
+		<text name="npc_person_server_only" text="Лише хост може зареєструвати консультанта."/>
+		<text name="npc_person_bad_claim" text="Запит консультанта відхилено: ім'я або позиція були непридатні."/>
 </texts>
 </l10n>

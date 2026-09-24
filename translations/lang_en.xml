@@ -418,5 +418,27 @@
 		<text name="npc_mgmt_btn_goto" text="Go To" />
 		<text name="npc_mgmt_btn_cancel" text="Cancel" />
 		<text name="npc_mgmt_btn_done" text="Done" />
+		<text name="npc_person_loading" text="Your neighbours are still loading." />
+		<text name="npc_person_failed" text="Saved neighbours could not be read and were left untouched on disk." />
+		<text name="npc_person_waiting_count" text="Waiting: the town is full at the current neighbour count." />
+		<text name="npc_person_waiting_home" text="Waiting for a home." />
+		<text name="npc_person_waiting_companion" text="Waiting for the consultant's companion mod." />
+		<text name="npc_person_kept_legacy" text="Kept from before the update; not yet a verified neighbour." />
+		<text name="npc_person_identity_conflict" text="Identity conflict: more than one saved record claims this person." />
+		<text name="npc_person_presence" text="Hired worker, observed only." />
+		<text name="npc_person_presence_unavailable" text="Hired worker, last seen here; the worker list cannot be read right now." />
+		<text name="npc_person_opaque" text="A saved record kept as evidence; it does not name a neighbour." />
+		<text name="npc_person_exhausted" text="No new neighbour can be created: the identity numbers are used up." />
+		<text name="npc_person_snapshot_too_large" text="The neighbour list is too large to send to other players." />
+		<text name="npc_person_snapshot_partial" text="The neighbour list arrived incomplete; showing the last confirmed one." />
+		<text name="npc_person_names_exhausted" text="No unused name is left for a new neighbour; a place stays empty." />
+		<text name="npc_person_load_failed_notice" text="NPC Favor: saved neighbours could not be read and were left untouched on disk. The town is unavailable and nothing is saved this session." />
+		<text name="npc_person_consultant_absent" text="No consultant is present." />
+		<text name="npc_recovery_unavail_person" text="This work cannot be linked to the same neighbour; kept for inspection only." />
+		<text name="npc_recovery_unavail_waiting" text="That neighbour is saved but not present at the moment; the work waits." />
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Neighbour saved but not present" />
+		<text name="npc_recovery_reason_person_unproven" text="Cannot be linked to the same neighbour" />
+		<text name="npc_person_server_only" text="Only the host can register a consultant." />
+		<text name="npc_person_bad_claim" text="The consultant claim was refused: the name or position was not usable." />
 </texts>
 </l10n>

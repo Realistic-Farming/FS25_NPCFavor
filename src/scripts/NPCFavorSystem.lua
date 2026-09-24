@@ -207,6 +207,34 @@ function NPCFavorSystem.new(npcSystem)
     return self
 end
 
+--- RSF-F357: the host's actionability predicate when the host has one; a
+--- plain host (the offline bench) falls back to the row's own active flag.
+function NPCFavorSystem:isPersonActionable(npc)
+    if type(npc) ~= "table" then return false end
+    local sys = self.npcSystem
+    if sys ~= nil and sys.isPersonActionable ~= nil then
+        return sys:isPersonActionable(npc)
+    end
+    return npc.isActive ~= false
+end
+
+--- RSF-F357: the unique live durable person a favour names, or nil.
+function NPCFavorSystem:resolveFavorPerson(favor)
+    if type(favor) ~= "table" then return nil end
+    local sys = self.npcSystem
+    if sys == nil then return nil end
+    local npc = nil
+    if sys.getNPCById ~= nil then
+        npc = sys:getNPCById(favor.npcId)
+    else
+        for _, candidate in ipairs(sys.activeNPCs or {}) do
+            if candidate.id == favor.npcId then npc = candidate break end
+        end
+    end
+    if npc ~= nil and self:isPersonActionable(npc) then return npc end
+    return nil
+end
+
 function NPCFavorSystem:update(dt)
     -- RSF-F148: before the selected initial snapshot is installed, nothing
     -- may tick, expire, progress or generate against an invented empty state.
@@ -600,7 +628,11 @@ function NPCFavorSystem:canNPCRequestFavor(npc)
     if not npc.isActive then
         return false
     end
-    
+    -- RSF-F357: only a unique live durable person offers work.
+    if self.isPersonActionable ~= nil and not self:isPersonActionable(npc) then
+        return false
+    end
+
     -- Check cooldown
     if npc.favorCooldown > 0 then
         return false
@@ -718,6 +750,9 @@ function NPCFavorSystem:createFavor(npc, favorTypeId)
         ownerFarmIdPresent = false,
         recordRevision = 0,
         f148Schema = 1,
+
+        -- RSF-F357: a new favour names its person by durable number.
+        personRefKind = "durable",
     }
 
     if favor.taskData and favor.taskData.loanAmount ~= nil then
@@ -899,6 +934,11 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
         return
     end
 
+    -- RSF-F357: no progress unless the same person is live and unique.
+    if self.resolveFavorPerson ~= nil and self:resolveFavorPerson(favor) == nil then
+        return
+    end
+
     -- Safety check for player position
     local playerPos = self.npcSystem.playerPosition
     if not playerPos or not self.npcSystem.playerPositionValid then
@@ -993,6 +1033,14 @@ function NPCFavorSystem:completeFavor(favorId)
         if g_server ~= nil then
             print(string.format("[NPC Favor] Complete refused: favor %s has no ordinary owner farm (%s)",
                 tostring(favor.id), tostring(favor.ownerFarmId)))
+        end
+        return false
+    end
+    -- RSF-F357: completion needs the same person, live and unique.
+    if self.resolveFavorPerson ~= nil and self:resolveFavorPerson(favor) == nil then
+        if g_server ~= nil then
+            print(string.format("[NPC Favor] Complete refused: favor %s names no live unique person (%s)",
+                tostring(favor.id), tostring(favor.npcId)))
         end
         return false
     end
@@ -1106,6 +1154,10 @@ function NPCFavorSystem:abandonFavor(favorId)
     if self.isFavorInRecovery ~= nil and self:isFavorInRecovery(favor) then
         return false
     end
+    -- RSF-F357: the same person must be live and unique.
+    if self.resolveFavorPerson ~= nil and self:resolveFavorPerson(favor) == nil then
+        return false
+    end
 
     -- Update status
     favor.status = "abandoned"
@@ -1171,13 +1223,12 @@ function NPCFavorSystem:applyFavorRewards(favor)
         return
     end
 
-    -- Find NPC
-    local npc = nil
-    for _, n in ipairs(self.npcSystem.activeNPCs) do
-        if n.id == favor.npcId then
-            npc = n
-            break
-        end
+    -- Find NPC. RSF-F357: only the same live unique person is rewarded.
+    local npc = self:resolveFavorPerson(favor)
+    if npc == nil then
+        print(string.format("[NPC Favor] Reward skipped: favor %s names no live unique person (%s)",
+            tostring(favor.id), tostring(favor.npcId)))
+        return
     end
     
     if npc then
@@ -1287,15 +1338,9 @@ function NPCFavorSystem:applyFavorPenalties(favor)
         return
     end
 
-    -- Find NPC
-    local npc = nil
-    for _, n in ipairs(self.npcSystem.activeNPCs) do
-        if n.id == favor.npcId then
-            npc = n
-            break
-        end
-    end
-    
+    -- Find NPC. RSF-F357: only the same live unique person takes a penalty.
+    local npc = self:resolveFavorPerson(favor)
+
     if npc then
         -- Update relationship
         if favor.penalty.relationship then
@@ -1422,6 +1467,11 @@ function NPCFavorSystem:acceptFavorForNPC(npcId, farmId)
             tostring(npcId), tostring(farmId)))
         return nil
     end
+    -- RSF-F357: the offer's person must be the same live unique person.
+    if self.resolveFavorPerson ~= nil and self:resolveFavorPerson({ npcId = npcId }) == nil then
+        print(string.format("[NPC Favor] Accept refused for npc %s: no live unique person", tostring(npcId)))
+        return nil
+    end
     for _, favor in ipairs(self.activeFavors) do
         if favor.npcId == npcId and favor.status == "pending" then
             favor.status = "active"
@@ -1451,6 +1501,8 @@ end
 function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
     if not npc or not npc.isActive then return nil end
     if self.isFavorLoadReady ~= nil and not self:isFavorLoadReady() then return nil end
+    -- RSF-F357: only a unique live durable person can be offered help.
+    if self.isPersonActionable ~= nil and not self:isPersonActionable(npc) then return nil end
 
     -- If this NPC already has any favor (pending or active), don't create another
     for _, favor in ipairs(self.activeFavors) do

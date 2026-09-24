@@ -418,5 +418,27 @@
 		<text name="npc_mgmt_btn_goto" text="Hingehen"/>
 		<text name="npc_mgmt_btn_cancel" text="Abbrechen"/>
 		<text name="npc_mgmt_btn_done" text="Fertig"/>
+		<text name="npc_person_loading" text="Deine Nachbarn werden noch geladen."/>
+		<text name="npc_person_failed" text="Gespeicherte Nachbarn konnten nicht gelesen werden und blieben auf der Festplatte unverändert."/>
+		<text name="npc_person_waiting_count" text="Wartet: Der Ort ist bei der aktuellen Nachbarnzahl voll."/>
+		<text name="npc_person_waiting_home" text="Wartet auf ein Zuhause."/>
+		<text name="npc_person_waiting_companion" text="Wartet auf die Begleitmod des Beraters."/>
+		<text name="npc_person_kept_legacy" text="Aus der Zeit vor dem Update übernommen; noch kein bestätigter Nachbar."/>
+		<text name="npc_person_identity_conflict" text="Identitätskonflikt: Mehr als ein gespeicherter Eintrag beansprucht diese Person."/>
+		<text name="npc_person_presence" text="Angestellter Arbeiter, nur beobachtet."/>
+		<text name="npc_person_presence_unavailable" text="Angestellter Arbeiter, zuletzt hier gesehen; die Arbeiterliste kann gerade nicht gelesen werden."/>
+		<text name="npc_person_opaque" text="Ein gespeicherter Eintrag, als Beleg aufbewahrt; er benennt keinen Nachbarn."/>
+		<text name="npc_person_exhausted" text="Es kann kein neuer Nachbar erstellt werden: Die Identitätsnummern sind aufgebraucht."/>
+		<text name="npc_person_snapshot_too_large" text="Die Nachbarnliste ist zu groß, um sie an andere Spieler zu senden."/>
+		<text name="npc_person_snapshot_partial" text="Die Nachbarnliste kam unvollständig an; die zuletzt bestätigte wird angezeigt."/>
+		<text name="npc_person_names_exhausted" text="Für einen neuen Nachbarn ist kein unbenutzter Name mehr übrig; ein Platz bleibt leer."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: Gespeicherte Nachbarn konnten nicht gelesen werden und blieben auf der Festplatte unverändert. Der Ort ist nicht verfügbar, und in dieser Sitzung wird nichts gespeichert."/>
+		<text name="npc_person_consultant_absent" text="Es ist kein Berater anwesend."/>
+		<text name="npc_recovery_unavail_person" text="Diese Arbeit lässt sich nicht demselben Nachbarn zuordnen; nur zur Einsicht aufbewahrt."/>
+		<text name="npc_recovery_unavail_waiting" text="Dieser Nachbar ist gespeichert, aber gerade nicht anwesend; die Arbeit wartet."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Nachbar gespeichert, aber nicht anwesend"/>
+		<text name="npc_recovery_reason_person_unproven" text="Nicht demselben Nachbarn zuzuordnen"/>
+		<text name="npc_person_server_only" text="Nur der Host kann einen Berater registrieren."/>
+		<text name="npc_person_bad_claim" text="Die Berateranmeldung wurde abgelehnt: Name oder Position waren nicht verwendbar."/>
 </texts>
 </l10n>

@@ -420,5 +420,27 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="A szomszédaid még töltődnek."/>
+		<text name="npc_person_failed" text="A mentett szomszédokat nem sikerült beolvasni; a lemezen érintetlenül maradtak."/>
+		<text name="npc_person_waiting_count" text="Várakozik: a falu a jelenlegi szomszédszámmal megtelt."/>
+		<text name="npc_person_waiting_home" text="Otthonra vár."/>
+		<text name="npc_person_waiting_companion" text="A tanácsadó kísérő modjára vár."/>
+		<text name="npc_person_kept_legacy" text="A frissítés előttről megőrizve; még nem ellenőrzött szomszéd."/>
+		<text name="npc_person_identity_conflict" text="Azonossági ütközés: egynél több mentett bejegyzés hivatkozik erre a személyre."/>
+		<text name="npc_person_presence" text="Felfogadott munkás, csak megfigyelve."/>
+		<text name="npc_person_presence_unavailable" text="Felfogadott munkás, utoljára itt látták; a munkáslista most nem olvasható."/>
+		<text name="npc_person_opaque" text="Bizonyítékként megőrzött mentett bejegyzés; nem nevez meg szomszédot."/>
+		<text name="npc_person_exhausted" text="Nem hozható létre új szomszéd: az azonosítószámok elfogytak."/>
+		<text name="npc_person_snapshot_too_large" text="A szomszédlista túl nagy ahhoz, hogy elküldjük a többi játékosnak."/>
+		<text name="npc_person_snapshot_partial" text="A szomszédlista hiányosan érkezett; az utoljára megerősített jelenik meg."/>
+		<text name="npc_person_names_exhausted" text="Nem maradt szabad név egy új szomszédnak; egy hely üresen marad."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: a mentett szomszédokat nem sikerült beolvasni; a lemezen érintetlenül maradtak. A falu nem elérhető, és ebben a munkamenetben semmi sem kerül mentésre."/>
+		<text name="npc_person_consultant_absent" text="Nincs jelen tanácsadó."/>
+		<text name="npc_recovery_unavail_person" text="Ez a munka nem köthető ugyanahhoz a szomszédhoz; csak betekintésre őrizve."/>
+		<text name="npc_recovery_unavail_waiting" text="Ez a szomszéd mentve van, de jelenleg nincs jelen; a munka várakozik."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Szomszéd mentve, de nincs jelen"/>
+		<text name="npc_recovery_reason_person_unproven" text="Nem köthető ugyanahhoz a szomszédhoz"/>
+		<text name="npc_person_server_only" text="Tanácsadót csak a házigazda regisztrálhat."/>
+		<text name="npc_person_bad_claim" text="A tanácsadói kérést elutasítottuk: a név vagy a pozíció nem volt használható."/>
 </texts>
 </l10n>

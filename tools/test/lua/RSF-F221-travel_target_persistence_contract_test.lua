@@ -1,5 +1,5 @@
 -- RSF-F221: a saved favour's remaining travel target must not move on reload.
---!load: src/utils/NPCFarmIdentity.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/NPCSystem.lua
+--!load: src/utils/NPCFarmIdentity.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/NPCSystem.lua
 -- Ported from the certified design bar (Office Tyson/mods/FS25_NPCFavor/
 -- RSF-F221-travel_target_persistence_spec_test.lua). The witness blocks and the
 -- reference contract are kept as delivered: the step builder itself is
@@ -430,7 +430,7 @@ end
 local function acceptedRow(sys, typeId, ownerFarmId)
     local npc = sys.npcSystem.activeNPCs[1]
     local favorType = sys:getFavorTypeById(typeId)
-    local row = {id = sys:allocateFavorId(), npcId = npc.id, npcName = npc.name, type = typeId,
+    local row = {id = sys:allocateFavorId(), npcId = npc.id, npcName = npc.name, type = typeId, personRefKind = "durable",
         description = favorType.description, status = "active", progress = 0, timeRemaining = 60000,
         expirationGameTime = 61000, ownerFarmId = ownerFarmId, ownerFarmIdPresent = ownerFarmId ~= nil,
         rewardPaid = false, rewardPaidPresent = true, repaymentCollected = false, repaymentCollectedPresent = true,
@@ -547,7 +547,9 @@ do
 
     local gone = realSystem({})
     local restored, where = gone:restoreFavor(flat)
-    T.eq("R3 missing NPC: still an active row (owner is a live farm)", where, "active")
+    -- RSF-F357: work whose durable person is absent pauses as neighbour_unavailable; its destinations are kept.
+    T.eq("R3 missing NPC: pauses as neighbour_unavailable (RSF-F357), owner is a live farm", where, "recovery")
+    T.eq("R3 missing NPC: the reason is neighbour_unavailable", restored.recoveryReason, NPCFavorRecovery.REASON_NEIGHBOUR_UNAVAILABLE)
     T.eq("R3 missing NPC: neighbour reported unresolved", restored.npcResolved, false)
     T.eq("R3 missing NPC: full three-step list, not the one-step collapse", #restored.steps, 3)
     T.near("R3 missing NPC: fence point survives, x", restored.steps[3].location.x, fenceX, 0.0001)
@@ -664,21 +666,30 @@ end
 -- host restores the same destinations through deserializeState.
 do
     setLiveFarms({1, 3})
-    local function bareHost(npc)
+    local function bareHost(npc, ready)
         local fav = realSystem({npc})
         fav._favorLoadState = NPCFavorRecovery.LOAD_WAITING
         fav._favorLoadFailOrigin = nil
         fav.activeFavors, fav.recoveryFavors = {}, {}
         npc.uniqueId = "npc-" .. npc.id
         local host = setmetatable({
-            activeNPCs = {npc}, settings = {debugMode = false}, favorSystem = fav,
-            relationshipManager = {npcRelationships = {}}, isInitialized = true, npcCount = 1, syncDirty = false,
+            activeNPCs = {npc}, settings = {debugMode = false, maxNPCs = 1}, favorSystem = fav,
+            relationshipManager = {npcRelationships = {}}, isInitialized = true, isServer = true, npcCount = 1, syncDirty = false,
         }, {__index = NPCSystem})
+        -- RSF-F357: the host owns its people. The saving host holds the
+        -- neighbour as a live durable person; the loading host starts WAITING.
+        host.people = NPCPersonRoster.new(host)
+        if ready then
+            npc.personKind, npc.origin, npc.townCandidate, npc.live = "durable", "town", true, true
+            host.people:reserveId(npc.id)
+            host.people:addPerson(npc)
+            host.people:markReady()
+        end
         fav.npcSystem = host
         return host, fav
     end
     local npcA = neighbour({x = 12, y = 0, z = 13}, nil)
-    local hostA, favA = bareHost(npcA)
+    local hostA, favA = bareHost(npcA, true)
     favA:installEmptyFavorSnapshot()
     local row = acceptedRow(favA, "fix_fence", 1)
     row.steps[1].completed = true
@@ -702,8 +713,11 @@ do
     -- The NPC block restores the neighbour's saved home as it always has; that
     -- is today's NPC persistence, not this repair. What F221 owns: the step
     -- location is its own table, not the neighbour's restored home record.
-    T.eq("R7 ledger: the NPC block restores the saved home as before", npcB.homePosition.x, 12)
-    T.ok("R7 ledger: the home step is not the neighbour's home record", not rawequal(got.steps[1].location, npcB.homePosition))
+    -- RSF-F357: the saved person is restored by durable number into the
+    -- roster before any town exists; the hand-made npcB is never touched.
+    local restoredPerson = hostB.people:getPerson(npcA.id)
+    T.eq("R7 ledger: the NPC block restores the saved home as before", restoredPerson.homePosition.x, 12)
+    T.ok("R7 ledger: the home step is not the neighbour's home record", not rawequal(got.steps[1].location, restoredPerson.homePosition))
     T.eq("R7 ledger: delivered block not mutated by restore", block.favors[1].steps[2].x, pileX)
 end
 

@@ -1419,6 +1419,14 @@ end
 function NPCAI:initFieldWork(npc)
     if not npc.assignedField or not npc.assignedField.center then return end
 
+    -- RSF-F357: the person-actionability gate. A presence, a waiting person or
+    -- an unproven number does no field work, and there is no legacy fallback
+    -- once the gate refuses.
+    local sys = self.npcSystem
+    if sys ~= nil and sys.isPersonActionable ~= nil and not sys:isPersonActionable(npc) then
+        return
+    end
+
     -- Try new NPCFieldWork module first
     local fieldWork = self.npcSystem and self.npcSystem.fieldWork
     if fieldWork then
@@ -1640,8 +1648,8 @@ function NPCAI:updateWorkingState(npc, dt)
             -- Release worker slot so another NPC can take the field
             local fieldWork = self.npcSystem and self.npcSystem.fieldWork
             if fieldWork and npc._fieldWorkFieldId then
-                local npcId = npc.uniqueId or npc.id or npc.name
-                fieldWork:releaseWorker(npc._fieldWorkFieldId, npcId)
+                -- RSF-F357: her own durable number releases her own slot only.
+                fieldWork:releaseWorker(npc._fieldWorkFieldId, npc.id)
                 npc._fieldWorkFieldId = nil
             end
             npc.fieldWorkPath = nil
@@ -1665,8 +1673,8 @@ end
 function NPCAI:_releaseFieldWorkSlot(npc)
     local fieldWork = self.npcSystem and self.npcSystem.fieldWork
     if fieldWork and npc._fieldWorkFieldId then
-        local npcId = npc.uniqueId or npc.id or npc.name
-        fieldWork:releaseWorker(npc._fieldWorkFieldId, npcId)
+        -- RSF-F357: her own durable number releases her own slot only.
+        fieldWork:releaseWorker(npc._fieldWorkFieldId, npc.id)
         npc._fieldWorkFieldId = nil
         npc.fieldWorkWaypoints = nil
         npc.fieldWorkSlot = nil

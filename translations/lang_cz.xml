@@ -418,5 +418,27 @@
 		<text name="npc_mgmt_btn_goto" text="Jít"/>
 		<text name="npc_mgmt_btn_cancel" text="Zrušit"/>
 		<text name="npc_mgmt_btn_done" text="Hotovo"/>
+		<text name="npc_person_loading" text="Vaši sousedé se stále načítají."/>
+		<text name="npc_person_failed" text="Uložené sousedy se nepodařilo načíst; na disku zůstali beze změny."/>
+		<text name="npc_person_waiting_count" text="Čeká: obec je při současném počtu sousedů plná."/>
+		<text name="npc_person_waiting_home" text="Čeká na domov."/>
+		<text name="npc_person_waiting_companion" text="Čeká na doprovodný mod poradce."/>
+		<text name="npc_person_kept_legacy" text="Zachováno z doby před aktualizací; zatím neověřený soused."/>
+		<text name="npc_person_identity_conflict" text="Konflikt identity: tuto osobu si nárokuje více než jeden uložený záznam."/>
+		<text name="npc_person_presence" text="Najatý pracovník, pouze pozorovaný."/>
+		<text name="npc_person_presence_unavailable" text="Najatý pracovník, naposledy viděn zde; seznam pracovníků nyní nelze přečíst."/>
+		<text name="npc_person_opaque" text="Uložený záznam ponechaný jako doklad; neoznačuje žádného souseda."/>
+		<text name="npc_person_exhausted" text="Nelze vytvořit nového souseda: čísla identity jsou vyčerpána."/>
+		<text name="npc_person_snapshot_too_large" text="Seznam sousedů je příliš velký na odeslání ostatním hráčům."/>
+		<text name="npc_person_snapshot_partial" text="Seznam sousedů dorazil neúplný; zobrazuje se poslední potvrzený."/>
+		<text name="npc_person_names_exhausted" text="Pro nového souseda nezbylo žádné nepoužité jméno; místo zůstává prázdné."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: uložené sousedy se nepodařilo načíst; na disku zůstali beze změny. Obec není k dispozici a v této relaci se nic neukládá."/>
+		<text name="npc_person_consultant_absent" text="Není přítomen žádný poradce."/>
+		<text name="npc_recovery_unavail_person" text="Tuto práci nelze propojit se stejným sousedem; ponecháno pouze k nahlédnutí."/>
+		<text name="npc_recovery_unavail_waiting" text="Tento soused je uložen, ale momentálně není přítomen; práce čeká."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Soused uložen, ale nepřítomen"/>
+		<text name="npc_recovery_reason_person_unproven" text="Nelze propojit se stejným sousedem"/>
+		<text name="npc_person_server_only" text="Poradce může zaregistrovat pouze hostitel."/>
+		<text name="npc_person_bad_claim" text="Žádost o poradce byla odmítnuta: jméno nebo pozice nebyly použitelné."/>
 </texts>
 </l10n>

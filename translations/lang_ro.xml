@@ -420,5 +420,27 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Vecinii tăi se încarcă încă."/>
+		<text name="npc_person_failed" text="Vecinii salvați nu au putut fi citiți și au rămas neatinși pe disc."/>
+		<text name="npc_person_waiting_count" text="În așteptare: satul este plin la numărul actual de vecini."/>
+		<text name="npc_person_waiting_home" text="În așteptarea unei locuințe."/>
+		<text name="npc_person_waiting_companion" text="În așteptarea modului însoțitor al consultantului."/>
+		<text name="npc_person_kept_legacy" text="Păstrat dinainte de actualizare; încă nu este un vecin verificat."/>
+		<text name="npc_person_identity_conflict" text="Conflict de identitate: mai mult de o înregistrare salvată revendică această persoană."/>
+		<text name="npc_person_presence" text="Muncitor angajat, doar observat."/>
+		<text name="npc_person_presence_unavailable" text="Muncitor angajat, văzut aici ultima dată; lista muncitorilor nu poate fi citită acum."/>
+		<text name="npc_person_opaque" text="O înregistrare salvată păstrată ca dovadă; nu desemnează niciun vecin."/>
+		<text name="npc_person_exhausted" text="Nu se poate crea un vecin nou: numerele de identitate s-au epuizat."/>
+		<text name="npc_person_snapshot_too_large" text="Lista vecinilor este prea mare pentru a fi trimisă celorlalți jucători."/>
+		<text name="npc_person_snapshot_partial" text="Lista vecinilor a sosit incompletă; se afișează ultima confirmată."/>
+		<text name="npc_person_names_exhausted" text="Nu a mai rămas niciun nume nefolosit pentru un vecin nou; un loc rămâne gol."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: vecinii salvați nu au putut fi citiți și au rămas neatinși pe disc. Satul nu este disponibil și nimic nu se salvează în această sesiune."/>
+		<text name="npc_person_consultant_absent" text="Niciun consultant nu este prezent."/>
+		<text name="npc_recovery_unavail_person" text="Această muncă nu poate fi legată de același vecin; păstrată doar pentru consultare."/>
+		<text name="npc_recovery_unavail_waiting" text="Acel vecin este salvat, dar momentan nu este prezent; munca așteaptă."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Vecin salvat, dar absent"/>
+		<text name="npc_recovery_reason_person_unproven" text="Nu poate fi legată de același vecin"/>
+		<text name="npc_person_server_only" text="Doar gazda poate înregistra un consultant."/>
+		<text name="npc_person_bad_claim" text="Cererea de consultant a fost refuzată: numele sau poziția nu au putut fi folosite."/>
 </texts>
 </l10n>

@@ -1,5 +1,5 @@
 -- RSF-F148: recovery persistence and farm ownership contract.
---!load: src/utils/NPCFarmIdentity.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/events/NPCInteractionEvent.lua, src/NPCSystem.lua, src/integrations/NPCStateLedgerBridge.lua
+--!load: src/utils/NPCFarmIdentity.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/events/NPCInteractionEvent.lua, src/NPCSystem.lua, src/integrations/NPCStateLedgerBridge.lua
 -- Ported from the certified design bar (Office Tyson/mods/FS25_NPCFavor/
 -- RSF-F148-recovery_contract_spec_test.lua) with two changes: the real-source
 -- witnesses now assert the REPAIRED behaviour, and the fold-check group carries
@@ -74,7 +74,7 @@ local staging = twice:beginFavorLoad()
 T.ok("F148 first beginFavorLoad returns a staging table", staging ~= nil)
 NPCFavorSystem.restoreFavor(twice, legacyRow, staging)
 NPCFavorSystem.restoreFavor(twice, {npcId = 11, npcName = "Mara", type = "help_harvest", description = "Harvest",
-    f148Schema = 1, status = "active", timeRemainingPresent = true, timeRemaining = 60000, progress = 10, ownerFarmIdPresent = true, ownerFarmId = 3,
+    f148Schema = 1, personRefKind = "durable", status = "active", timeRemainingPresent = true, timeRemaining = 60000, progress = 10, ownerFarmIdPresent = true, ownerFarmId = 3,
     rewardPaidPresent = true, rewardPaid = false, repaymentCollectedPresent = true, repaymentCollected = false}, staging)
 T.eq("F148 staging holds the rows before install", #staging.active + #staging.recovery, 2)
 T.eq("F148 live collections untouched before install", #twice.activeFavors + #twice.recoveryFavors, 0)
@@ -559,7 +559,7 @@ local identityWitness = newWitness()
 
 local function savedRow(owner)
     return {
-        npcId = 11, npcName = "Mara", type = "help_harvest", description = "Harvest",
+        npcId = 11, npcName = "Mara", type = "help_harvest", description = "Harvest", personRefKind = "durable",
         timeRemaining = 60000, progress = 0, awaitingConfirmation = false,
         ownerFarmId = owner, rewardPaid = false, repaymentCollected = false,
         loanAmountDeducted = false, reward = {relationship = 1, money = 10, xp = 0}
@@ -1124,6 +1124,7 @@ end
 
 local function liveRow(sys, npcId, ownerFarmId, status, favorType)
     local row = {id = sys:allocateFavorId(), npcId = npcId, npcName = "NPC" .. npcId, type = favorType or "help_harvest",
+        personRefKind = "durable",
         description = "Harvest", status = status or "active", progress = 0, timeRemaining = 60000,
         expirationGameTime = 61000, ownerFarmId = ownerFarmId, ownerFarmIdPresent = ownerFarmId ~= nil,
         rewardPaid = false, rewardPaidPresent = true, repaymentCollected = false, repaymentCollectedPresent = true,
@@ -1635,17 +1636,25 @@ local function newHost(npcIds, opts)
     fav._favorLoadFailOrigin = nil
     fav.activeFavors, fav.recoveryFavors = {}, {}
     local host = setmetatable({
-        activeNPCs = {}, settings = {debugMode = false}, favorSystem = fav,
-        relationshipManager = {npcRelationships = {}}, isInitialized = true, npcCount = #(npcIds or {11}),
+        activeNPCs = {}, settings = {debugMode = false, maxNPCs = #(npcIds or {11})}, favorSystem = fav,
+        relationshipManager = {npcRelationships = {}}, isInitialized = true, isServer = true, npcCount = #(npcIds or {11}),
         syncDirty = false,
     }, {__index = NPCSystem})
+    -- RSF-F357: the host owns its people. A host that will LOAD (opts.ready
+    -- unset) starts WAITING with an empty roster; a host that only SAVES
+    -- (opts.ready) holds the fixture's NPCs as live durable people.
+    host.people = NPCPersonRoster.new(host)
     for _, npc in ipairs(fav.npcSystem.activeNPCs) do
         npc.uniqueId = "npc-" .. npc.id
-        if not opts.noPosition then
-            npc.position, npc.rotation = {x = 0, y = 0, z = 0}, {y = 0}
-        end
+        npc.position, npc.rotation = {x = 0, y = 0, z = 0}, {y = 0}
         host.activeNPCs[#host.activeNPCs + 1] = npc
+        if opts.ready then
+            npc.personKind, npc.origin, npc.townCandidate, npc.live = "durable", "town", true, true
+            host.people:reserveId(npc.id)
+            host.people:addPerson(npc)
+        end
     end
+    if opts.ready then host.people:markReady() end
     fav.npcSystem = host
     return host, fav, rel
 end
@@ -1717,11 +1726,13 @@ end
 
 -- (5b) applyState: a throw inside deserializeState (before the favor
 -- block) is FAILED with origin abort, and serializeState hands the
--- delivered block back unchanged, NPC data included.
+-- delivered block back unchanged, NPC data included. RSF-F357: the throw
+-- site is the real person importer (NPCPersonRoster.importPersonRow raises
+-- on an encounters field that is not a table), under the new load order.
 do
     setLiveFarms({1, 2})
-    local host, fav = newHost({11}, {noPosition = true})   -- npc.position nil makes the NPC block throw
-    local block = {schemaVersion = 3, npcs = {{uniqueId = "npc-11", name = "NPC11", px = 5, relationship = 70}},
+    local host, fav = newHost({11})
+    local block = {schemaVersion = 3, npcs = {{uniqueId = "npc_11_npc11_1234", name = "NPC11", px = 5, relationship = 70, encounters = 5}},
         favors = {{f148Schema = 1, npcId = 11, npcName = "NPC11", type = "help_harvest", status = "active",
             ownerFarmIdPresent = true, ownerFarmId = 2, timeRemainingPresent = true, timeRemaining = 900,
             rewardPaidPresent = true, rewardPaid = false}},
@@ -1749,7 +1760,7 @@ do
     local host, fav = newHost({11})
     local favorsIn = {{f148Schema = 99, npcId = 11, npcName = "NPC11", type = "help_harvest", status = "active"}}
     local recoveryIn = {}
-    local block = {schemaVersion = 3, npcs = {{uniqueId = "npc-11", name = "NPC11", px = 7, relationship = 80}},
+    local block = {schemaVersion = 3, npcs = {{uniqueId = "npc_11_npc11_1234", name = "NPC11", px = 7, relationship = 80}},
         favors = favorsIn, recoveryFavors = recoveryIn, relationships = {}}
     ledgerDeliver(host, block)
     T.eq("R2 record refusal: applyState completes", NPCStateLedgerBridge.applyState(), true)
@@ -1777,7 +1788,7 @@ end
 -- too; while READY it exports live rows.
 do
     setLiveFarms({1, 2})
-    local host, fav = newHost({11})
+    local host, fav = newHost({11}, {ready = true})
     local favorsIn = {}
     host._ledgerOriginalState = {favors = favorsIn, recoveryFavors = nil}
     local out = host:serializeState()
@@ -1842,7 +1853,7 @@ end
 -- original owner; re-retaining a request key leaves one order entry.
 do
     setLiveFarms({1, 2})
-    local host, fav = newHost({11})
+    local host, fav = newHost({11}, {ready = true})
     fav:installEmptyFavorSnapshot()
     local job = liveRow(fav, 11, 2, "active")
     setLiveFarms({1})

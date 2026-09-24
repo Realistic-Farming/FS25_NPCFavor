@@ -420,5 +420,27 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Naapurisi latautuvat vielä."/>
+		<text name="npc_person_failed" text="Tallennettuja naapureita ei voitu lukea; ne jätettiin levylle koskemattomina."/>
+		<text name="npc_person_waiting_count" text="Odottaa: kylä on täynnä nykyisellä naapurimäärällä."/>
+		<text name="npc_person_waiting_home" text="Odottaa kotia."/>
+		<text name="npc_person_waiting_companion" text="Odottaa neuvojan kumppanimodia."/>
+		<text name="npc_person_kept_legacy" text="Säilytetty päivitystä edeltävältä ajalta; ei vielä vahvistettu naapuri."/>
+		<text name="npc_person_identity_conflict" text="Henkilöllisyysristiriita: useampi kuin yksi tallennettu tietue väittää olevansa tämä henkilö."/>
+		<text name="npc_person_presence" text="Palkattu työntekijä, vain havaittu."/>
+		<text name="npc_person_presence_unavailable" text="Palkattu työntekijä, nähty viimeksi täällä; työntekijäluetteloa ei voi nyt lukea."/>
+		<text name="npc_person_opaque" text="Todisteena säilytetty tallennettu tietue; se ei nimeä naapuria."/>
+		<text name="npc_person_exhausted" text="Uutta naapuria ei voi luoda: henkilönumerot ovat loppuneet."/>
+		<text name="npc_person_snapshot_too_large" text="Naapuriluettelo on liian suuri lähetettäväksi muille pelaajille."/>
+		<text name="npc_person_snapshot_partial" text="Naapuriluettelo saapui vajaana; näytetään viimeksi vahvistettu."/>
+		<text name="npc_person_names_exhausted" text="Uudelle naapurille ei ole jäljellä käyttämätöntä nimeä; paikka jää tyhjäksi."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: tallennettuja naapureita ei voitu lukea; ne jätettiin levylle koskemattomina. Kylä ei ole käytettävissä eikä tässä istunnossa tallenneta mitään."/>
+		<text name="npc_person_consultant_absent" text="Neuvojaa ei ole paikalla."/>
+		<text name="npc_recovery_unavail_person" text="Tätä työtä ei voi yhdistää samaan naapuriin; säilytetty vain tarkasteltavaksi."/>
+		<text name="npc_recovery_unavail_waiting" text="Naapuri on tallennettu mutta ei tällä hetkellä paikalla; työ odottaa."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Naapuri tallennettu mutta ei paikalla"/>
+		<text name="npc_recovery_reason_person_unproven" text="Ei voi yhdistää samaan naapuriin"/>
+		<text name="npc_person_server_only" text="Vain isäntä voi rekisteröidä neuvojan."/>
+		<text name="npc_person_bad_claim" text="Neuvojapyyntö hylättiin: nimi tai sijainti ei ollut käyttökelpoinen."/>
 </texts>
 </l10n>

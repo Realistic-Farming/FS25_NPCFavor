@@ -420,5 +420,27 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Naboene dine laster fortsatt."/>
+		<text name="npc_person_failed" text="Lagrede naboer kunne ikke leses og ble liggende urørt på disken."/>
+		<text name="npc_person_waiting_count" text="Venter: bygda er full med gjeldende antall naboer."/>
+		<text name="npc_person_waiting_home" text="Venter på et hjem."/>
+		<text name="npc_person_waiting_companion" text="Venter på rådgiverens følgemod."/>
+		<text name="npc_person_kept_legacy" text="Beholdt fra før oppdateringen; ennå ikke en bekreftet nabo."/>
+		<text name="npc_person_identity_conflict" text="Identitetskonflikt: mer enn én lagret post gjør krav på denne personen."/>
+		<text name="npc_person_presence" text="Innleid arbeider, bare observert."/>
+		<text name="npc_person_presence_unavailable" text="Innleid arbeider, sist sett her; arbeiderlisten kan ikke leses akkurat nå."/>
+		<text name="npc_person_opaque" text="En lagret post som er beholdt som bevis; den navngir ingen nabo."/>
+		<text name="npc_person_exhausted" text="Ingen ny nabo kan opprettes: identitetsnumrene er brukt opp."/>
+		<text name="npc_person_snapshot_too_large" text="Nabolisten er for stor til å sendes til andre spillere."/>
+		<text name="npc_person_snapshot_partial" text="Nabolisten kom ufullstendig; viser den sist bekreftede."/>
+		<text name="npc_person_names_exhausted" text="Det er ikke igjen noe ubrukt navn til en ny nabo; en plass står tom."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: lagrede naboer kunne ikke leses og ble liggende urørt på disken. Bygda er utilgjengelig og ingenting lagres i denne økten."/>
+		<text name="npc_person_consultant_absent" text="Ingen rådgiver er til stede."/>
+		<text name="npc_recovery_unavail_person" text="Dette arbeidet kan ikke knyttes til den samme naboen; beholdt kun til innsyn."/>
+		<text name="npc_recovery_unavail_waiting" text="Den naboen er lagret, men ikke til stede nå; arbeidet venter."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Nabo lagret, men ikke til stede"/>
+		<text name="npc_recovery_reason_person_unproven" text="Kan ikke knyttes til den samme naboen"/>
+		<text name="npc_person_server_only" text="Bare verten kan registrere en rådgiver."/>
+		<text name="npc_person_bad_claim" text="Rådgiverforespørselen ble avvist: navnet eller posisjonen kunne ikke brukes."/>
 </texts>
 </l10n>

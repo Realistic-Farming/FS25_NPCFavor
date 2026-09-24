@@ -271,6 +271,8 @@ end
 -- @param interactionType  "socialize", "work", "gather"
 function NPCRelationshipManager:updateNPCNPCRelationship(npc1, npc2, interactionType)
     if not npc1 or not npc2 then return end
+    -- RSF-F357: a tie is between two live durable people; no presence takes part.
+    if not self:isPersonActionable(npc1) or not self:isPersonActionable(npc2) then return end
     local rel = self:getNPCRelationship(npc1.id, npc2.id)
 
     -- Base change from interaction
@@ -306,12 +308,26 @@ function NPCRelationshipManager:getNPCNPCValue(id1, id2)
     return rel and rel.value or 50
 end
 
+--- RSF-F357: the host's actionability predicate when the host has one.
+function NPCRelationshipManager:isPersonActionable(npc)
+    if type(npc) ~= "table" then return false end
+    local sys = self.npcSystem
+    if sys ~= nil and sys.isPersonActionable ~= nil then
+        return sys:isPersonActionable(npc)
+    end
+    return npc.isActive ~= false
+end
+
 function NPCRelationshipManager:updateRelationship(npcId, change, reason)
     local npc = self:getNPCById(npcId)
     if not npc then
         return false
     end
-    
+    -- RSF-F357: trust belongs to a unique live durable person only.
+    if not self:isPersonActionable(npc) then
+        return false
+    end
+
     -- Check daily limits
     if not self:canApplyRelationshipChange(npcId, reason, change) then
         if self.npcSystem.settings.debugMode then
@@ -430,6 +446,9 @@ end
 function NPCRelationshipManager:setRelationshipDirect(npcId, delta)
     local npc = self:getNPCById(npcId)
     if not npc then
+        return false, 0
+    end
+    if not self:isPersonActionable(npc) then
         return false, 0
     end
 
@@ -819,7 +838,11 @@ function NPCRelationshipManager:giveGiftToNPC(npcId, giftType, giftValue)
     if not npc then
         return false
     end
-    
+    -- RSF-F357: a presence or a waiting person takes no gift and costs nothing.
+    if not self:isPersonActionable(npc) then
+        return false
+    end
+
     -- Check daily gift limit
     local currentTime = g_currentMission.time
     local day = math.floor(currentTime / (24 * 60 * 60 * 1000))

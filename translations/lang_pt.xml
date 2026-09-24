@@ -420,5 +420,27 @@
 		<text name="npc_mgmt_btn_goto" text="Ir"/>
 		<text name="npc_mgmt_btn_cancel" text="Cancelar"/>
 		<text name="npc_mgmt_btn_done" text="Concluir"/>
+		<text name="npc_person_loading" text="Os teus vizinhos ainda estão a carregar."/>
+		<text name="npc_person_failed" text="Não foi possível ler os vizinhos guardados; ficaram intactos no disco."/>
+		<text name="npc_person_waiting_count" text="Em espera: a vila está cheia com o número de vizinhos atual."/>
+		<text name="npc_person_waiting_home" text="À espera de uma casa."/>
+		<text name="npc_person_waiting_companion" text="À espera do mod companheiro do consultor."/>
+		<text name="npc_person_kept_legacy" text="Mantido de antes da atualização; ainda não é um vizinho verificado."/>
+		<text name="npc_person_identity_conflict" text="Conflito de identidade: mais do que um registo guardado reclama esta pessoa."/>
+		<text name="npc_person_presence" text="Trabalhador contratado, apenas observado."/>
+		<text name="npc_person_presence_unavailable" text="Trabalhador contratado, visto aqui pela última vez; a lista de trabalhadores não pode ser lida agora."/>
+		<text name="npc_person_opaque" text="Um registo guardado mantido como prova; não identifica nenhum vizinho."/>
+		<text name="npc_person_exhausted" text="Não é possível criar um novo vizinho: os números de identidade esgotaram-se."/>
+		<text name="npc_person_snapshot_too_large" text="A lista de vizinhos é demasiado grande para ser enviada aos outros jogadores."/>
+		<text name="npc_person_snapshot_partial" text="A lista de vizinhos chegou incompleta; mostra-se a última confirmada."/>
+		<text name="npc_person_names_exhausted" text="Não resta nenhum nome livre para um novo vizinho; um lugar fica vazio."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: não foi possível ler os vizinhos guardados; ficaram intactos no disco. A vila não está disponível e nada é guardado nesta sessão."/>
+		<text name="npc_person_consultant_absent" text="Não está presente nenhum consultor."/>
+		<text name="npc_recovery_unavail_person" text="Este trabalho não pode ser ligado ao mesmo vizinho; mantido apenas para consulta."/>
+		<text name="npc_recovery_unavail_waiting" text="Esse vizinho está guardado mas não está presente de momento; o trabalho espera."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Vizinho guardado mas não presente"/>
+		<text name="npc_recovery_reason_person_unproven" text="Não pode ser ligado ao mesmo vizinho"/>
+		<text name="npc_person_server_only" text="Só o anfitrião pode registar um consultor."/>
+		<text name="npc_person_bad_claim" text="O pedido do consultor foi recusado: o nome ou a posição não eram utilizáveis."/>
 </texts>
 </l10n>

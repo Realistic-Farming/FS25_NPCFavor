@@ -397,7 +397,7 @@ end
 --- Get a work pattern for an NPC on a field.
 -- Selects pattern based on personality (80% boustrophedon, 20% personality override).
 -- Manages worker slot assignment for multi-worker coordination.
--- @param npc    NPC data table with .personality (string), .id or .uniqueId
+-- @param npc    NPC data table with .personality (string) and .id (the durable number)
 -- @param field  Field data table with .center {x,z}, .size (area), .id
 -- @return table  Array of {x, z} waypoints, or nil on failure
 -- @return number|nil  Worker slot (1 or 2)
@@ -408,7 +408,11 @@ function NPCFieldWork:getWorkPattern(npc, field)
     if not bounds then return nil, nil end
 
     local personality = npc.personality or "hardworking"
-    local npcId = npc.uniqueId or npc.id or npc.name or tostring(npc)
+    -- RSF-F357: the reservation key is the validated live person's durable
+    -- number alone. A shared legacy text key could merge two slots or release
+    -- another person's; a presence or an unnumbered row gets no slot.
+    local npcId = npc.id
+    if type(npcId) ~= "number" or npcId < 1 or npcId ~= math.floor(npcId) then return nil, nil end
     local fieldId = field.id or tostring(field.center.x) .. "_" .. tostring(field.center.z)
     local fieldArea = field.size or 0
 
