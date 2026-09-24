@@ -92,6 +92,7 @@ if modDirectory then
 
     -- Core systems in dependency order
     print("[NPC Favor] Loading core systems...")
+    source(modDirectory .. "src/scripts/NPCPersonRoster.lua")
     source(modDirectory .. "src/scripts/NPCRelationshipManager.lua")
     source(modDirectory .. "src/scripts/NPCFavorSystem.lua")
     source(modDirectory .. "src/scripts/NPCFavorRecovery.lua")
@@ -796,20 +797,14 @@ if Mission00 and Mission00.onStartMission then
     Mission00.onStartMission = Utils.appendedFunction(
         Mission00.onStartMission,
         function(mission)
-            -- Skip the XML fallback load when StateLedger delivered a state block; the
-            -- ledger applyState (in the first-frame init) owns the load and re-loading the
-            -- XML here would double-restore favors. Same guard as the NPCSystem init:
-            -- a registered ledger that has not answered yet also owns the load (the
-            -- favor system stays WAITING), so XML is never chosen because the
+            -- RSF-F357: the second startup path. The selected person load
+            -- decides the source itself (a registered ledger that has not
+            -- answered keeps WAITING; a delivered block owns the load; a nil
+            -- block permits XML) and does nothing after the first selection,
+            -- so this can never double-restore or choose XML because the
             -- provider is late.
-            local ledgerOwnsLoad = NPCStateLedgerBridge ~= nil
-                and (NPCStateLedgerBridge.hasLedgerState()
-                    or (NPCStateLedgerBridge.active == true and NPCStateLedgerBridge.delivered ~= true))
-            if npcSystem and npcSystem.isInitialized and not ledgerOwnsLoad then
-                local missionInfo = discoverMissionInfo()
-                if missionInfo then
-                    npcSystem:loadFromXMLFile(missionInfo)
-                end
+            if npcSystem and npcSystem.onStartMissionLoad then
+                npcSystem:onStartMissionLoad(discoverMissionInfo())
             end
         end
     )

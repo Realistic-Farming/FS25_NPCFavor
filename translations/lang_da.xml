@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Dine naboer indlæses stadig."/>
+		<text name="npc_person_failed" text="Gemte naboer kunne ikke læses og blev efterladt urørt på disken."/>
+		<text name="npc_person_waiting_count" text="Venter: byen er fuld ved det nuværende antal naboer."/>
+		<text name="npc_person_waiting_home" text="Venter på et hjem."/>
+		<text name="npc_person_waiting_companion" text="Venter på rådgiverens ledsagermod."/>
+		<text name="npc_person_kept_legacy" text="Bevaret fra før opdateringen; endnu ikke en bekræftet nabo."/>
+		<text name="npc_person_identity_conflict" text="Identitetskonflikt: mere end én gemt post gør krav på denne person."/>
+		<text name="npc_person_presence" text="Hyret arbejder, kun observeret."/>
+		<text name="npc_person_presence_unavailable" text="Hyret arbejder, sidst set her; arbejderlisten kan ikke læses lige nu."/>
+		<text name="npc_person_opaque" text="En gemt post bevaret som bevis; den navngiver ingen nabo."/>
+		<text name="npc_person_exhausted" text="Der kan ikke oprettes en ny nabo: identitetsnumrene er brugt op."/>
+		<text name="npc_person_snapshot_too_large" text="Nabolisten er for stor til at sende til andre spillere."/>
+		<text name="npc_person_snapshot_partial" text="Nabolisten kom ufuldstændig; viser den senest bekræftede."/>
+		<text name="npc_person_names_exhausted" text="Der er intet ubrugt navn tilbage til en ny nabo; en plads står tom."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: gemte naboer kunne ikke læses og blev efterladt urørt på disken. Byen er utilgængelig, og intet gemmes i denne session."/>
+		<text name="npc_person_consultant_absent" text="Ingen rådgiver er til stede."/>
+		<text name="npc_recovery_unavail_person" text="Dette arbejde kan ikke knyttes til den samme nabo; bevaret kun til gennemsyn."/>
+		<text name="npc_recovery_unavail_waiting" text="Den nabo er gemt, men ikke til stede lige nu; arbejdet venter."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Nabo gemt, men ikke til stede"/>
+		<text name="npc_recovery_reason_person_unproven" text="Kan ikke knyttes til den samme nabo"/>
 </texts>
 </l10n>

@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Hàng xóm của bạn vẫn đang được tải."/>
+		<text name="npc_person_failed" text="Không thể đọc hàng xóm đã lưu; dữ liệu trên đĩa được giữ nguyên."/>
+		<text name="npc_person_waiting_count" text="Đang chờ: thị trấn đã đầy với số hàng xóm hiện tại."/>
+		<text name="npc_person_waiting_home" text="Đang chờ một ngôi nhà."/>
+		<text name="npc_person_waiting_companion" text="Đang chờ mod đi kèm của cố vấn."/>
+		<text name="npc_person_kept_legacy" text="Được giữ lại từ trước bản cập nhật; chưa phải là hàng xóm đã xác minh."/>
+		<text name="npc_person_identity_conflict" text="Xung đột danh tính: nhiều hơn một bản ghi đã lưu nhận là người này."/>
+		<text name="npc_person_presence" text="Công nhân thuê, chỉ quan sát."/>
+		<text name="npc_person_presence_unavailable" text="Công nhân thuê, lần cuối thấy ở đây; hiện không đọc được danh sách công nhân."/>
+		<text name="npc_person_opaque" text="Một bản ghi đã lưu được giữ làm bằng chứng; không chỉ ra hàng xóm nào."/>
+		<text name="npc_person_exhausted" text="Không thể tạo hàng xóm mới: số định danh đã dùng hết."/>
+		<text name="npc_person_snapshot_too_large" text="Danh sách hàng xóm quá lớn để gửi cho người chơi khác."/>
+		<text name="npc_person_snapshot_partial" text="Danh sách hàng xóm đến không đầy đủ; đang hiển thị danh sách được xác nhận gần nhất."/>
+		<text name="npc_person_names_exhausted" text="Không còn tên chưa dùng cho hàng xóm mới; một chỗ bị bỏ trống."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: không thể đọc hàng xóm đã lưu; dữ liệu trên đĩa được giữ nguyên. Thị trấn không khả dụng và không có gì được lưu trong phiên này."/>
+		<text name="npc_person_consultant_absent" text="Không có cố vấn nào có mặt."/>
+		<text name="npc_recovery_unavail_person" text="Công việc này không thể gắn với cùng một hàng xóm; chỉ giữ lại để xem."/>
+		<text name="npc_recovery_unavail_waiting" text="Hàng xóm đó đã được lưu nhưng hiện không có mặt; công việc đang chờ."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Hàng xóm đã lưu nhưng không có mặt"/>
+		<text name="npc_recovery_reason_person_unproven" text="Không thể gắn với cùng một hàng xóm"/>
 </texts>
 </l10n>

@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="Ga heen"/>
 		<text name="npc_mgmt_btn_cancel" text="Annuleren"/>
 		<text name="npc_mgmt_btn_done" text="Klaar"/>
+		<text name="npc_person_loading" text="Je buren worden nog geladen."/>
+		<text name="npc_person_failed" text="Opgeslagen buren konden niet worden gelezen en zijn ongewijzigd op schijf gelaten."/>
+		<text name="npc_person_waiting_count" text="Wacht: het dorp is vol bij het huidige aantal buren."/>
+		<text name="npc_person_waiting_home" text="Wacht op een woning."/>
+		<text name="npc_person_waiting_companion" text="Wacht op de begeleidende mod van de adviseur."/>
+		<text name="npc_person_kept_legacy" text="Bewaard van voor de update; nog geen bevestigde buur."/>
+		<text name="npc_person_identity_conflict" text="Identiteitsconflict: meer dan een opgeslagen record claimt deze persoon."/>
+		<text name="npc_person_presence" text="Ingehuurde werker, alleen waargenomen."/>
+		<text name="npc_person_presence_unavailable" text="Ingehuurde werker, hier het laatst gezien; de werkerslijst kan nu niet worden gelezen."/>
+		<text name="npc_person_opaque" text="Een opgeslagen record dat als bewijs is bewaard; het benoemt geen buur."/>
+		<text name="npc_person_exhausted" text="Er kan geen nieuwe buur worden aangemaakt: de identiteitsnummers zijn op."/>
+		<text name="npc_person_snapshot_too_large" text="De burenlijst is te groot om naar andere spelers te sturen."/>
+		<text name="npc_person_snapshot_partial" text="De burenlijst kwam onvolledig aan; de laatst bevestigde wordt getoond."/>
+		<text name="npc_person_names_exhausted" text="Er is geen ongebruikte naam meer voor een nieuwe buur; een plek blijft leeg."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: opgeslagen buren konden niet worden gelezen en zijn ongewijzigd op schijf gelaten. Het dorp is niet beschikbaar en er wordt deze sessie niets opgeslagen."/>
+		<text name="npc_person_consultant_absent" text="Er is geen adviseur aanwezig."/>
+		<text name="npc_recovery_unavail_person" text="Dit werk kan niet aan dezelfde buur worden gekoppeld; alleen ter inzage bewaard."/>
+		<text name="npc_recovery_unavail_waiting" text="Die buur is opgeslagen maar op dit moment niet aanwezig; het werk wacht."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Buur opgeslagen maar niet aanwezig"/>
+		<text name="npc_recovery_reason_person_unproven" text="Kan niet aan dezelfde buur worden gekoppeld"/>
 </texts>
 </l10n>

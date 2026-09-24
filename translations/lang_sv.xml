@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Dina grannar laddas fortfarande."/>
+		<text name="npc_person_failed" text="Sparade grannar kunde inte läsas och lämnades orörda på disken."/>
+		<text name="npc_person_waiting_count" text="Väntar: byn är full vid det nuvarande antalet grannar."/>
+		<text name="npc_person_waiting_home" text="Väntar på ett hem."/>
+		<text name="npc_person_waiting_companion" text="Väntar på rådgivarens följeslagarmod."/>
+		<text name="npc_person_kept_legacy" text="Bevarad från före uppdateringen; ännu inte en bekräftad granne."/>
+		<text name="npc_person_identity_conflict" text="Identitetskonflikt: mer än en sparad post gör anspråk på den här personen."/>
+		<text name="npc_person_presence" text="Inhyrd arbetare, endast observerad."/>
+		<text name="npc_person_presence_unavailable" text="Inhyrd arbetare, senast sedd här; arbetarlistan kan inte läsas just nu."/>
+		<text name="npc_person_opaque" text="En sparad post som bevaras som bevis; den namnger ingen granne."/>
+		<text name="npc_person_exhausted" text="Ingen ny granne kan skapas: identitetsnumren är slut."/>
+		<text name="npc_person_snapshot_too_large" text="Grannlistan är för stor för att skickas till andra spelare."/>
+		<text name="npc_person_snapshot_partial" text="Grannlistan kom ofullständig; visar den senast bekräftade."/>
+		<text name="npc_person_names_exhausted" text="Det finns inget oanvänt namn kvar till en ny granne; en plats står tom."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: sparade grannar kunde inte läsas och lämnades orörda på disken. Byn är otillgänglig och inget sparas under den här sessionen."/>
+		<text name="npc_person_consultant_absent" text="Ingen rådgivare är närvarande."/>
+		<text name="npc_recovery_unavail_person" text="Det här arbetet kan inte knytas till samma granne; bevaras endast för granskning."/>
+		<text name="npc_recovery_unavail_waiting" text="Den grannen är sparad men inte närvarande just nu; arbetet väntar."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Granne sparad men inte närvarande"/>
+		<text name="npc_recovery_reason_person_unproven" text="Kan inte knytas till samma granne"/>
 </texts>
 </l10n>

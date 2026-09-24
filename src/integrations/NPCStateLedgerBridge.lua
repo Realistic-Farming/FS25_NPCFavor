@@ -25,6 +25,11 @@
 -- before or after it parses the master file. We force the idempotent parseFile right
 -- after registering so deserialize is delivered BEFORE NPCFavor's own load runs (which
 -- happens later, in the first-frame init), rather than letting hook order decide.
+--
+-- RSF-F357: a registered ledger that has not delivered keeps the person load WAITING
+-- (XML is never chosen because the provider is late). A late delivery schedules the
+-- same owner-side selected load if the people are still WAITING, rather than merely
+-- storing data forever; it never re-applies after READY or FAILED.
 -- =========================================================
 
 NPCStateLedgerBridge = NPCStateLedgerBridge or {}
@@ -45,28 +50,45 @@ function NPCStateLedgerBridge.hasLedgerState()
         and NPCStateLedgerBridge.pendingState ~= nil
 end
 
--- Apply the cached ledger state into the live system. Returns true when a real block was
--- applied. Called from NPCSystem's load flow instead of loadFromXMLFile when present.
+-- Apply the cached ledger state into the live system. Returns true when the apply ran
+-- without a person-load failure. Called from NPCSystem's selected load when present.
 function NPCStateLedgerBridge.applyState()
     local sys = g_NPCSystem
     if sys == nil or sys.deserializeState == nil or not NPCStateLedgerBridge.hasLedgerState() then
         return false
     end
-    local ok, err = pcall(function()
-        sys:deserializeState(NPCStateLedgerBridge.pendingState)
+    local ok, result = pcall(function()
+        return sys:deserializeState(NPCStateLedgerBridge.pendingState)
     end)
     if not ok then
-        print(string.format("[NPC Favor] StateLedger apply error (non-fatal): %s", tostring(err)))
+        print(string.format("[NPC Favor] StateLedger apply error (non-fatal): %s", tostring(result)))
         -- RSF-F148: an aborted apply is FAILED, never an empty favor snapshot.
         if sys.favorSystem and sys.favorSystem.getFavorLoadState
             and sys.favorSystem:getFavorLoadState() ~= NPCFavorRecovery.LOAD_READY then
-            sys.favorSystem:failFavorLoad("StateLedger apply aborted: " .. tostring(err),
+            sys.favorSystem:failFavorLoad("StateLedger apply aborted: " .. tostring(result),
                 NPCFavorRecovery.FAIL_ORIGIN_ABORT)
             if sys.notifyFavorLoadFailed then sys:notifyFavorLoadFailed() end
         end
         return false
     end
-    return true
+    return result ~= false
+end
+
+-- RSF-F357: the late-delivery hand-off. If the host already ran its startup pass and
+-- its people are still WAITING on this ledger, run the same selected load now. A
+-- delivery that lands before the startup pass is picked up by that pass. Never
+-- re-applies after READY or FAILED (runPersonLoad refuses).
+function NPCStateLedgerBridge.onDelivered()
+    local sys = g_NPCSystem
+    if sys == nil or sys.runPersonLoad == nil or sys.people == nil then return end
+    if not sys.initDone or not sys.people:isWaiting() then return end
+    local missionInfo = nil
+    if g_currentMission and g_currentMission.missionInfo then
+        missionInfo = g_currentMission.missionInfo
+    elseif g_currentMission and g_currentMission.savegameDirectory then
+        missionInfo = { savegameDirectory = g_currentMission.savegameDirectory }
+    end
+    sys:runPersonLoad(missionInfo)
 end
 
 -- Register with StateLedger if present. Called at loadMission00Finished, after the ledger
@@ -92,6 +114,7 @@ function NPCStateLedgerBridge.register()
             deserialize = function(data)
                 NPCStateLedgerBridge.delivered    = true
                 NPCStateLedgerBridge.pendingState = data   -- nil on a brand-new save
+                NPCStateLedgerBridge.onDelivered()
             end,
         })
         -- Force the idempotent parse so deserialize lands before the mod's first-frame

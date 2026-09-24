@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="鄰居仍在載入中。"/>
+		<text name="npc_person_failed" text="無法讀取已儲存的鄰居，磁碟上的資料保持不變。"/>
+		<text name="npc_person_waiting_count" text="等待中：目前的鄰居數量已達上限，鎮上已滿。"/>
+		<text name="npc_person_waiting_home" text="正在等待住所。"/>
+		<text name="npc_person_waiting_companion" text="正在等待顧問的配套模組。"/>
+		<text name="npc_person_kept_legacy" text="自更新前保留；尚未是經過確認的鄰居。"/>
+		<text name="npc_person_identity_conflict" text="身分衝突：多筆儲存記錄都聲稱是這個人。"/>
+		<text name="npc_person_presence" text="受雇工人，僅供觀察。"/>
+		<text name="npc_person_presence_unavailable" text="受雇工人，最後在此出現；目前無法讀取工人清單。"/>
+		<text name="npc_person_opaque" text="作為證據保留的儲存記錄；未指向任何鄰居。"/>
+		<text name="npc_person_exhausted" text="無法建立新鄰居：身分編號已用盡。"/>
+		<text name="npc_person_snapshot_too_large" text="鄰居清單過大，無法傳送給其他玩家。"/>
+		<text name="npc_person_snapshot_partial" text="鄰居清單不完整；顯示最後確認的版本。"/>
+		<text name="npc_person_names_exhausted" text="沒有可用於新鄰居的未使用名字；該位置保持空缺。"/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor：無法讀取已儲存的鄰居，磁碟上的資料保持不變。鎮上暫不可用，本次工作階段不會儲存任何內容。"/>
+		<text name="npc_person_consultant_absent" text="沒有顧問在場。"/>
+		<text name="npc_recovery_unavail_person" text="此工作無法與同一位鄰居連結；僅供查看。"/>
+		<text name="npc_recovery_unavail_waiting" text="該鄰居已儲存但目前不在；工作將等待。"/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="鄰居已儲存但不在"/>
+		<text name="npc_recovery_reason_person_unproven" text="無法與同一位鄰居連結"/>
 </texts>
 </l10n>

@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="近所の人たちをまだ読み込んでいます。"/>
+		<text name="npc_person_failed" text="保存された近所の人を読み込めなかったため、ディスク上のデータはそのまま残されました。"/>
+		<text name="npc_person_waiting_count" text="待機中: 現在の近所の人数では町がいっぱいです。"/>
+		<text name="npc_person_waiting_home" text="住まいを待っています。"/>
+		<text name="npc_person_waiting_companion" text="相談員の連携Modを待っています。"/>
+		<text name="npc_person_kept_legacy" text="アップデート前から保持されています。まだ確認済みの近所の人ではありません。"/>
+		<text name="npc_person_identity_conflict" text="身元の競合: 複数の保存記録がこの人物を主張しています。"/>
+		<text name="npc_person_presence" text="雇われた作業員。観察のみ。"/>
+		<text name="npc_person_presence_unavailable" text="雇われた作業員。最後にここで確認されました。現在、作業員リストを読み込めません。"/>
+		<text name="npc_person_opaque" text="証拠として保持された保存記録。近所の人を特定していません。"/>
+		<text name="npc_person_exhausted" text="新しい近所の人を作成できません: 身元番号を使い切りました。"/>
+		<text name="npc_person_snapshot_too_large" text="近所の人リストが大きすぎて、他のプレイヤーに送信できません。"/>
+		<text name="npc_person_snapshot_partial" text="近所の人リストが不完全な状態で届きました。最後に確認されたものを表示しています。"/>
+		<text name="npc_person_names_exhausted" text="新しい近所の人に使える名前が残っていません。空きのままになります。"/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: 保存された近所の人を読み込めなかったため、ディスク上のデータはそのまま残されました。町は利用できず、このセッションでは何も保存されません。"/>
+		<text name="npc_person_consultant_absent" text="相談員がいません。"/>
+		<text name="npc_recovery_unavail_person" text="この仕事は同じ近所の人と結び付けられません。閲覧用としてのみ保持されます。"/>
+		<text name="npc_recovery_unavail_waiting" text="その近所の人は保存されていますが、現在は不在です。仕事は待機中です。"/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="近所の人は保存済みだが不在"/>
+		<text name="npc_recovery_reason_person_unproven" text="同じ近所の人と結び付けられません"/>
 </texts>
 </l10n>

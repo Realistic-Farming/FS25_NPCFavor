@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Vos voisins sont encore en cours de chargement."/>
+		<text name="npc_person_failed" text="Les voisins sauvegardés n'ont pas pu être lus et sont restés intacts sur le disque."/>
+		<text name="npc_person_waiting_count" text="En attente : le village est complet avec le nombre de voisins actuel."/>
+		<text name="npc_person_waiting_home" text="En attente d'un logement."/>
+		<text name="npc_person_waiting_companion" text="En attente du mod compagnon du conseiller."/>
+		<text name="npc_person_kept_legacy" text="Conservé d'avant la mise à jour ; pas encore un voisin vérifié."/>
+		<text name="npc_person_identity_conflict" text="Conflit d'identité : plus d'un enregistrement sauvegardé revendique cette personne."/>
+		<text name="npc_person_presence" text="Ouvrier embauché, seulement observé."/>
+		<text name="npc_person_presence_unavailable" text="Ouvrier embauché, vu ici pour la dernière fois ; la liste des ouvriers ne peut pas être lue pour le moment."/>
+		<text name="npc_person_opaque" text="Un enregistrement sauvegardé conservé comme preuve ; il ne désigne aucun voisin."/>
+		<text name="npc_person_exhausted" text="Aucun nouveau voisin ne peut être créé : les numéros d'identité sont épuisés."/>
+		<text name="npc_person_snapshot_too_large" text="La liste des voisins est trop grande pour être envoyée aux autres joueurs."/>
+		<text name="npc_person_snapshot_partial" text="La liste des voisins est arrivée incomplète ; affichage de la dernière confirmée."/>
+		<text name="npc_person_names_exhausted" text="Il ne reste aucun nom inutilisé pour un nouveau voisin ; une place reste vide."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor : les voisins sauvegardés n'ont pas pu être lus et sont restés intacts sur le disque. Le village est indisponible et rien n'est sauvegardé pendant cette session."/>
+		<text name="npc_person_consultant_absent" text="Aucun conseiller n'est présent."/>
+		<text name="npc_recovery_unavail_person" text="Ce travail ne peut pas être rattaché au même voisin ; conservé pour consultation seulement."/>
+		<text name="npc_recovery_unavail_waiting" text="Ce voisin est sauvegardé mais absent pour le moment ; le travail attend."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Voisin sauvegardé mais absent"/>
+		<text name="npc_recovery_reason_person_unproven" text="Impossible de le rattacher au même voisin"/>
 </texts>
 </l10n>

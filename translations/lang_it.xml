@@ -418,5 +418,25 @@
 		<text name="npc_mgmt_btn_goto" text="Vai"/>
 		<text name="npc_mgmt_btn_cancel" text="Annulla"/>
 		<text name="npc_mgmt_btn_done" text="Fatto"/>
+		<text name="npc_person_loading" text="I tuoi vicini sono ancora in caricamento."/>
+		<text name="npc_person_failed" text="I vicini salvati non hanno potuto essere letti e sono rimasti intatti su disco."/>
+		<text name="npc_person_waiting_count" text="In attesa: il paese è al completo con il numero di vicini attuale."/>
+		<text name="npc_person_waiting_home" text="In attesa di una casa."/>
+		<text name="npc_person_waiting_companion" text="In attesa della mod compagna del consulente."/>
+		<text name="npc_person_kept_legacy" text="Conservato da prima dell'aggiornamento; non ancora un vicino verificato."/>
+		<text name="npc_person_identity_conflict" text="Conflitto di identità: più di un record salvato rivendica questa persona."/>
+		<text name="npc_person_presence" text="Lavoratore assunto, solo osservato."/>
+		<text name="npc_person_presence_unavailable" text="Lavoratore assunto, visto qui l'ultima volta; l'elenco dei lavoratori non può essere letto al momento."/>
+		<text name="npc_person_opaque" text="Un record salvato conservato come prova; non indica alcun vicino."/>
+		<text name="npc_person_exhausted" text="Non è possibile creare un nuovo vicino: i numeri di identità sono esauriti."/>
+		<text name="npc_person_snapshot_too_large" text="L'elenco dei vicini è troppo grande per essere inviato agli altri giocatori."/>
+		<text name="npc_person_snapshot_partial" text="L'elenco dei vicini è arrivato incompleto; viene mostrato l'ultimo confermato."/>
+		<text name="npc_person_names_exhausted" text="Non resta alcun nome inutilizzato per un nuovo vicino; un posto rimane vuoto."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: i vicini salvati non hanno potuto essere letti e sono rimasti intatti su disco. Il paese non è disponibile e in questa sessione non viene salvato nulla."/>
+		<text name="npc_person_consultant_absent" text="Nessun consulente è presente."/>
+		<text name="npc_recovery_unavail_person" text="Questo lavoro non può essere collegato allo stesso vicino; conservato solo per consultazione."/>
+		<text name="npc_recovery_unavail_waiting" text="Quel vicino è salvato ma al momento non è presente; il lavoro attende."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Vicino salvato ma non presente"/>
+		<text name="npc_recovery_reason_person_unproven" text="Non collegabile allo stesso vicino"/>
 </texts>
 </l10n>

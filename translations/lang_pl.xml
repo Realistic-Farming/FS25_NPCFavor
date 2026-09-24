@@ -418,5 +418,25 @@
 		<text name="npc_mgmt_btn_goto" text="Idź"/>
 		<text name="npc_mgmt_btn_cancel" text="Anuluj"/>
 		<text name="npc_mgmt_btn_done" text="Gotowe"/>
+		<text name="npc_person_loading" text="Twoi sąsiedzi wciąż się wczytują."/>
+		<text name="npc_person_failed" text="Nie udało się odczytać zapisanych sąsiadów; pozostawiono ich na dysku bez zmian."/>
+		<text name="npc_person_waiting_count" text="Oczekuje: miasteczko jest pełne przy obecnej liczbie sąsiadów."/>
+		<text name="npc_person_waiting_home" text="Oczekuje na dom."/>
+		<text name="npc_person_waiting_companion" text="Oczekuje na mod towarzyszący doradcy."/>
+		<text name="npc_person_kept_legacy" text="Zachowany sprzed aktualizacji; jeszcze nie zweryfikowany sąsiad."/>
+		<text name="npc_person_identity_conflict" text="Konflikt tożsamości: więcej niż jeden zapisany rekord wskazuje tę osobę."/>
+		<text name="npc_person_presence" text="Najęty pracownik, tylko obserwowany."/>
+		<text name="npc_person_presence_unavailable" text="Najęty pracownik, ostatnio widziany tutaj; listy pracowników nie można teraz odczytać."/>
+		<text name="npc_person_opaque" text="Zapisany rekord zachowany jako dowód; nie wskazuje żadnego sąsiada."/>
+		<text name="npc_person_exhausted" text="Nie można utworzyć nowego sąsiada: numery tożsamości zostały wyczerpane."/>
+		<text name="npc_person_snapshot_too_large" text="Lista sąsiadów jest zbyt duża, aby wysłać ją innym graczom."/>
+		<text name="npc_person_snapshot_partial" text="Lista sąsiadów dotarła niekompletna; wyświetlana jest ostatnia potwierdzona."/>
+		<text name="npc_person_names_exhausted" text="Nie pozostało żadne nieużywane imię dla nowego sąsiada; miejsce pozostaje puste."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: nie udało się odczytać zapisanych sąsiadów; pozostawiono ich na dysku bez zmian. Miasteczko jest niedostępne i w tej sesji nic nie zostanie zapisane."/>
+		<text name="npc_person_consultant_absent" text="Brak doradcy."/>
+		<text name="npc_recovery_unavail_person" text="Tej pracy nie można powiązać z tym samym sąsiadem; zachowana tylko do wglądu."/>
+		<text name="npc_recovery_unavail_waiting" text="Ten sąsiad jest zapisany, ale obecnie nieobecny; praca czeka."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Sąsiad zapisany, ale nieobecny"/>
+		<text name="npc_recovery_reason_person_unproven" text="Nie można powiązać z tym samym sąsiadem"/>
 </texts>
 </l10n>

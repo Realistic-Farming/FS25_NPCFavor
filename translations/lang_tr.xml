@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Komşuların hâlâ yükleniyor."/>
+		<text name="npc_person_failed" text="Kayıtlı komşular okunamadı ve diskte olduğu gibi bırakıldı."/>
+		<text name="npc_person_waiting_count" text="Bekliyor: kasaba mevcut komşu sayısında dolu."/>
+		<text name="npc_person_waiting_home" text="Bir ev bekliyor."/>
+		<text name="npc_person_waiting_companion" text="Danışmanın eşlik eden modunu bekliyor."/>
+		<text name="npc_person_kept_legacy" text="Güncellemeden önce saklandı; henüz doğrulanmış bir komşu değil."/>
+		<text name="npc_person_identity_conflict" text="Kimlik çakışması: birden fazla kayıtlı kayıt bu kişiyi sahipleniyor."/>
+		<text name="npc_person_presence" text="Kiralık işçi, yalnızca gözlemleniyor."/>
+		<text name="npc_person_presence_unavailable" text="Kiralık işçi, en son burada görüldü; işçi listesi şu anda okunamıyor."/>
+		<text name="npc_person_opaque" text="Kanıt olarak saklanan bir kayıt; bir komşuyu adlandırmıyor."/>
+		<text name="npc_person_exhausted" text="Yeni komşu oluşturulamıyor: kimlik numaraları tükendi."/>
+		<text name="npc_person_snapshot_too_large" text="Komşu listesi diğer oyunculara gönderilemeyecek kadar büyük."/>
+		<text name="npc_person_snapshot_partial" text="Komşu listesi eksik geldi; son onaylanan gösteriliyor."/>
+		<text name="npc_person_names_exhausted" text="Yeni bir komşu için kullanılmamış ad kalmadı; bir yer boş kalıyor."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: kayıtlı komşular okunamadı ve diskte olduğu gibi bırakıldı. Kasaba kullanılamıyor ve bu oturumda hiçbir şey kaydedilmiyor."/>
+		<text name="npc_person_consultant_absent" text="Danışman yok."/>
+		<text name="npc_recovery_unavail_person" text="Bu iş aynı komşuya bağlanamıyor; yalnızca inceleme için saklandı."/>
+		<text name="npc_recovery_unavail_waiting" text="Bu komşu kayıtlı ama şu anda burada değil; iş bekliyor."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Komşu kayıtlı ama burada değil"/>
+		<text name="npc_recovery_reason_person_unproven" text="Aynı komşuya bağlanamıyor"/>
 </texts>
 </l10n>

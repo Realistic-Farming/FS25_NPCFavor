@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Tus vecinos todavía se están cargando."/>
+		<text name="npc_person_failed" text="No se pudieron leer los vecinos guardados y se dejaron intactos en el disco."/>
+		<text name="npc_person_waiting_count" text="En espera: el pueblo está lleno con el número de vecinos actual."/>
+		<text name="npc_person_waiting_home" text="En espera de un hogar."/>
+		<text name="npc_person_waiting_companion" text="En espera del mod acompañante del asesor."/>
+		<text name="npc_person_kept_legacy" text="Conservado de antes de la actualización; todavía no es un vecino verificado."/>
+		<text name="npc_person_identity_conflict" text="Conflicto de identidad: más de un registro guardado reclama a esta persona."/>
+		<text name="npc_person_presence" text="Trabajador contratado, solo observado."/>
+		<text name="npc_person_presence_unavailable" text="Trabajador contratado, visto aquí por última vez; la lista de trabajadores no se puede leer ahora."/>
+		<text name="npc_person_opaque" text="Un registro guardado conservado como prueba; no nombra a ningún vecino."/>
+		<text name="npc_person_exhausted" text="No se puede crear un nuevo vecino: los números de identidad se han agotado."/>
+		<text name="npc_person_snapshot_too_large" text="La lista de vecinos es demasiado grande para enviarla a otros jugadores."/>
+		<text name="npc_person_snapshot_partial" text="La lista de vecinos llegó incompleta; se muestra la última confirmada."/>
+		<text name="npc_person_names_exhausted" text="No queda ningún nombre sin usar para un nuevo vecino; un lugar queda vacío."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: no se pudieron leer los vecinos guardados y se dejaron intactos en el disco. El pueblo no está disponible y no se guarda nada en esta sesión."/>
+		<text name="npc_person_consultant_absent" text="No hay ningún asesor presente."/>
+		<text name="npc_recovery_unavail_person" text="Este trabajo no se puede vincular al mismo vecino; se conserva solo para consulta."/>
+		<text name="npc_recovery_unavail_waiting" text="Ese vecino está guardado pero no está presente ahora; el trabajo espera."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Vecino guardado pero no presente"/>
+		<text name="npc_recovery_reason_person_unproven" text="No se puede vincular al mismo vecino"/>
 </texts>
 </l10n>

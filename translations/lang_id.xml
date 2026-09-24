@@ -420,5 +420,25 @@
 		<text name="npc_mgmt_btn_goto" text="[EN] Go To"/>
 		<text name="npc_mgmt_btn_cancel" text="[EN] Cancel"/>
 		<text name="npc_mgmt_btn_done" text="[EN] Done"/>
+		<text name="npc_person_loading" text="Tetangga Anda masih dimuat."/>
+		<text name="npc_person_failed" text="Tetangga yang tersimpan tidak dapat dibaca dan dibiarkan utuh di disk."/>
+		<text name="npc_person_waiting_count" text="Menunggu: kota sudah penuh pada jumlah tetangga saat ini."/>
+		<text name="npc_person_waiting_home" text="Menunggu rumah."/>
+		<text name="npc_person_waiting_companion" text="Menunggu mod pendamping konsultan."/>
+		<text name="npc_person_kept_legacy" text="Disimpan dari sebelum pembaruan; belum menjadi tetangga terverifikasi."/>
+		<text name="npc_person_identity_conflict" text="Konflik identitas: lebih dari satu catatan tersimpan mengklaim orang ini."/>
+		<text name="npc_person_presence" text="Pekerja sewaan, hanya diamati."/>
+		<text name="npc_person_presence_unavailable" text="Pekerja sewaan, terakhir terlihat di sini; daftar pekerja tidak dapat dibaca saat ini."/>
+		<text name="npc_person_opaque" text="Catatan tersimpan yang disimpan sebagai bukti; tidak menunjuk tetangga mana pun."/>
+		<text name="npc_person_exhausted" text="Tetangga baru tidak dapat dibuat: nomor identitas sudah habis."/>
+		<text name="npc_person_snapshot_too_large" text="Daftar tetangga terlalu besar untuk dikirim ke pemain lain."/>
+		<text name="npc_person_snapshot_partial" text="Daftar tetangga tiba tidak lengkap; menampilkan yang terakhir dikonfirmasi."/>
+		<text name="npc_person_names_exhausted" text="Tidak ada nama yang belum terpakai untuk tetangga baru; satu tempat tetap kosong."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: tetangga yang tersimpan tidak dapat dibaca dan dibiarkan utuh di disk. Kota tidak tersedia dan tidak ada yang disimpan pada sesi ini."/>
+		<text name="npc_person_consultant_absent" text="Tidak ada konsultan yang hadir."/>
+		<text name="npc_recovery_unavail_person" text="Pekerjaan ini tidak dapat dikaitkan dengan tetangga yang sama; disimpan hanya untuk ditinjau."/>
+		<text name="npc_recovery_unavail_waiting" text="Tetangga itu tersimpan tetapi sedang tidak hadir; pekerjaan menunggu."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Tetangga tersimpan tetapi tidak hadir"/>
+		<text name="npc_recovery_reason_person_unproven" text="Tidak dapat dikaitkan dengan tetangga yang sama"/>
 </texts>
 </l10n>
