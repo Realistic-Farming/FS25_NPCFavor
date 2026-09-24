@@ -197,8 +197,10 @@ function NPCFavorGUI:npcGoto(num)
         if g_NPCSystem.npcCount == 0 then
             return "No active NPCs"
         end
+        -- RSF-F357: the number shown is the durable person number, the same one
+        -- the resolution below uses; never a row position.
         local list = "Usage: npcGoto <number>\n"
-        for i, npc in ipairs(g_NPCSystem.activeNPCs) do
+        for _, npc in ipairs(g_NPCSystem.activeNPCs) do
             if npc.isActive then
                 local dist = "?"
                 if g_NPCSystem.playerPositionValid then
@@ -206,14 +208,14 @@ function NPCFavorGUI:npcGoto(num)
                     local dz = npc.position.z - g_NPCSystem.playerPosition.z
                     dist = string.format("%.0f", math.sqrt(dx * dx + dz * dz))
                 end
-                list = list .. string.format("  %d. %s (%sm away)\n", i, npc.name, dist)
+                list = list .. string.format("  %d. %s (%sm away)\n", npc.id, npc.name, dist)
             end
         end
         return list
     end
 
-    local npc = g_NPCSystem.activeNPCs[index]
-    if not npc then
+    local npc = g_NPCSystem.getNPCById and g_NPCSystem:getNPCById(index) or nil
+    if not npc or (g_NPCSystem.isPersonActionable ~= nil and not g_NPCSystem:isPersonActionable(npc)) then
         return string.format("NPC #%d not found. Use npcGoto to see the list.", index)
     end
 

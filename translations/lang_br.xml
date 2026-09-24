@@ -440,5 +440,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Não pode ser vinculado ao mesmo vizinho"/>
 		<text name="npc_person_server_only" text="Apenas o anfitrião pode registrar um consultor."/>
 		<text name="npc_person_bad_claim" text="A solicitação do consultor foi recusada: o nome ou a posição não eram utilizáveis."/>
+		<text name="npc_dialog_pending" text="Perguntando ao vizinho..."/>
+		<text name="npc_dialog_unavailable" text="Indisponível no momento."/>
+		<text name="npc_dialog_refused_person" text="Esse vizinho não está aqui para conversar."/>
+		<text name="npc_dialog_refused_far" text="Você está longe demais para fazer isso."/>
+		<text name="npc_dialog_refused_farm" text="Você precisa estar em uma fazenda para fazer isso."/>
+		<text name="npc_dialog_refused_stale" text="Essa oferta mudou. Deixe-me olhar de novo."/>
+		<text name="npc_dialog_refused_request_reuse" text="Esse pedido já recebeu outra resposta."/>
+		<text name="npc_dialog_refused_relationship" text="Esse vizinho ainda não conhece você bem o bastante."/>
+		<text name="npc_dialog_refused_not_ready" text="Esse trabalho ainda não está pronto para ser fechado."/>
+		<text name="npc_dialog_refused_operation" text="Isso não pode ser feito aqui."/>
+		<text name="npc_dialog_talk_ok" text="Obrigado pela conversa."/>
+		<text name="npc_dialog_talk_limit" text="(Já conversamos hoje, sem mudança na relação)"/>
+		<text name="npc_dialog_tone_warm" text="É sempre bom ver você."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Você de novo."/>
+		<text name="npc_dialog_tone_cool" text="Ah. Oi."/>
+		<text name="npc_dialog_declined" text="Por enquanto estou bem, mas obrigado."/>
+		<text name="npc_dialog_no_work" text="Não preciso de nada agora, mas obrigado por perguntar!"/>
+		<text name="npc_dialog_offer" text="Tenho algo para você."/>
+		<text name="npc_dialog_offer_waiting" text="Tenho algo para você: %s"/>
+		<text name="npc_dialog_accepted" text="Obrigado! Preciso muito da sua ajuda."/>
+		<text name="npc_dialog_accepted_short" text="Obrigado! Preciso muito da sua ajuda."/>
+		<text name="npc_dialog_completed" text="Muito obrigado pela ajuda! Aqui está sua recompensa."/>
+		<text name="npc_dialog_abandoned" text="Tudo bem, esquece então."/>
+		<text name="npc_dialog_busy" text="Já estou ajudando outra fazenda com isso. Volte mais tarde!"/>
+		<text name="npc_dialog_come_find_me" text="Venha me encontrar em casa. Preciso ver você pessoalmente para fechar isso!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Ocupado com outra fazenda"/>
+		<text name="npc_dialog_gift_ok" text="Obrigado pelo presente!"/>
+		<text name="npc_dialog_gift_refused" text="Não foi possível entregar o presente."/>
+		<text name="npc_dialog_ok" text="Feito."/>
+		<text name="npc_work_view_unavailable" text="Sua lista de trabalhos não está disponível no momento."/>
+		<text name="npc_work_view_last_confirmed" text="Mostrando a última lista de trabalhos confirmada; o vizinho ainda não respondeu."/>
+		<text name="npc_work_view_last_confirmed_short" text="última confirmada"/>
+		<text name="npc_rf_pda_completed_count" text="%d concluídos para esta fazenda"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Indisponível aqui: só o anfitrião pode ajustar um vizinho."/>
 </texts>
 </l10n>

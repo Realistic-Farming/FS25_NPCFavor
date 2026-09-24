@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Kan inte knytas till samma granne"/>
 		<text name="npc_person_server_only" text="Bara värden kan registrera en rådgivare."/>
 		<text name="npc_person_bad_claim" text="Rådgivarbegäran avvisades: namnet eller positionen gick inte att använda."/>
+		<text name="npc_dialog_pending" text="Frågar grannen..."/>
+		<text name="npc_dialog_unavailable" text="Inte tillgängligt just nu."/>
+		<text name="npc_dialog_refused_person" text="Den grannen är inte här att prata med."/>
+		<text name="npc_dialog_refused_far" text="Du är för långt bort för det."/>
+		<text name="npc_dialog_refused_farm" text="Du måste vara på en gård för att göra det."/>
+		<text name="npc_dialog_refused_stale" text="Det erbjudandet ändrades. Låt mig titta igen."/>
+		<text name="npc_dialog_refused_request_reuse" text="Den begäran har redan besvarats på annat sätt."/>
+		<text name="npc_dialog_refused_relationship" text="Den här grannen känner dig inte tillräckligt väl än."/>
+		<text name="npc_dialog_refused_not_ready" text="Det jobbet är inte redo att avslutas än."/>
+		<text name="npc_dialog_refused_operation" text="Det går inte att göra här."/>
+		<text name="npc_dialog_talk_ok" text="Tack för pratstunden."/>
+		<text name="npc_dialog_talk_limit" text="(Redan pratat idag, ingen förändring i relationen)"/>
+		<text name="npc_dialog_tone_warm" text="Det är alltid trevligt att se dig."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Du igen."/>
+		<text name="npc_dialog_tone_cool" text="Åh. Hej."/>
+		<text name="npc_dialog_declined" text="Jag klarar mig för tillfället, men tack."/>
+		<text name="npc_dialog_no_work" text="Jag behöver inget just nu, men tack för att du frågade!"/>
+		<text name="npc_dialog_offer" text="Jag har något till dig."/>
+		<text name="npc_dialog_offer_waiting" text="Jag har något till dig: %s"/>
+		<text name="npc_dialog_accepted" text="Tack! Jag behöver verkligen din hjälp."/>
+		<text name="npc_dialog_accepted_short" text="Tack! Jag behöver verkligen din hjälp."/>
+		<text name="npc_dialog_completed" text="Tack så mycket för hjälpen! Här är din belöning."/>
+		<text name="npc_dialog_abandoned" text="Okej, glöm det då."/>
+		<text name="npc_dialog_busy" text="Jag hjälper redan en annan gård med det. Kom tillbaka senare!"/>
+		<text name="npc_dialog_come_find_me" text="Kom hem till mig. Jag måste träffa dig personligen för att avsluta det här!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Upptagen med en annan gård"/>
+		<text name="npc_dialog_gift_ok" text="Tack för gåvan!"/>
+		<text name="npc_dialog_gift_refused" text="Gåvan kunde inte ges."/>
+		<text name="npc_dialog_ok" text="Klart."/>
+		<text name="npc_work_view_unavailable" text="Din arbetslista är inte tillgänglig just nu."/>
+		<text name="npc_work_view_last_confirmed" text="Visar den senast bekräftade arbetslistan; grannen har inte svarat än."/>
+		<text name="npc_work_view_last_confirmed_short" text="senast bekräftad"/>
+		<text name="npc_rf_pda_completed_count" text="%d avklarade för den här gården"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Inte tillgängligt här: bara värden kan justera en granne."/>
 </texts>
 </l10n>

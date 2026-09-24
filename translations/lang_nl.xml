@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Kan niet aan dezelfde buur worden gekoppeld"/>
 		<text name="npc_person_server_only" text="Alleen de host kan een adviseur registreren."/>
 		<text name="npc_person_bad_claim" text="De adviseursaanvraag is geweigerd: de naam of positie was niet bruikbaar."/>
+		<text name="npc_dialog_pending" text="De buur wordt gevraagd..."/>
+		<text name="npc_dialog_unavailable" text="Nu niet beschikbaar."/>
+		<text name="npc_dialog_refused_person" text="Die buur is er niet om mee te praten."/>
+		<text name="npc_dialog_refused_far" text="Je bent te ver weg om dat te doen."/>
+		<text name="npc_dialog_refused_farm" text="Je moet op een boerderij zijn om dat te doen."/>
+		<text name="npc_dialog_refused_stale" text="Dat aanbod is veranderd. Laat me nog eens kijken."/>
+		<text name="npc_dialog_refused_request_reuse" text="Dat verzoek is al anders beantwoord."/>
+		<text name="npc_dialog_refused_relationship" text="Deze buur kent je nog niet goed genoeg."/>
+		<text name="npc_dialog_refused_not_ready" text="Die klus kan nog niet worden afgerond."/>
+		<text name="npc_dialog_refused_operation" text="Dat kan hier niet."/>
+		<text name="npc_dialog_talk_ok" text="Bedankt voor het praatje."/>
+		<text name="npc_dialog_talk_limit" text="(Vandaag al gepraat, geen verandering in de relatie)"/>
+		<text name="npc_dialog_tone_warm" text="Het is altijd fijn je te zien."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Jij weer."/>
+		<text name="npc_dialog_tone_cool" text="O. Hoi."/>
+		<text name="npc_dialog_declined" text="Ik red me voorlopig wel, maar bedankt."/>
+		<text name="npc_dialog_no_work" text="Ik heb nu niets nodig, maar bedankt voor het vragen!"/>
+		<text name="npc_dialog_offer" text="Ik heb iets voor je."/>
+		<text name="npc_dialog_offer_waiting" text="Ik heb iets voor je: %s"/>
+		<text name="npc_dialog_accepted" text="Bedankt! Ik heb je hulp echt nodig."/>
+		<text name="npc_dialog_accepted_short" text="Bedankt! Ik heb je hulp echt nodig."/>
+		<text name="npc_dialog_completed" text="Heel erg bedankt voor je hulp! Hier is je beloning."/>
+		<text name="npc_dialog_abandoned" text="Goed, laat dan maar."/>
+		<text name="npc_dialog_busy" text="Daar help ik al een andere boerderij mee. Kom later terug!"/>
+		<text name="npc_dialog_come_find_me" text="Kom naar mijn huis. Ik moet je persoonlijk zien om dit af te ronden!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Bezig met een andere boerderij"/>
+		<text name="npc_dialog_gift_ok" text="Bedankt voor het cadeau!"/>
+		<text name="npc_dialog_gift_refused" text="Het cadeau kon niet worden gegeven."/>
+		<text name="npc_dialog_ok" text="Klaar."/>
+		<text name="npc_work_view_unavailable" text="Je werklijst is nu niet beschikbaar."/>
+		<text name="npc_work_view_last_confirmed" text="Toont de laatst bevestigde werklijst; de buur heeft nog niet geantwoord."/>
+		<text name="npc_work_view_last_confirmed_short" text="laatst bevestigd"/>
+		<text name="npc_rf_pda_completed_count" text="%d voltooid voor deze boerderij"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Hier niet beschikbaar: alleen de host kan een buur aanpassen."/>
 </texts>
 </l10n>

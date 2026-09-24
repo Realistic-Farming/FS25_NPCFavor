@@ -440,5 +440,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Nicht demselben Nachbarn zuzuordnen"/>
 		<text name="npc_person_server_only" text="Nur der Host kann einen Berater registrieren."/>
 		<text name="npc_person_bad_claim" text="Die Berateranmeldung wurde abgelehnt: Name oder Position waren nicht verwendbar."/>
+		<text name="npc_dialog_pending" text="Frage den Nachbarn..."/>
+		<text name="npc_dialog_unavailable" text="Gerade nicht verfügbar."/>
+		<text name="npc_dialog_refused_person" text="Dieser Nachbar ist nicht hier, um mit ihm zu reden."/>
+		<text name="npc_dialog_refused_far" text="Du bist zu weit weg dafür."/>
+		<text name="npc_dialog_refused_farm" text="Dafür musst du auf einem Hof sein."/>
+		<text name="npc_dialog_refused_stale" text="Dieses Angebot hat sich geändert. Lass mich noch einmal nachsehen."/>
+		<text name="npc_dialog_refused_request_reuse" text="Diese Anfrage wurde bereits anders beantwortet."/>
+		<text name="npc_dialog_refused_relationship" text="Dieser Nachbar kennt dich noch nicht gut genug."/>
+		<text name="npc_dialog_refused_not_ready" text="Diese Arbeit kann noch nicht abgeschlossen werden."/>
+		<text name="npc_dialog_refused_operation" text="Das geht hier nicht."/>
+		<text name="npc_dialog_talk_ok" text="Danke für das Gespräch."/>
+		<text name="npc_dialog_talk_limit" text="(Heute schon geplaudert, keine Beziehungsänderung)"/>
+		<text name="npc_dialog_tone_warm" text="Es ist immer schön, dich zu sehen."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Du schon wieder."/>
+		<text name="npc_dialog_tone_cool" text="Oh. Hallo."/>
+		<text name="npc_dialog_declined" text="Mir geht es gerade gut, aber danke."/>
+		<text name="npc_dialog_no_work" text="Ich brauche gerade nichts, aber danke der Nachfrage!"/>
+		<text name="npc_dialog_offer" text="Ich hätte da etwas für dich."/>
+		<text name="npc_dialog_offer_waiting" text="Ich hätte da etwas für dich: %s"/>
+		<text name="npc_dialog_accepted" text="Danke! Ich brauche deine Hilfe wirklich."/>
+		<text name="npc_dialog_accepted_short" text="Danke! Ich brauche deine Hilfe wirklich."/>
+		<text name="npc_dialog_completed" text="Vielen Dank für deine Hilfe! Hier ist deine Belohnung."/>
+		<text name="npc_dialog_abandoned" text="Na gut, dann vergiss es."/>
+		<text name="npc_dialog_busy" text="Dabei helfe ich schon einem anderen Hof. Komm später wieder!"/>
+		<text name="npc_dialog_come_find_me" text="Komm zu mir nach Hause. Ich muss dich persönlich sehen, um das abzuschließen!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Mit einem anderen Hof beschäftigt"/>
+		<text name="npc_dialog_gift_ok" text="Danke für das Geschenk!"/>
+		<text name="npc_dialog_gift_refused" text="Das Geschenk konnte nicht übergeben werden."/>
+		<text name="npc_dialog_ok" text="Erledigt."/>
+		<text name="npc_work_view_unavailable" text="Deine Arbeitsliste ist gerade nicht verfügbar."/>
+		<text name="npc_work_view_last_confirmed" text="Zeigt die zuletzt bestätigte Arbeitsliste; der Nachbar hat noch nicht geantwortet."/>
+		<text name="npc_work_view_last_confirmed_short" text="zuletzt bestätigt"/>
+		<text name="npc_rf_pda_completed_count" text="%d für diesen Hof erledigt"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Hier nicht verfügbar: Nur der Host kann einen Nachbarn anpassen."/>
 </texts>
 </l10n>

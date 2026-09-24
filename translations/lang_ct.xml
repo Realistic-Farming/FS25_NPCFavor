@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="無法與同一位鄰居連結"/>
 		<text name="npc_person_server_only" text="只有主機可以登記顧問。"/>
 		<text name="npc_person_bad_claim" text="顧問申請被拒絕：名稱或位置無法使用。"/>
+		<text name="npc_dialog_pending" text="正在詢問鄰居..."/>
+		<text name="npc_dialog_unavailable" text="目前無法使用。"/>
+		<text name="npc_dialog_refused_person" text="那位鄰居不在這裡，無法交談。"/>
+		<text name="npc_dialog_refused_far" text="你離得太遠，無法這麼做。"/>
+		<text name="npc_dialog_refused_farm" text="你必須在農場上才能這麼做。"/>
+		<text name="npc_dialog_refused_stale" text="那個提議已經改變。讓我再看一次。"/>
+		<text name="npc_dialog_refused_request_reuse" text="那個請求已經有不同的答覆。"/>
+		<text name="npc_dialog_refused_relationship" text="這位鄰居還不夠了解你。"/>
+		<text name="npc_dialog_refused_not_ready" text="那項工作還不能結束。"/>
+		<text name="npc_dialog_refused_operation" text="這裡無法這麼做。"/>
+		<text name="npc_dialog_talk_ok" text="謝謝你的聊天。"/>
+		<text name="npc_dialog_talk_limit" text="（今天已經聊過了，關係沒有變化）"/>
+		<text name="npc_dialog_tone_warm" text="見到你總是很高興。"/>
+		<text name="npc_dialog_tone_cold" text="嗯。又是你。"/>
+		<text name="npc_dialog_tone_cool" text="哦。嗨。"/>
+		<text name="npc_dialog_declined" text="我目前還好，不過謝謝你。"/>
+		<text name="npc_dialog_no_work" text="我現在不需要什麼，不過謝謝你問！"/>
+		<text name="npc_dialog_offer" text="我有件事想拜託你。"/>
+		<text name="npc_dialog_offer_waiting" text="我有件事想拜託你：%s"/>
+		<text name="npc_dialog_accepted" text="謝謝！我真的需要你的幫忙。"/>
+		<text name="npc_dialog_accepted_short" text="謝謝！我真的需要你的幫忙。"/>
+		<text name="npc_dialog_completed" text="非常感謝你的幫忙！這是你的報酬。"/>
+		<text name="npc_dialog_abandoned" text="好吧，那就算了。"/>
+		<text name="npc_dialog_busy" text="這件事我已經在幫另一個農場了。晚點再來吧！"/>
+		<text name="npc_dialog_come_find_me" text="到我家來找我。我需要當面見你才能結束這件事！"/>
+		<text name="npc_dialog_btn_favor_busy" text="正忙於另一個農場"/>
+		<text name="npc_dialog_gift_ok" text="謝謝你的禮物！"/>
+		<text name="npc_dialog_gift_refused" text="無法送出禮物。"/>
+		<text name="npc_dialog_ok" text="完成。"/>
+		<text name="npc_work_view_unavailable" text="目前無法取得你的工作清單。"/>
+		<text name="npc_work_view_last_confirmed" text="顯示最後確認的工作清單；鄰居尚未回覆。"/>
+		<text name="npc_work_view_last_confirmed_short" text="最後確認"/>
+		<text name="npc_rf_pda_completed_count" text="此農場已完成 %d 項"/>
+		<text name="npc_admin_edit_unavailable_remote" text="此處無法使用：只有主機可以調整鄰居。"/>
 </texts>
 </l10n>

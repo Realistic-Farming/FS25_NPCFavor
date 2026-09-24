@@ -440,5 +440,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Non collegabile allo stesso vicino"/>
 		<text name="npc_person_server_only" text="Solo l'host può registrare un consulente."/>
 		<text name="npc_person_bad_claim" text="La richiesta del consulente è stata rifiutata: il nome o la posizione non era utilizzabile."/>
+		<text name="npc_dialog_pending" text="Sto chiedendo al vicino..."/>
+		<text name="npc_dialog_unavailable" text="Non disponibile al momento."/>
+		<text name="npc_dialog_refused_person" text="Quel vicino non è qui per parlare."/>
+		<text name="npc_dialog_refused_far" text="Sei troppo lontano per farlo."/>
+		<text name="npc_dialog_refused_farm" text="Devi essere in una fattoria per farlo."/>
+		<text name="npc_dialog_refused_stale" text="Quell'offerta è cambiata. Fammi guardare di nuovo."/>
+		<text name="npc_dialog_refused_request_reuse" text="A quella richiesta è già stata data un'altra risposta."/>
+		<text name="npc_dialog_refused_relationship" text="Questo vicino non ti conosce ancora abbastanza bene."/>
+		<text name="npc_dialog_refused_not_ready" text="Quel lavoro non è ancora pronto per essere chiuso."/>
+		<text name="npc_dialog_refused_operation" text="Non si può fare qui."/>
+		<text name="npc_dialog_talk_ok" text="Grazie per la chiacchierata."/>
+		<text name="npc_dialog_talk_limit" text="(Abbiamo già parlato oggi, nessun cambiamento nel rapporto)"/>
+		<text name="npc_dialog_tone_warm" text="È sempre bello vederti."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Ancora tu."/>
+		<text name="npc_dialog_tone_cool" text="Oh. Ciao."/>
+		<text name="npc_dialog_declined" text="Per ora sto bene, ma grazie."/>
+		<text name="npc_dialog_no_work" text="Non ho bisogno di niente al momento, ma grazie per averlo chiesto!"/>
+		<text name="npc_dialog_offer" text="Ho qualcosa per te."/>
+		<text name="npc_dialog_offer_waiting" text="Ho qualcosa per te: %s"/>
+		<text name="npc_dialog_accepted" text="Grazie! Ho davvero bisogno del tuo aiuto."/>
+		<text name="npc_dialog_accepted_short" text="Grazie! Ho davvero bisogno del tuo aiuto."/>
+		<text name="npc_dialog_completed" text="Grazie mille per il tuo aiuto! Ecco la tua ricompensa."/>
+		<text name="npc_dialog_abandoned" text="Va bene, lascia perdere allora."/>
+		<text name="npc_dialog_busy" text="Sto già aiutando un'altra fattoria con questo. Torna più tardi!"/>
+		<text name="npc_dialog_come_find_me" text="Vieni a trovarmi a casa. Devo vederti di persona per chiudere la faccenda!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Occupato con un'altra fattoria"/>
+		<text name="npc_dialog_gift_ok" text="Grazie per il regalo!"/>
+		<text name="npc_dialog_gift_refused" text="Il regalo non ha potuto essere consegnato."/>
+		<text name="npc_dialog_ok" text="Fatto."/>
+		<text name="npc_work_view_unavailable" text="La tua lista dei lavori non è disponibile al momento."/>
+		<text name="npc_work_view_last_confirmed" text="Mostra l'ultima lista dei lavori confermata; il vicino non ha ancora risposto."/>
+		<text name="npc_work_view_last_confirmed_short" text="ultima confermata"/>
+		<text name="npc_rf_pda_completed_count" text="%d completati per questa fattoria"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Non disponibile qui: solo l'host può modificare un vicino."/>
 </texts>
 </l10n>

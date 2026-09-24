@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Không thể gắn với cùng một hàng xóm"/>
 		<text name="npc_person_server_only" text="Chỉ chủ phòng mới có thể đăng ký cố vấn."/>
 		<text name="npc_person_bad_claim" text="Yêu cầu cố vấn bị từ chối: tên hoặc vị trí không dùng được."/>
+		<text name="npc_dialog_pending" text="Đang hỏi hàng xóm..."/>
+		<text name="npc_dialog_unavailable" text="Hiện không khả dụng."/>
+		<text name="npc_dialog_refused_person" text="Người hàng xóm đó không có ở đây để nói chuyện."/>
+		<text name="npc_dialog_refused_far" text="Bạn ở quá xa để làm việc đó."/>
+		<text name="npc_dialog_refused_farm" text="Bạn cần ở trong một nông trại để làm việc đó."/>
+		<text name="npc_dialog_refused_stale" text="Lời đề nghị đó đã thay đổi. Để tôi xem lại."/>
+		<text name="npc_dialog_refused_request_reuse" text="Yêu cầu đó đã được trả lời theo cách khác."/>
+		<text name="npc_dialog_refused_relationship" text="Người hàng xóm này chưa đủ quen biết bạn."/>
+		<text name="npc_dialog_refused_not_ready" text="Công việc đó chưa sẵn sàng để kết thúc."/>
+		<text name="npc_dialog_refused_operation" text="Không thể làm việc đó ở đây."/>
+		<text name="npc_dialog_talk_ok" text="Cảm ơn vì đã trò chuyện."/>
+		<text name="npc_dialog_talk_limit" text="(Hôm nay đã trò chuyện rồi, quan hệ không thay đổi)"/>
+		<text name="npc_dialog_tone_warm" text="Lúc nào gặp bạn cũng vui."/>
+		<text name="npc_dialog_tone_cold" text="Hừm. Lại là bạn."/>
+		<text name="npc_dialog_tone_cool" text="Ồ. Chào."/>
+		<text name="npc_dialog_declined" text="Hiện tại tôi ổn, nhưng cảm ơn."/>
+		<text name="npc_dialog_no_work" text="Hiện giờ tôi không cần gì, nhưng cảm ơn đã hỏi!"/>
+		<text name="npc_dialog_offer" text="Tôi có việc muốn nhờ bạn."/>
+		<text name="npc_dialog_offer_waiting" text="Tôi có việc muốn nhờ bạn: %s"/>
+		<text name="npc_dialog_accepted" text="Cảm ơn! Tôi thực sự cần bạn giúp."/>
+		<text name="npc_dialog_accepted_short" text="Cảm ơn! Tôi thực sự cần bạn giúp."/>
+		<text name="npc_dialog_completed" text="Cảm ơn bạn rất nhiều vì đã giúp! Đây là phần thưởng của bạn."/>
+		<text name="npc_dialog_abandoned" text="Thôi được, vậy bỏ qua đi."/>
+		<text name="npc_dialog_busy" text="Việc đó tôi đang giúp một nông trại khác rồi. Hãy quay lại sau!"/>
+		<text name="npc_dialog_come_find_me" text="Hãy đến nhà tìm tôi. Tôi cần gặp trực tiếp để kết thúc việc này!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Đang bận với nông trại khác"/>
+		<text name="npc_dialog_gift_ok" text="Cảm ơn vì món quà!"/>
+		<text name="npc_dialog_gift_refused" text="Không thể tặng món quà."/>
+		<text name="npc_dialog_ok" text="Xong."/>
+		<text name="npc_work_view_unavailable" text="Danh sách công việc của bạn hiện không khả dụng."/>
+		<text name="npc_work_view_last_confirmed" text="Đang hiển thị danh sách công việc được xác nhận gần nhất; hàng xóm chưa trả lời."/>
+		<text name="npc_work_view_last_confirmed_short" text="xác nhận gần nhất"/>
+		<text name="npc_rf_pda_completed_count" text="%d đã hoàn thành cho nông trại này"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Không khả dụng ở đây: chỉ chủ phòng mới có thể điều chỉnh hàng xóm."/>
 </texts>
 </l10n>

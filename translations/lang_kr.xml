@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="같은 이웃과 연결할 수 없음"/>
 		<text name="npc_person_server_only" text="호스트만 상담가를 등록할 수 있습니다."/>
 		<text name="npc_person_bad_claim" text="상담가 요청이 거부되었습니다: 이름 또는 위치를 사용할 수 없습니다."/>
+		<text name="npc_dialog_pending" text="이웃에게 묻는 중..."/>
+		<text name="npc_dialog_unavailable" text="지금은 이용할 수 없습니다."/>
+		<text name="npc_dialog_refused_person" text="그 이웃은 대화할 수 있는 자리에 없습니다."/>
+		<text name="npc_dialog_refused_far" text="그렇게 하기에는 너무 멀리 있습니다."/>
+		<text name="npc_dialog_refused_farm" text="그렇게 하려면 농장에 있어야 합니다."/>
+		<text name="npc_dialog_refused_stale" text="그 제안이 바뀌었습니다. 다시 확인해 보겠습니다."/>
+		<text name="npc_dialog_refused_request_reuse" text="그 요청은 이미 다르게 응답되었습니다."/>
+		<text name="npc_dialog_refused_relationship" text="이 이웃은 아직 당신을 충분히 알지 못합니다."/>
+		<text name="npc_dialog_refused_not_ready" text="그 일은 아직 마무리할 준비가 되지 않았습니다."/>
+		<text name="npc_dialog_refused_operation" text="여기서는 할 수 없습니다."/>
+		<text name="npc_dialog_talk_ok" text="이야기 나눠서 고마워요."/>
+		<text name="npc_dialog_talk_limit" text="(오늘 이미 대화함, 관계 변화 없음)"/>
+		<text name="npc_dialog_tone_warm" text="당신을 보는 건 언제나 좋네요."/>
+		<text name="npc_dialog_tone_cold" text="흠. 또 당신이군요."/>
+		<text name="npc_dialog_tone_cool" text="아. 안녕하세요."/>
+		<text name="npc_dialog_declined" text="지금은 괜찮지만 고마워요."/>
+		<text name="npc_dialog_no_work" text="지금은 필요한 게 없지만 물어봐 줘서 고마워요!"/>
+		<text name="npc_dialog_offer" text="당신에게 줄 것이 있어요."/>
+		<text name="npc_dialog_offer_waiting" text="당신에게 줄 것이 있어요: %s"/>
+		<text name="npc_dialog_accepted" text="고마워요! 정말 당신의 도움이 필요해요."/>
+		<text name="npc_dialog_accepted_short" text="고마워요! 정말 당신의 도움이 필요해요."/>
+		<text name="npc_dialog_completed" text="도와줘서 정말 고마워요! 여기 보상이에요."/>
+		<text name="npc_dialog_abandoned" text="알겠어요, 그럼 잊어 주세요."/>
+		<text name="npc_dialog_busy" text="그 일은 이미 다른 농장을 돕고 있어요. 나중에 다시 오세요!"/>
+		<text name="npc_dialog_come_find_me" text="집으로 찾아오세요. 이 일을 마무리하려면 직접 만나야 해요!"/>
+		<text name="npc_dialog_btn_favor_busy" text="다른 농장 일로 바쁨"/>
+		<text name="npc_dialog_gift_ok" text="선물 고마워요!"/>
+		<text name="npc_dialog_gift_refused" text="선물을 전달할 수 없었습니다."/>
+		<text name="npc_dialog_ok" text="완료."/>
+		<text name="npc_work_view_unavailable" text="지금은 작업 목록을 이용할 수 없습니다."/>
+		<text name="npc_work_view_last_confirmed" text="마지막으로 확인된 작업 목록을 표시합니다. 이웃이 아직 응답하지 않았습니다."/>
+		<text name="npc_work_view_last_confirmed_short" text="마지막 확인"/>
+		<text name="npc_rf_pda_completed_count" text="이 농장에서 %d개 완료"/>
+		<text name="npc_admin_edit_unavailable_remote" text="여기서는 이용할 수 없습니다: 호스트만 이웃을 조정할 수 있습니다."/>
 </texts>
 </l10n>

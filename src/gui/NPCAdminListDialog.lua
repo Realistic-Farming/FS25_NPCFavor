@@ -28,7 +28,7 @@ NPCAdminListDialog.EDIT_COLORS = {
 function NPCAdminListDialog.new(target, custom_mt)
     local self = MessageDialog.new(target, custom_mt or NPCAdminListDialog_mt)
     self.npcSystem = nil
-    self.rowNPCIndex = {}  -- rowNum -> activeNPCs index
+    self.rowNPCIndex = {}  -- rowNum -> durable person number (RSF-F357: never an array index)
     return self
 end
 
@@ -76,13 +76,13 @@ function NPCAdminListDialog:updateDisplay()
         self:clearRow(i)
     end
 
-    -- Count active NPCs and fill rows
+    -- Live durable people only, each row keyed by the durable number
     local rowIdx = 0
     if sys.activeNPCs then
-        for i, npc in ipairs(sys.activeNPCs) do
-            if npc.isActive and rowIdx < self.MAX_ROWS then
+        for _, npc in ipairs(sys.activeNPCs) do
+            if npc.isActive and rowIdx < self.MAX_ROWS and (sys.isPersonActionable == nil or sys:isPersonActionable(npc)) then
                 rowIdx = rowIdx + 1
-                self:fillRow(rowIdx, i, npc, sys)
+                self:fillRow(rowIdx, npc.id, npc, sys)
             end
         end
     end
@@ -205,14 +205,19 @@ end
 
 --- Open the edit dialog for a specific row's NPC.
 function NPCAdminListDialog:editNPC(rowNum)
-    local npcIndex = self.rowNPCIndex[rowNum]
-    if not npcIndex then return end
+    local personId = self.rowNPCIndex[rowNum]
+    if not personId then return end
 
     local sys = self.npcSystem or g_NPCSystem
-    if not sys or not sys.activeNPCs then return end
+    if not sys or sys.getNPCById == nil then return end
 
-    local npc = sys.activeNPCs[npcIndex]
-    if not npc then return end
+    -- RSF-F357: re-resolve the durable number; a row whose person is gone
+    -- refreshes rather than editing whoever holds that position now.
+    local npc = sys:getNPCById(personId)
+    if not npc or (sys.isPersonActionable ~= nil and not sys:isPersonActionable(npc)) then
+        self:updateDisplay()
+        return
+    end
 
     -- Close list first, then open edit dialog
     self:close()

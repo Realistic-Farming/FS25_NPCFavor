@@ -330,11 +330,9 @@ function NPCFavorHUD:getHUDRect()
     local pad = self.BASE_PADDING * s
 
     local favorCount = 0
-    if self.npcSystem and self.npcSystem.favorSystem then
-        local favors = self.npcSystem.favorSystem:getActiveFavors()
-        if favors then
-            favorCount = math.min(#favors, self.MAX_FAVORS)
-        end
+    local favors = self:visibleWork()
+    if favors then
+        favorCount = math.min(#favors, self.MAX_FAVORS)
     end
 
     if favorCount == 0 and self.editMode then
@@ -346,11 +344,8 @@ function NPCFavorHUD:getHUDRect()
     local contentShift = 0.005 * s
     local h = headerH + contentShift + favorCount * favorBlockH + pad * 2
 
-    if self.npcSystem and self.npcSystem.favorSystem then
-        local favors = self.npcSystem.favorSystem:getActiveFavors()
-        if favors and #favors > self.MAX_FAVORS then
-            h = h + self.BASE_LINE_HEIGHT * s
-        end
+    if favors and #favors > self.MAX_FAVORS then
+        h = h + self.BASE_LINE_HEIGHT * s
     end
 
     local x = self.posX - pad
@@ -592,8 +587,38 @@ end
 -- Update (per-frame logic, dt in seconds)
 -- =========================================================
 
+--- RSF-F357 section 9b: the rows this HUD draws are the owner's copied work
+--- page (the acting farm's accepted work and the public offers), never the
+--- local favour collections. Each row carries the saved name, status,
+--- description, the next step text and location, progress and the server's
+--- last-sampled remaining time.
+function NPCFavorHUD:visibleWork()
+    local sys = self.npcSystem
+    if sys == nil or sys.getPersonalWorkView == nil then return {} end
+    local view = sys:getPersonalWorkView()
+    if view == nil or (view.state ~= "CURRENT" and view.state ~= "LAST_CONFIRMED") then return {} end
+    local rows = {}
+    for _, r in ipairs(view.rows or {}) do
+        if r.status == "pending" or r.status == "active" or r.status == "in_progress" then
+            rows[#rows + 1] = r
+        end
+    end
+    return rows
+end
+
 function NPCFavorHUD:update(dt)
     self.animTimer = self.animTimer + dt
+
+    -- RSF-F357: watch the shared work page while the favour list is shown.
+    local wantWatch = self.npcSystem ~= nil and self.npcSystem.settings ~= nil
+        and self.npcSystem.settings.showFavorList == true and self.npcSystem.watchPersonalWork ~= nil
+    if wantWatch and not self._watchingWork then
+        self._watchingWork = true
+        self.npcSystem:watchPersonalWork(true)
+    elseif not wantWatch and self._watchingWork then
+        self._watchingWork = false
+        if self.npcSystem and self.npcSystem.watchPersonalWork then self.npcSystem:watchPersonalWork(false) end
+    end
 
     -- Per-frame edit mode enforcement
     if self.editMode then
@@ -666,10 +691,7 @@ function NPCFavorHUD:draw()
         return
     end
 
-    local favors = {}
-    if self.npcSystem.favorSystem then
-        favors = self.npcSystem.favorSystem:getActiveFavors() or {}
-    end
+    local favors = self:visibleWork()
 
     if #favors == 0 and not self.editMode then
         return
@@ -802,7 +824,7 @@ function NPCFavorHUD:draw()
             local line1Y = baseY
             local line2Y = baseY - lineH
 
-            local timeRemaining = favor.timeRemaining or 0
+            local timeRemaining = favor.timeRemainingMs or favor.timeRemaining or 0
             local hours = timeRemaining / (60 * 60 * 1000)
 
             -- Time text
@@ -839,17 +861,13 @@ function NPCFavorHUD:draw()
             -- Active/in_progress: point to first incomplete step; pending: point to NPC
             if playerX then
                 local targetX, targetZ
-                if favor.status ~= "pending" and favor.steps and #favor.steps > 0 then
-                    for _, step in ipairs(favor.steps) do
-                        if not step.completed and step.location then
-                            targetX = step.location.x
-                            targetZ = step.location.z
-                            break
-                        end
-                    end
+                if favor.status ~= "pending" and favor.nextStepLocationPresent then
+                    targetX, targetZ = favor.nextStepX, favor.nextStepZ
                 end
-                if not targetX then
-                    local npc = self.npcSystem:getNPCById(favor.npcId)
+                if not targetX and favor.personIdPresent then
+                    -- Only a live durable person supplies a position; a
+                    -- waiting or unproven row gets no fabricated arrow.
+                    local npc = self.npcSystem:getNPCById(favor.personId)
                     local npcPos = npc and npc.position
                     if npcPos then targetX, targetZ = npcPos.x, npcPos.z end
                 end
@@ -879,14 +897,8 @@ function NPCFavorHUD:draw()
             local desc
             if favor.status == "pending" then
                 desc = "(talk to accept) " .. (favor.description or "")
-            elseif favor.steps and #favor.steps > 0 then
-                for _, step in ipairs(favor.steps) do
-                    if not step.completed then
-                        desc = step.description
-                        break
-                    end
-                end
-                desc = desc or (favor.description or "")
+            elseif favor.nextStepText and favor.nextStepText ~= "" then
+                desc = favor.nextStepText
             else
                 desc = favor.description or ""
             end

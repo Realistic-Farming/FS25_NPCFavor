@@ -159,6 +159,16 @@ function NPCDialog:onOpen()
     if self.btnGiftCancelText then self.btnGiftCancelText:setText(getModText("npc_gift_cancel_btn", "Cancel")) end
 
     if self.npc and self.npcSystem then
+        -- RSF-F357: the dialog is a copied-view reader. Open the adapter's
+        -- presentation context for this one person and ask for the view; every
+        -- later result is the host's reply, matched to this context.
+        NPCDialog.INSTANCE = self
+        if self.npcSystem.beginPersonDialog then
+            self.npcSystem:beginPersonDialog(self.npc.id)
+        end
+        if self.npcSystem.requestPersonDialogAction then
+            self.npcSystem:requestPersonDialogAction("VIEW", self.npc.id, nil)
+        end
         local ok2, err2 = pcall(function()
             self:updateDisplay()
             self:updateButtonStates()
@@ -167,6 +177,12 @@ function NPCDialog:onOpen()
             print("[NPC Favor] NPCDialog:onOpen() updateDisplay FAILED: " .. tostring(err2))
         end
     end
+end
+
+--- RSF-F357: the copied dialog view for the person this dialog shows.
+function NPCDialog:personView()
+    if not self.npc or not self.npcSystem or self.npcSystem.getPersonDialogView == nil then return nil end
+    return self.npcSystem:getPersonDialogView(self.npc.id)
 end
 
 -- =========================================================
@@ -249,45 +265,32 @@ function NPCDialog:updateButtonStates()
     local defaultFavorText = getModText("npc_dialog_btn_favor", "Ask for favor")
     local favorText = defaultFavorText
 
-    if self.npcSystem and self.npcSystem.favorSystem then
-        local sys = self.npcSystem.favorSystem
-        if sys.getPendingFavorForNPC and sys:getPendingFavorForNPC(npc.id) then
+    -- RSF-F357: the copied view decides. A pending offer view: Accept. An
+    -- accepted-work view: progress, or complete when the host's row says the
+    -- current step is a dialog or loan-repay step (server re-derived). Another
+    -- farm's work: busy. No view yet: the buttons wait for the reply.
+    local view = self:personView()
+    if view ~= nil and view.available then
+        if view.offer ~= nil and view.offer.canAccept then
             favorText = getModText("npc_dialog_btn_favor_accept", "Accept Favor")
             favorEnabled = true
-        elseif sys.getActiveFavorForNPC then
-            local active = sys:getActiveFavorForNPC(npc.id)
-            if active then
-                -- In-flight favour stays usable even if standing dropped below 25.
-                favorEnabled = true
+        elseif view.work ~= nil then
+            favorEnabled = true
+            local row = view.work
+            if row.canComplete and row.isLoanRepayStep and row.loanAmountPresent then
+                favorText = string.format(getModText("npc_favor_loan_repay_btn", "Collect Repayment ($%d)"), row.loanAmount)
+            elseif row.canComplete then
+                favorText = getModText("npc_dialog_btn_favor_complete", "Complete favor")
+            else
                 favorText = getModText("npc_dialog_btn_favor_progress", "Check favor progress")
             end
-            if active and active.steps then
-                local readyStep = nil
-                for _, step in ipairs(active.steps) do
-                    if not step.completed and (step.isDialogStep or step.isLoanRepayStep) then
-                        local priorDone = true
-                        for _, s2 in ipairs(active.steps) do
-                            if s2.id < step.id and not s2.completed then
-                                priorDone = false
-                                break
-                            end
-                        end
-                        if priorDone then
-                            readyStep = step
-                            break
-                        end
-                    end
-                end
-                if readyStep and readyStep.isLoanRepayStep then
-                    local loanAmt = (active.taskData and active.taskData.loanAmount) or 5000
-                    favorText = string.format(getModText("npc_favor_loan_repay_btn", "Collect Repayment ($%d)"), loanAmt)
-                elseif readyStep then
-                    favorText = getModText("npc_dialog_btn_favor_complete", "Complete favor")
-                else
-                    favorText = getModText("npc_dialog_btn_favor_progress", "Check favor progress")
-                end
-            end
+        elseif view.result == (NPCPersonDialog and NPCPersonDialog.RESULT_BUSY) then
+            favorEnabled = false
+            favorText = getModText("npc_dialog_btn_favor_busy", "Busy with another farm")
         end
+    elseif view ~= nil and view.pending then
+        favorEnabled = false
+        favorText = getModText("npc_dialog_pending", "Asking the neighbour...")
     end
 
     -- No active or pending favor — show "Offer help" to let player initiate
@@ -295,7 +298,7 @@ function NPCDialog:updateButtonStates()
         favorText = getModText("npc_dialog_btn_offer_help", "Offer help")
     end
 
-    if not favorEnabled then
+    if not favorEnabled and favorText == defaultFavorText then
         favorText = getModText("npc_dialog_btn_favor_locked", "Offer help (need Neutral 25+)")
     end
     self:setButtonEnabled("Favor", favorEnabled, favorText)
@@ -457,42 +460,24 @@ end
 -- Button Click Handlers
 -- =========================================================
 
---- "Talk" button: pick a random conversation topic, award +1 relationship.
--- Daily limit: only the first talk per in-game day awards relationship points.
+--- "Talk" button (RSF-F357): sends TALK to the host, which applies the existing
+--- +1 daily_interaction input under its own day and mood rules and replies
+--- with the topic and the outcome. Nothing is written locally.
+function NPCDialog:paintOutcome(sent, why)
+    if not sent then
+        self:setResponse(getModText(why or "npc_dialog_unavailable", "Unavailable right now."))
+        return
+    end
+    local view = self:personView()
+    if view ~= nil and view.pending then
+        self:setResponse(getModText("npc_dialog_pending", "Asking the neighbour..."))
+    end
+end
+
 function NPCDialog:onClickTalk()
-    if not self.npc or not self.npcSystem then return end
-
-    local topic = self.npcSystem.interactionUI:getRandomConversationTopic(self.npc)
-
-    local tonePrefix = ""
-    if self.npcSystem.favorSystem then
-        local memory = self.npcSystem.favorSystem:analyzeEncounterHistory(self.npc)
-        local score = memory.memoryScore
-        if score > 0.6 then
-            tonePrefix = "It's always good to see you. "
-        elseif score < -0.6 then
-            tonePrefix = "Hmm. You again. "
-        elseif score < -0.2 then
-            tonePrefix = "Oh. Hi. "
-        end
-    end
-
-    if self.npcSystem.relationshipManager then
-        local success = self.npcSystem.relationshipManager:updateRelationship(self.npc.id, 1, "daily_interaction")
-        if success then
-            local info = self.npcSystem.relationshipManager:getRelationshipInfo(self.npc.id)
-            if info then
-                self.npc.relationship = info.value
-            end
-            self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"")
-        else
-            self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"\n(Already chatted today — no relationship change)")
-        end
-    else
-        self:setResponse(self.npc.name .. ": \"" .. tonePrefix .. topic .. "\"")
-    end
-
-    self:updateDisplay()
+    if not self.npc or not self.npcSystem or self.npcSystem.requestPersonDialogAction == nil then return end
+    local sent, why = self.npcSystem:requestPersonDialogAction("TALK", self.npc.id, nil)
+    self:paintOutcome(sent, why)
     self:updateButtonStates()
 end
 
@@ -511,223 +496,204 @@ function NPCDialog:onClickAskWork()
     self:setResponse(self.npc.name .. ": \"" .. message .. "\"" .. schedulePart)
 end
 
---- "Ask for favor" / "Accept Favor" / "Check progress" button.
--- Relationship 25+ gates ONLY player-initiated favours (branch 3). Accepting a pending
--- offer and working an active favour are allowed at any relationship, matching the HUD
--- prompt and updateButtonStates (Wizard 2026-08-07, George ACK).
--- Flow: (1) pending favor → accept + show first step, (2) active favor → show current step + progress,
---        (3) no favor → generate for this NPC, accept immediately, show first step.
+--- "Ask for favor" / "Accept Favor" / "Check progress" button (RSF-F357).
+-- Every branch reads the copied view and sends intent bound to the work shown:
+--   (1) a pending offer view -> ACCEPT_OFFER with its token and revision,
+--   (2) an accepted-work view -> COMPLETE_WORK when the host's row says the
+--       current step is a dialog or loan-repay step (the server re-derives it),
+--       otherwise the progress text from the row,
+--   (3) no work -> OFFER_HELP, which the host answers with an offer, a decline
+--       or nothing. The Neutral 25+ gate stays the initiating branch's only.
+-- A recovered row keeps its F148 exact-token route through the Favor menu.
 function NPCDialog:onClickFavor()
     if not self.npc or not self.npcSystem then return end
+    local sys = self.npcSystem
+    if sys.requestPersonDialogAction == nil then return end
 
-    local relationship = self.npc.relationship or 0
-
-    local sys = self.npcSystem.favorSystem
-    if not sys then return end
-
-    -- Build a one-line summary of the first incomplete step with distance.
-    local function stepSummary(favor)
-        if favor.steps and #favor.steps > 0 then
-            for _, step in ipairs(favor.steps) do
-                if not step.completed then
-                    local distTxt = ""
-                    if step.location and self.npcSystem.playerPositionValid then
-                        local pp = self.npcSystem.playerPosition
-                        local dx = step.location.x - pp.x
-                        local dz = (step.location.z or 0) - pp.z
-                        local dist = math.sqrt(dx * dx + dz * dz)
-                        distTxt = string.format(" (%.0fm away)", dist)
-                    end
-                    return (step.description or "Next step") .. distTxt
-                end
-            end
-        end
-        return favor.description or "Complete the task"
-    end
-
-    -- 1) Pending favor waiting for the player to accept
-    local pending = sys:getPendingFavorForNPC(self.npc.id)
-    if pending then
-        -- RSF-F148: the local farm is a claim resolved through
-        -- g_currentMission:getFarmId() and validated as an ordinary farm; it is
-        -- never defaulted to farm 0 or farm 1. On host/SP the local accept IS the
-        -- server-side accept. On a client only the intent is sent; the server
-        -- re-resolves the farm from the connection and stamps its own copy.
-        local farmId = NPCFarmIdentity.localClaimFarmId()
-        if farmId == nil then
-            self:setResponse(getModText("npc_recovery_no_local_farm", "You need to be on a farm to accept a favor."))
-            self:updateButtonStates()
-            return
-        end
-        local accepted = nil
-        if g_server ~= nil then
-            accepted = sys:acceptFavorForNPC(self.npc.id, farmId)
+    local view = self:personView()
+    if view == nil or not view.available then
+        if view ~= nil and view.pending then
+            self:setResponse(getModText("npc_dialog_pending", "Asking the neighbour..."))
         else
-            NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_ACCEPT, self.npc.id, farmId, 0, "")
-            accepted = pending  -- optimistic text only; the server owns the state
-        end
-        if accepted then
-            self:setResponse(string.format(
-                "%s: \"Thank you! I really need your help. First: %s\"",
-                self.npc.name, stepSummary(accepted)))
-            self:updateButtonStates()
-            return
-        end
-    end
-
-    -- 2) Active favor. RSF-F148: each completion branch below keeps its own
-    -- conditions (distance, loan step, dialog step). Only once they pass does
-    -- sendCompletion decide the route: a recovered row goes by the exact token
-    -- command with its local step state untouched; an ordinary row takes the
-    -- old NPC-keyed complete.
-    local active = sys:getActiveFavorForNPC(self.npc.id)
-
-    -- 2a) Active favor awaiting final confirmation (e.g. watch_property patrol complete)
-    if active and active.awaitingConfirmation then
-        local tooFar = false
-        if self.npc.homePosition and self.npcSystem.playerPositionValid then
-            local pp = self.npcSystem.playerPosition
-            local dx = self.npc.homePosition.x - pp.x
-            local dz = self.npc.homePosition.z - pp.z
-            if math.sqrt(dx * dx + dz * dz) > 50 then
-                tooFar = true
-            end
-        end
-        if tooFar then
-            self:setResponse(self.npc.name .. ": \"Come find me — I need to see you in person to close this out!\"")
-        else
-            local route = self:sendCompletion(active, nil, true)
-            self:setCompletionResponse(route,
-                self.npc.name .. ": \"Thank you so much for watching my property! Here's your reward.\"")
+            local sent, why = sys:requestPersonDialogAction("VIEW", self.npc.id, nil)
+            self:paintOutcome(sent, why)
         end
         self:updateButtonStates()
         return
     end
 
-    -- 2b) Active loan_money favor — player collects the NPC's repayment
-    if active and active.type == "loan_money" and active.steps then
-        for _, step in ipairs(active.steps) do
-            if not step.completed and step.isLoanRepayStep then
-                local loanAmount = (active.taskData and active.taskData.loanAmount) or 5000
-                -- The loan principal is returned server-side in applyFavorRewards
-                -- (repaymentCollected guard); the client only sends the completion intent.
-                local route = self:sendCompletion(active, step, false)
-                self:setCompletionResponse(route, string.format(
-                    "%s: \"Here's your $%d back — and a little extra for your trouble!\"",
-                    self.npc.name, loanAmount))
-                self:updateButtonStates()
-                return
-            end
+    local function stepSummary(row)
+        local text = (row.nextStepText ~= nil and row.nextStepText ~= "") and row.nextStepText or (row.description or "Complete the task")
+        if row.nextStepLocationPresent and sys.playerPositionValid then
+            local pp = sys.playerPosition
+            local dx = row.nextStepX - pp.x
+            local dz = row.nextStepZ - pp.z
+            text = text .. string.format(" (%.0fm away)", math.sqrt(dx * dx + dz * dz))
         end
+        return text
     end
 
-    -- 2c) Dialog-step or loan-repay step ready to be completed via dialog
-    if active and active.steps then
-        local readyStep = nil
-        for _, step in ipairs(active.steps) do
-            if not step.completed and (step.isDialogStep or step.isLoanRepayStep) then
-                local priorDone = true
-                for _, s2 in ipairs(active.steps) do
-                    if s2.id < step.id and not s2.completed then
-                        priorDone = false
-                        break
-                    end
-                end
-                if priorDone then
-                    readyStep = step
-                    break
-                end
-            end
+    -- 1) A pending offer: accept exactly that record.
+    if view.offer ~= nil then
+        if not view.offer.canAccept then
+            self:setResponse(getModText("npc_dialog_refused_stale", "That offer changed. Let me look again."))
+            sys:requestPersonDialogAction("VIEW", self.npc.id, nil)
+            return
         end
-        if readyStep then
-            if readyStep.isLoanRepayStep then
-                local loanAmount = (active.taskData and active.taskData.loanAmount) or 5000
-                -- Loan principal returned server-side (repaymentCollected guard); the
-                -- client only sends the completion intent.
-                local route = self:sendCompletion(active, readyStep, false)
-                self:setCompletionResponse(route, string.format(
-                    "%s: \"Here's your $%d back — and a little extra for your trouble!\"",
-                    self.npc.name, loanAmount))
-            else
-                local route = self:sendCompletion(active, readyStep, false)
-                self:setCompletionResponse(route, self.npc.name .. ": \"" .. (getModText("npc_dialog_favor_completed_confirm", "Thanks so much for your help! Here's your reward.")) .. "\"")
-            end
+        local sent, why = sys:requestPersonDialogAction("ACCEPT_OFFER", self.npc.id,
+            { token = view.offer.token, recordRevision = view.offer.recordRevision })
+        self:paintOutcome(sent, why)
+        self:updateButtonStates()
+        return
+    end
+
+    -- 2) Accepted work of this farm.
+    if view.work ~= nil then
+        local row = view.work
+        if row.recoveredFromLegacy then
+            self:setResponse(getModText("npc_recovery_dialog_use_view",
+                "This is a recovered favor. Finish or cancel it from the Favor menu."))
             self:updateButtonStates()
             return
         end
-    end
-
-    -- 2d) Generic active / in-progress favor — show next step
-    if active then
-        local progress = active.progress or 0
+        if row.canComplete then
+            if row.awaitingConfirmation and self.npc.homePosition and sys.playerPositionValid then
+                local pp = sys.playerPosition
+                local dx = self.npc.homePosition.x - pp.x
+                local dz = self.npc.homePosition.z - pp.z
+                if math.sqrt(dx * dx + dz * dz) > 50 then
+                    self:setResponse(self.npc.name .. ": \"" .. getModText("npc_dialog_come_find_me",
+                        "Come find me at home. I need to see you in person to close this out!") .. "\"")
+                    self:updateButtonStates()
+                    return
+                end
+            end
+            local sent, why = sys:requestPersonDialogAction("COMPLETE_WORK", self.npc.id,
+                { token = row.token, recordRevision = row.recordRevision })
+            self:paintOutcome(sent, why)
+            self:updateButtonStates()
+            return
+        end
         self:setResponse(string.format(
             "%s: \"Thanks for working on it! Next: %s [%d%% done]\"",
-            self.npc.name, stepSummary(active), progress))
+            self.npc.name, stepSummary(row), math.floor(row.progress or 0)))
         self:updateButtonStates()
         return
     end
 
-    -- 3) No favor — player offers help. Generate a favor with personality-aware decline chance.
-    -- Initiating is the only branch that needs Neutral 25+; pending accept and active
-    -- favour handling above deliberately run at any relationship.
-    if relationship < 25 then return end
+    -- Another farm's accepted work: busy, never its details.
+    if view.result == (NPCPersonDialog and NPCPersonDialog.RESULT_BUSY) then
+        self:setResponse(self.npc.name .. ": \"" .. getModText("npc_dialog_busy",
+            "I'm already helping another farm with that. Come back later!") .. "\"")
+        self:updateButtonStates()
+        return
+    end
 
-    local personality = self.npc.personality or "friendly"
-    local result = sys:generateFavorForNPC(self.npc, true)
+    -- 3) No work: the player offers help. Initiating needs Neutral 25+.
+    if (self.npc.relationship or 0) < 25 then return end
+    local sent, why = sys:requestPersonDialogAction("OFFER_HELP", self.npc.id, nil)
+    self:paintOutcome(sent, why)
+    self:updateButtonStates()
+end
 
-    if result == "declined" then
-        -- Personality-flavored refusal
+--- RSF-F357: the host's reply for a request this dialog made. Shows the
+--- matching copied result, never optimistic success. A reply for another
+--- person, a closed dialog or a changed farm is dropped by the adapter before
+--- it reaches here.
+function NPCDialog.onPersonDialogReply(reply)
+    local dlg = NPCDialog.INSTANCE
+    if dlg == nil or dlg.npc == nil or reply == nil then return end
+    if reply.personId ~= 0 and reply.personId ~= dlg.npc.id then return end
+    local name = dlg.npc.name or "?"
+    local R = NPCPersonDialog
+    local result = reply.result
+    local text = ""
+
+    -- A work-action reply carries the action type in op (1 = accept), which is
+    -- not a dialog op code: the kind decides first, never the number.
+    local isDialogReply = reply.kind == R.KIND_DIALOG
+    if isDialogReply and (reply.op == R.OP_TALK or ((result == R.RESULT_OK or result == R.RESULT_LIMIT) and reply.text ~= "")) then
+        local tone = ""
+        if reply.toneKey ~= nil and reply.toneKey ~= "" then
+            tone = getModText(reply.toneKey, "") .. " "
+        end
+        -- The topic is resolved HERE, in this reader's language; the host sent
+        -- its key (and the English for a keyless context topic).
+        local line = reply.text or ""
+        if reply.topicKey ~= nil and reply.topicKey ~= "" then
+            line = getModText(reply.topicKey, line)
+        end
+        text = name .. ": \"" .. tone .. line .. "\""
+        if result == R.RESULT_LIMIT then
+            text = text .. "\n" .. getModText("npc_dialog_talk_limit", "(Already chatted today, no relationship change)")
+        end
+    elseif result == R.RESULT_DECLINED then
         local refusals = {
             grumpy      = "I don't need your help. I manage fine on my own.",
             greedy      = "Hmm... I'll pass for now. Come back when I have something worth your time.",
             generous    = "That's very kind, but I'm all sorted today. Maybe another time!",
-            friendly    = "Oh! Thanks for offering — I'm good for now, but I'll remember this!",
+            friendly    = "Oh! Thanks for offering. I'm good for now, but I'll remember this!",
             hardworking = "Appreciate it, but I've got everything under control.",
         }
-        local msg = refusals[personality] or "I'm alright for now, but thank you."
-        self:setResponse(self.npc.name .. ": \"" .. msg .. "\"")
-
-    elseif result then
-        -- Personality-flavored acceptance
+        text = name .. ": \"" .. (refusals[reply.text] or getModText("npc_dialog_declined", "I'm alright for now, but thank you.")) .. "\""
+    elseif result == R.RESULT_OFFER and reply.rows[1] ~= nil then
+        local row = reply.rows[1]
         local acceptances = {
             grumpy      = "Fine. I suppose I could use a hand. Don't make a mess of it. First: %s",
             greedy      = "Well, since you're offering... %s. And don't expect a small reward.",
             generous    = "Oh, that's so thoughtful of you! I'd love the help. First: %s",
             friendly    = "Really? That's amazing, thank you! Let's start with: %s",
-            hardworking = "Good timing — I could use the extra hands. Here's what needs doing: %s",
+            hardworking = "Good timing. I could use the extra hands. Here's what needs doing: %s",
         }
-        local template = acceptances[personality] or "Yes, I could use help! First: %s"
-        local responseText = string.format(self.npc.name .. ": \"" .. template .. "\"", stepSummary(result))
-        if self.npcSystem.favorSystem then
-            local memory = self.npcSystem.favorSystem:analyzeEncounterHistory(self.npc)
-            if memory.completedFavorCount >= 3 then
-                responseText = responseText .. " You've helped before — I trust you'll come through again."
-            end
+        local template = acceptances[reply.text] or "I could use some help. First: %s"
+        if isDialogReply and reply.op == R.OP_VIEW then
+            template = getModText("npc_dialog_offer_waiting", "I have something for you: %s")
         end
-        self:setResponse(responseText)
+        text = string.format(name .. ": \"" .. template .. "\"", (row.nextStepText ~= "" and row.nextStepText) or row.description or "")
+    elseif result == R.RESULT_ACCEPTED and reply.rows[1] ~= nil then
+        local row = reply.rows[1]
+        if reply.kind == R.KIND_ACTION then
+            text = string.format("%s: \"Thank you! I really need your help. First: %s\"", name,
+                (row.nextStepText ~= "" and row.nextStepText) or row.description or "")
+        else
+            text = string.format("%s: \"Thanks for working on it! Next: %s [%d%% done]\"", name,
+                (row.nextStepText ~= "" and row.nextStepText) or row.description or "", math.floor(row.progress or 0))
+        end
+    elseif reply.kind == R.KIND_ACTION and result == R.RESULT_ACCEPTED then
+        text = name .. ": \"" .. getModText("npc_dialog_accepted_short", "Thank you! I really need your help.") .. "\""
+    elseif reply.kind == R.KIND_ACTION and result == R.RESULT_OK then
+        local key = reply.messageKey
+        if key == "npc_dialog_completed" then
+            text = name .. ": \"" .. getModText("npc_dialog_completed", "Thanks so much for your help! Here's your reward.") .. "\""
+        elseif key == "npc_dialog_gift_ok" then
+            text = name .. ": \"" .. getModText("npc_dialog_gift_thanks", "Thank you for the gift!") .. "\""
+        else
+            text = getModText(key or "npc_dialog_ok", "Done.")
+        end
+    elseif result == R.RESULT_NO_WORK then
+        if isDialogReply and reply.op == R.OP_OFFER_HELP then
+            text = name .. ": \"" .. getModText("npc_dialog_no_work", "I don't need anything right now, but thanks for asking!") .. "\""
+        else
+            text = nil
+        end
+    elseif result == R.RESULT_BUSY then
+        text = name .. ": \"" .. getModText("npc_dialog_busy", "I'm already helping another farm with that. Come back later!") .. "\""
+    elseif result == R.RESULT_STALE then
+        text = getModText("npc_dialog_refused_stale", "That offer changed. Let me look again.")
+        if dlg.npcSystem and dlg.npcSystem.requestPersonDialogAction then
+            dlg.npcSystem:requestPersonDialogAction("VIEW", dlg.npc.id, nil)
+        end
     else
-        self:setResponse(self.npc.name .. ": \"I don't need anything right now — but thanks for asking!\"")
+        local key = reply.messageKey
+        text = getModText((key ~= nil and key ~= "") and key or "npc_dialog_unavailable", "Unavailable right now.")
     end
 
-    self:updateButtonStates()
-end
-
-
---- Send a server-authoritative "complete this NPC's active favor" intent through the
--- mod's own NPCInteractionEvent. The server resolves the favor, completes it, and pays
--- favor.ownerFarmId exactly once (idempotency flags). The client never calls addMoney
--- and never flips favor.status; it only shows optimistic dialog text and is re-synced.
--- On host/single-player sendToServer executes directly, so behaviour is unchanged there.
-function NPCDialog:requestCompleteFavor()
-    if not self.npc then return end
-    -- RSF-F148: claim the local farm through g_currentMission:getFarmId(); an
-    -- unavailable farm sends nothing rather than farm 0.
-    local farmId = NPCFarmIdentity.localClaimFarmId()
-    if farmId == nil then
-        print("[NPC Favor] Complete not sent: no ordinary local farm")
-        return
+    if reply.trustPresent and type(reply.trust) == "number" then
+        dlg.npc.relationship = reply.trust
     end
-    NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_FAVOR_COMPLETE, self.npc.id, farmId, 0, "")
+    if text ~= nil then dlg:setResponse(text) end
+    dlg:updateDisplay()
+    dlg:updateButtonStates()
 end
 
 --- RSF-F148: decide the completion route once a branch's own conditions
@@ -748,14 +714,9 @@ function NPCDialog:sendCompletion(active, step, clearConfirmation)
         end
         return "recovered_unavailable"
     end
-    if clearConfirmation and active ~= nil then
-        active.awaitingConfirmation = false
-    end
-    if step ~= nil then
-        step.completed = true
-    end
-    self:requestCompleteFavor()
-    return "sent"
+    -- RSF-F357: ordinary completion is bound to the work shown and the server
+    -- re-derives the step condition; nothing is marked locally.
+    return "unavailable"
 end
 
 function NPCDialog:setCompletionResponse(route, ordinaryText)
@@ -857,18 +818,16 @@ function NPCDialog:executeGift(amount)
     -- Server-authoritative: serverGiveGift deducts the gift from the acting farm (after
     -- its own balance re-check) and applies the relationship gain, then syncs it back.
     -- The client sends intent only; it does not deduct money or mutate relationship here.
-    NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_GIFT, self.npc.id, farmId, amount, "money")
-
-    -- Optimistic thank-you text; the relationship value re-syncs from the server.
-    local thanks = {
-        hardworking = "Much appreciated! I can put this to good use.",
-        lazy        = "Oh nice, thanks! That's really kind of you.",
-        social      = "You're the best! I'll tell everyone how generous you are!",
-        grumpy      = "Hmph. Well... thanks, I guess.",
-        generous    = "Thank you! I'll find a way to return the favor.",
-    }
-    local thankMsg = thanks[self.npc.personality] or getModText("npc_dialog_gift_thanks", "Thank you for the gift!")
-    self:setResponse(self.npc.name .. ": \"" .. thankMsg .. "\"")
+    -- RSF-F357: the result is the host's reply (NPCDialog.onPersonDialogReply);
+    -- the gift's own amount validation and money write stay on the server.
+    if self.npcSystem.allocateDialogRequestId and self.npcSystem._dialogClient then
+        local c = self.npcSystem:_dialogClient()
+        c.pending = { requestId = "", op = "GIFT", personId = self.npc.id }
+    end
+    local sent = NPCInteractionEvent.sendToServer(NPCInteractionEvent.ACTION_GIFT, self.npc.id, farmId, amount, "money")
+    -- A listen host answers inside the call and its reply has painted the real
+    -- line already; the pending line is painted only while the reply is out.
+    self:paintOutcome(sent ~= false, "npc_dialog_unavailable")
 
     self:hideGiftPanel()
     self:updateDisplay()
@@ -1021,6 +980,9 @@ function NPCDialog:onClose()
     if NPCDialog.INSTANCE == self then
         NPCDialog.INSTANCE = nil
         NPCDialog.pendingRecoveryRequestId = nil
+    end
+    if self.npcSystem and self.npcSystem.endPersonDialog then
+        self.npcSystem:endPersonDialog()
     end
     NPCDialog:superClass().onClose(self)
     self.npc = nil

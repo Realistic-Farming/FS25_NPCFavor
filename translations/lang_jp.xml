@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="同じ近所の人と結び付けられません"/>
 		<text name="npc_person_server_only" text="相談員を登録できるのはホストだけです。"/>
 		<text name="npc_person_bad_claim" text="相談員の申請は拒否されました: 名前または位置が使用できませんでした。"/>
+		<text name="npc_dialog_pending" text="近所の人に尋ねています..."/>
+		<text name="npc_dialog_unavailable" text="現在利用できません。"/>
+		<text name="npc_dialog_refused_person" text="その近所の人は今ここにいないので話せません。"/>
+		<text name="npc_dialog_refused_far" text="それをするには遠すぎます。"/>
+		<text name="npc_dialog_refused_farm" text="それをするには農場にいる必要があります。"/>
+		<text name="npc_dialog_refused_stale" text="その申し出は変わりました。もう一度確認します。"/>
+		<text name="npc_dialog_refused_request_reuse" text="その要求にはすでに別の回答がされています。"/>
+		<text name="npc_dialog_refused_relationship" text="この近所の人はまだあなたをよく知りません。"/>
+		<text name="npc_dialog_refused_not_ready" text="その仕事はまだ完了できる状態ではありません。"/>
+		<text name="npc_dialog_refused_operation" text="ここではできません。"/>
+		<text name="npc_dialog_talk_ok" text="話せてよかった。"/>
+		<text name="npc_dialog_talk_limit" text="(今日はもう話しました。関係に変化なし)"/>
+		<text name="npc_dialog_tone_warm" text="会えるのはいつも嬉しいよ。"/>
+		<text name="npc_dialog_tone_cold" text="ふむ。また君か。"/>
+		<text name="npc_dialog_tone_cool" text="ああ。やあ。"/>
+		<text name="npc_dialog_declined" text="今のところ大丈夫だけど、ありがとう。"/>
+		<text name="npc_dialog_no_work" text="今は何も必要ないけど、聞いてくれてありがとう!"/>
+		<text name="npc_dialog_offer" text="君に頼みたいことがある。"/>
+		<text name="npc_dialog_offer_waiting" text="君に頼みたいことがある: %s"/>
+		<text name="npc_dialog_accepted" text="ありがとう! 本当に助けが必要なんだ。"/>
+		<text name="npc_dialog_accepted_short" text="ありがとう! 本当に助けが必要なんだ。"/>
+		<text name="npc_dialog_completed" text="手伝ってくれて本当にありがとう! これは報酬だ。"/>
+		<text name="npc_dialog_abandoned" text="わかった、じゃあ忘れてくれ。"/>
+		<text name="npc_dialog_busy" text="その件はもう別の農場を手伝っているんだ。また後で来てくれ!"/>
+		<text name="npc_dialog_come_find_me" text="家まで来てくれ。これを終わらせるには直接会う必要がある!"/>
+		<text name="npc_dialog_btn_favor_busy" text="別の農場の用事で忙しい"/>
+		<text name="npc_dialog_gift_ok" text="贈り物をありがとう!"/>
+		<text name="npc_dialog_gift_refused" text="贈り物を渡せませんでした。"/>
+		<text name="npc_dialog_ok" text="完了。"/>
+		<text name="npc_work_view_unavailable" text="作業リストは現在利用できません。"/>
+		<text name="npc_work_view_last_confirmed" text="最後に確認された作業リストを表示しています。近所の人はまだ応答していません。"/>
+		<text name="npc_work_view_last_confirmed_short" text="最終確認"/>
+		<text name="npc_rf_pda_completed_count" text="この農場で%d件完了"/>
+		<text name="npc_admin_edit_unavailable_remote" text="ここでは利用できません: 近所の人を調整できるのはホストだけです。"/>
 </texts>
 </l10n>

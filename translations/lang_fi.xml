@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Ei voi yhdistää samaan naapuriin"/>
 		<text name="npc_person_server_only" text="Vain isäntä voi rekisteröidä neuvojan."/>
 		<text name="npc_person_bad_claim" text="Neuvojapyyntö hylättiin: nimi tai sijainti ei ollut käyttökelpoinen."/>
+		<text name="npc_dialog_pending" text="Kysytään naapurilta..."/>
+		<text name="npc_dialog_unavailable" text="Ei saatavilla juuri nyt."/>
+		<text name="npc_dialog_refused_person" text="Tuo naapuri ei ole täällä juttelemassa."/>
+		<text name="npc_dialog_refused_far" text="Olet liian kaukana tehdäksesi tuon."/>
+		<text name="npc_dialog_refused_farm" text="Sinun täytyy olla tilalla tehdäksesi tuon."/>
+		<text name="npc_dialog_refused_stale" text="Tuo tarjous muuttui. Anna kun katson uudestaan."/>
+		<text name="npc_dialog_refused_request_reuse" text="Tuohon pyyntöön on jo vastattu toisin."/>
+		<text name="npc_dialog_refused_relationship" text="Tämä naapuri ei tunne sinua vielä tarpeeksi hyvin."/>
+		<text name="npc_dialog_refused_not_ready" text="Tuota työtä ei voi vielä päättää."/>
+		<text name="npc_dialog_refused_operation" text="Sitä ei voi tehdä täällä."/>
+		<text name="npc_dialog_talk_ok" text="Kiitos juttelusta."/>
+		<text name="npc_dialog_talk_limit" text="(Juteltiin jo tänään, suhde ei muutu)"/>
+		<text name="npc_dialog_tone_warm" text="Sinua on aina mukava nähdä."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Sinä taas."/>
+		<text name="npc_dialog_tone_cool" text="Ai. Hei."/>
+		<text name="npc_dialog_declined" text="Pärjään toistaiseksi, mutta kiitos."/>
+		<text name="npc_dialog_no_work" text="En tarvitse juuri nyt mitään, mutta kiitos kun kysyit!"/>
+		<text name="npc_dialog_offer" text="Minulla on jotain sinulle."/>
+		<text name="npc_dialog_offer_waiting" text="Minulla on jotain sinulle: %s"/>
+		<text name="npc_dialog_accepted" text="Kiitos! Tarvitsen todella apuasi."/>
+		<text name="npc_dialog_accepted_short" text="Kiitos! Tarvitsen todella apuasi."/>
+		<text name="npc_dialog_completed" text="Kiitos paljon avustasi! Tässä palkkiosi."/>
+		<text name="npc_dialog_abandoned" text="No, unohdetaan sitten."/>
+		<text name="npc_dialog_busy" text="Autan jo toista tilaa siinä. Tule myöhemmin uudestaan!"/>
+		<text name="npc_dialog_come_find_me" text="Tule tapaamaan minua kotiin. Minun on nähtävä sinut henkilökohtaisesti, jotta voimme päättää tämän!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Varattu toiselle tilalle"/>
+		<text name="npc_dialog_gift_ok" text="Kiitos lahjasta!"/>
+		<text name="npc_dialog_gift_refused" text="Lahjaa ei voitu antaa."/>
+		<text name="npc_dialog_ok" text="Valmis."/>
+		<text name="npc_work_view_unavailable" text="Työlistasi ei ole saatavilla juuri nyt."/>
+		<text name="npc_work_view_last_confirmed" text="Näytetään viimeksi vahvistettu työlista; naapuri ei ole vielä vastannut."/>
+		<text name="npc_work_view_last_confirmed_short" text="viimeksi vahvistettu"/>
+		<text name="npc_rf_pda_completed_count" text="%d valmiina tälle tilalle"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Ei saatavilla täällä: vain isäntä voi muokata naapuria."/>
 </texts>
 </l10n>

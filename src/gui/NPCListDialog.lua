@@ -19,7 +19,7 @@ NPCListDialog.COLUMNS = {"num", "name", "act", "dist", "rel", "farm"}
 function NPCListDialog.new(target, custom_mt)
     local self = MessageDialog.new(target, custom_mt or NPCListDialog_mt)
     self.npcSystem   = nil
-    self.rowNPCIndex = {}  -- rowNum -> activeNPCs index
+    self.rowDescriptor = {}  -- rowNum -> { revision, personId, canGoTo, kind } (RSF-F357: never an array index)
     self.currentPage = 1
     self.totalPages  = 1
     return self
@@ -50,6 +50,17 @@ function NPCListDialog:onOpen()
     self:updateDisplay()
 end
 
+--- RSF-F357: the rows come from the copied roster view (live, waiting, presence
+--- and opaque rows), never from the active array; a descriptor holds the
+--- snapshot revision and the durable number, so a reordered roster can never
+--- send a button to somebody else.
+function NPCListDialog:rosterRows()
+    local sys = self.npcSystem
+    if sys == nil or sys.getNeighbourRosterView == nil then return {}, nil end
+    local view = sys:getNeighbourRosterView()
+    return view.rows or {}, view
+end
+
 function NPCListDialog:updateDisplay()
     local sys = self.npcSystem
     if not sys then
@@ -57,26 +68,27 @@ function NPCListDialog:updateDisplay()
         return
     end
 
-    -- Count active NPCs and compute pagination
-    local totalNPCs = 0
-    if sys.activeNPCs then
-        for _, npc in ipairs(sys.activeNPCs) do
-            if npc.isActive then totalNPCs = totalNPCs + 1 end
-        end
-    end
+    local rows, view = self:rosterRows()
+    local totalNPCs = #rows
     self.totalPages = math.max(1, math.ceil(totalNPCs / self.MAX_ROWS))
     self.currentPage = math.min(self.currentPage, self.totalPages)
 
     local pageStart = (self.currentPage - 1) * self.MAX_ROWS + 1
     local pageEnd   = self.currentPage * self.MAX_ROWS
 
-    -- Reset row->NPC mapping
-    self.rowNPCIndex = {}
+    -- Reset row->descriptor mapping
+    self.rowDescriptor = {}
 
     -- Title
     if self.titleText then
-        self.titleText:setText(string.format("NPC Roster  (%d/%d)",
-            sys.npcCount or 0, sys.settings and sys.settings.maxNPCs or 0))
+        local live = 0
+        for _, r in ipairs(rows) do if r.kind == "LIVE" then live = live + 1 end end
+        local state = ""
+        if view ~= nil and view.snapshotState ~= "CURRENT" then
+            state = "  [" .. tostring(view.snapshotState) .. "]"
+        end
+        self.titleText:setText(string.format("NPC Roster  (%d/%d)%s",
+            live, sys.settings and sys.settings.maxNPCs or 0, state))
     end
 
     -- Subtitle
@@ -93,17 +105,11 @@ function NPCListDialog:updateDisplay()
     end
 
     -- Fill rows for current page only
-    local npcCount = 0
-    local rowIdx   = 0
-    if sys.activeNPCs then
-        for i, npc in ipairs(sys.activeNPCs) do
-            if npc.isActive then
-                npcCount = npcCount + 1
-                if npcCount >= pageStart and npcCount <= pageEnd then
-                    rowIdx = rowIdx + 1
-                    self:fillRow(rowIdx, i, npc, sys)
-                end
-            end
+    local rowIdx = 0
+    for i, r in ipairs(rows) do
+        if i >= pageStart and i <= pageEnd then
+            rowIdx = rowIdx + 1
+            self:fillRow(rowIdx, r, view, sys)
         end
     end
 
@@ -159,53 +165,70 @@ function NPCListDialog:clearRow(rowNum)
     if goBtn then goBtn:setVisible(false) end
 end
 
---- Fill a row with NPC data and color-code the cells.
-function NPCListDialog:fillRow(rowNum, npcIndex, npc, sys)
+--- Fill a row from a copied roster row and color-code the cells.
+function NPCListDialog:fillRow(rowNum, r, view, sys)
     local prefix = "r" .. rowNum
 
-    -- Store NPC index for teleport
-    self.rowNPCIndex[rowNum] = npcIndex
+    -- The descriptor: revision, durable number and the action flag. Waiting,
+    -- presence and opaque rows have no Go.
+    self.rowDescriptor[rowNum] = {
+        revision = view and view.revision or 0,
+        personId = r.personId,
+        canGoTo = r.canGoTo == true,
+        kind = r.kind,
+    }
 
     -- Show background
     local bg = self[prefix .. "bg"]
     if bg then bg:setVisible(true) end
 
-    -- Show 3-layer Go button: bg, text, hit
+    -- Show the 3-layer Go button only for a live durable person with a position
     local gobg = self[prefix .. "gobg"]
-    if gobg then gobg:setVisible(true) end
+    if gobg then gobg:setVisible(r.canGoTo == true) end
     local gotxt = self[prefix .. "gotxt"]
-    if gotxt then gotxt:setVisible(true) end
+    if gotxt then gotxt:setVisible(r.canGoTo == true) end
     local goBtn = self[prefix .. "go"]
-    if goBtn then goBtn:setVisible(true) end
+    if goBtn then goBtn:setVisible(r.canGoTo == true) end
 
-    -- # column (index)
+    -- # column: the durable number (or a dash for an opaque row)
     local numElem = self[prefix .. "num"]
     if numElem then
-        numElem:setText(tostring(npcIndex))
+        numElem:setText(r.personId ~= nil and tostring(r.personId) or "-")
         numElem:setVisible(true)
     end
 
-    -- Name column (bold white, personality-tinted)
+    -- Name column
     local nameElem = self[prefix .. "name"]
     if nameElem then
-        nameElem:setText((npc.name or "Unknown"):sub(1, 18))
+        nameElem:setText((r.name or "Unknown"):sub(1, 18))
         nameElem:setVisible(true)
-        local pr, pg, pb = self:getPersonalityColor(npc.personality)
+        local live = sys:getNPCById(r.personId or -1)
+        local pr, pg, pb = self:getPersonalityColor(live and live.personality or "")
+        if r.kind ~= "LIVE" then pr, pg, pb = 0.6, 0.6, 0.65 end
         nameElem:setTextColor(pr, pg, pb, 1)
     end
 
-    -- Activity column (role + current action)
+    -- Activity column: the kind for a row that is not live, else the action
     local actElem = self[prefix .. "act"]
     if actElem then
-        local action = npc.currentAction or npc.aiState or "idle"
-        actElem:setText(action:sub(1, 12))
+        local action
+        if r.kind == "LIVE" then
+            local live = sys:getNPCById(r.personId or -1)
+            action = (live and (live.currentAction or live.aiState)) or "idle"
+        elseif r.kind == "WAITING" then
+            action = "waiting"
+        elseif r.kind == "PRESENCE" then
+            action = "worker"
+        else
+            action = "kept"
+        end
+        actElem:setText(tostring(action):sub(1, 12))
         actElem:setVisible(true)
-        -- Color: green for active states, dim for idle/sleeping
-        if action == "idle" or action == "sleeping" or action == "resting" then
+        if action == "idle" or action == "sleeping" or action == "resting" or action == "waiting" or action == "kept" then
             actElem:setTextColor(0.55, 0.55, 0.6, 1)
         elseif action == "walking" or action == "traveling" then
             actElem:setTextColor(0.5, 0.8, 0.5, 1)
-        elseif action == "working" or action == "field work" then
+        elseif action == "working" or action == "field work" or action == "worker" then
             actElem:setTextColor(0.9, 0.75, 0.3, 1)
         elseif action == "socializing" or action == "gathering" then
             actElem:setTextColor(0.5, 0.7, 0.9, 1)
@@ -214,16 +237,15 @@ function NPCListDialog:fillRow(rowNum, npcIndex, npc, sys)
         end
     end
 
-    -- Distance column
+    -- Distance column: only a row with a position
     local distElem = self[prefix .. "dist"]
     if distElem then
         distElem:setVisible(true)
-        if sys.playerPositionValid then
-            local dx = npc.position.x - sys.playerPosition.x
-            local dz = npc.position.z - sys.playerPosition.z
+        if r.position ~= nil and sys.playerPositionValid then
+            local dx = r.position.x - sys.playerPosition.x
+            local dz = r.position.z - sys.playerPosition.z
             local d = math.sqrt(dx * dx + dz * dz)
             distElem:setText(string.format("%.0fm", d))
-            -- Color: closer = brighter, farther = dimmer
             if d < 50 then
                 distElem:setTextColor(0.3, 1, 0.3, 1)
             elseif d < 150 then
@@ -239,56 +261,63 @@ function NPCListDialog:fillRow(rowNum, npcIndex, npc, sys)
         end
     end
 
-    -- Relationship column (color coded)
+    -- Relationship column: a missing trust is unavailable, never zero
     local relElem = self[prefix .. "rel"]
     if relElem then
-        local rel = npc.relationship or 0
-        relElem:setText(tostring(rel))
         relElem:setVisible(true)
-        local rr, rg, rb = self:getRelColor(rel)
-        relElem:setTextColor(rr, rg, rb, 1)
+        if r.trust ~= nil then
+            relElem:setText(tostring(math.floor(r.trust + 0.5)))
+            local rr, rg, rb = self:getRelColor(r.trust)
+            relElem:setTextColor(rr, rg, rb, 1)
+        else
+            relElem:setText("-")
+            relElem:setTextColor(0.5, 0.5, 0.55, 1)
+        end
     end
 
-    -- Farm column (shows farm name + field count, falls back to home building)
+    -- Farm column: the house label, or the reason for a row that is not live
     local farmElem = self[prefix .. "farm"]
     if farmElem then
         local farmStr = "-"
-        if npc.farmName then
-            local fieldCount = npc.assignedFields and #npc.assignedFields or 0
-            farmStr = fieldCount > 0 and string.format("%s (%d)", npc.farmName, fieldCount) or npc.farmName
-        elseif npc.homeBuildingName then
-            farmStr = npc.homeBuildingName
+        if r.kind == "LIVE" then
+            local live = sys:getNPCById(r.personId or -1)
+            if live and live.farmName then
+                local fieldCount = live.assignedFields and #live.assignedFields or 0
+                farmStr = fieldCount > 0 and string.format("%s (%d)", live.farmName, fieldCount) or live.farmName
+            elseif r.houseLabel and r.houseLabel ~= "" then
+                farmStr = r.houseLabel
+            end
+        elseif r.reasonKey and r.reasonKey ~= "" then
+            farmStr = (g_i18n and g_i18n.hasText and g_i18n:hasText(r.reasonKey)) and g_i18n:getText(r.reasonKey) or r.reasonKey
         end
         farmElem:setText(farmStr:sub(1, 22))
         farmElem:setVisible(true)
-        if npc.assignedFarmland then
-            farmElem:setTextColor(0.5, 0.85, 0.5, 1)  -- Green = has farm
-        else
-            farmElem:setTextColor(0.6, 0.65, 0.7, 1)  -- Dim = no farm
-        end
+        farmElem:setTextColor(0.6, 0.65, 0.7, 1)
     end
 end
 
---- Teleport the player to an NPC by row number.
+--- Teleport the player to the person a row named. RSF-F357: the descriptor's
+--- durable number is resolved again against the current roster and its
+--- current actionability; a row whose person is no longer eligible refreshes
+--- and refuses rather than indexing whatever now occupies its position.
 function NPCListDialog:teleportToRow(rowNum)
-    print(string.format("[NPC Favor] teleportToRow called: row=%d", rowNum))
-    local npcIndex = self.rowNPCIndex[rowNum]
-    if not npcIndex then
-        print(string.format("[NPC Favor] teleportToRow: no NPC index for row %d (mapping empty?)", rowNum))
+    local d = self.rowDescriptor[rowNum]
+    if not d or not d.canGoTo or d.personId == nil then
         return
     end
 
     local sys = self.npcSystem or g_NPCSystem
-    if not sys or not sys.activeNPCs then return end
+    if not sys or sys.getNPCById == nil then return end
 
-    local npc = sys.activeNPCs[npcIndex]
-    if not npc or not npc.position then
-        print(string.format("[NPC Favor] teleportToRow: NPC at index %d not found or has no position", npcIndex))
+    local npc = sys:getNPCById(d.personId)
+    if not npc or not npc.position or (sys.isPersonActionable ~= nil and not sys:isPersonActionable(npc)) then
+        print(string.format("[NPC Favor] teleportToRow: person #%s is no longer a target; refreshing", tostring(d.personId)))
+        self:updateDisplay()
         return
     end
 
-    print(string.format("[NPC Favor] teleportToRow: row=%d -> index=%d -> %s at (%.0f, %.0f)",
-        rowNum, npcIndex, npc.name or "?", npc.position.x, npc.position.z))
+    print(string.format("[NPC Favor] teleportToRow: row=%d -> person #%d -> %s at (%.0f, %.0f)",
+        rowNum, d.personId, npc.name or "?", npc.position.x, npc.position.z))
 
     -- Close dialog first so the player can see where they land
     self:close()

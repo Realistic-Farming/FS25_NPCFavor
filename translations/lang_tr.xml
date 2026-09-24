@@ -442,5 +442,39 @@
 		<text name="npc_recovery_reason_person_unproven" text="Aynı komşuya bağlanamıyor"/>
 		<text name="npc_person_server_only" text="Yalnızca sunucu sahibi bir danışman kaydedebilir."/>
 		<text name="npc_person_bad_claim" text="Danışman isteği reddedildi: ad veya konum kullanılamadı."/>
+		<text name="npc_dialog_pending" text="Komşuya soruluyor..."/>
+		<text name="npc_dialog_unavailable" text="Şu anda kullanılamıyor."/>
+		<text name="npc_dialog_refused_person" text="O komşu konuşmak için burada değil."/>
+		<text name="npc_dialog_refused_far" text="Bunun için çok uzaktasın."/>
+		<text name="npc_dialog_refused_farm" text="Bunun için bir çiftlikte olman gerekiyor."/>
+		<text name="npc_dialog_refused_stale" text="Bu teklif değişti. Tekrar bakayım."/>
+		<text name="npc_dialog_refused_request_reuse" text="Bu isteğe zaten farklı bir yanıt verildi."/>
+		<text name="npc_dialog_refused_relationship" text="Bu komşu seni henüz yeterince tanımıyor."/>
+		<text name="npc_dialog_refused_not_ready" text="Bu iş henüz kapatılmaya hazır değil."/>
+		<text name="npc_dialog_refused_operation" text="Bu burada yapılamaz."/>
+		<text name="npc_dialog_talk_ok" text="Sohbet için teşekkürler."/>
+		<text name="npc_dialog_talk_limit" text="(Bugün zaten konuştuk, ilişkide değişiklik yok)"/>
+		<text name="npc_dialog_tone_warm" text="Seni görmek her zaman güzel."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Yine sen."/>
+		<text name="npc_dialog_tone_cool" text="Ah. Merhaba."/>
+		<text name="npc_dialog_declined" text="Şimdilik iyiyim ama teşekkürler."/>
+		<text name="npc_dialog_no_work" text="Şu anda bir şeye ihtiyacım yok ama sorduğun için teşekkürler!"/>
+		<text name="npc_dialog_offer" text="Senin için bir şeyim var."/>
+		<text name="npc_dialog_offer_waiting" text="Senin için bir şeyim var: %s"/>
+		<text name="npc_dialog_accepted" text="Teşekkürler! Yardımına gerçekten ihtiyacım var."/>
+		<text name="npc_dialog_accepted_short" text="Teşekkürler! Yardımına gerçekten ihtiyacım var."/>
+		<text name="npc_dialog_completed" text="Yardımın için çok teşekkürler! İşte ödülün."/>
+		<text name="npc_dialog_abandoned" text="Peki, o zaman boş ver."/>
+		<text name="npc_dialog_busy" text="Bu konuda zaten başka bir çiftliğe yardım ediyorum. Daha sonra gel!"/>
+		<text name="npc_dialog_come_find_me" text="Evime gel. Bunu kapatmak için seni bizzat görmem gerekiyor!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Başka bir çiftlikle meşgul"/>
+		<text name="npc_dialog_gift_ok" text="Hediye için teşekkürler!"/>
+		<text name="npc_dialog_gift_refused" text="Hediye verilemedi."/>
+		<text name="npc_dialog_ok" text="Tamam."/>
+		<text name="npc_work_view_unavailable" text="İş listen şu anda kullanılamıyor."/>
+		<text name="npc_work_view_last_confirmed" text="Son onaylanan iş listesi gösteriliyor; komşu henüz yanıt vermedi."/>
+		<text name="npc_work_view_last_confirmed_short" text="son onaylanan"/>
+		<text name="npc_rf_pda_completed_count" text="Bu çiftlik için %d tamamlandı"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Burada kullanılamaz: bir komşuyu yalnızca sunucu sahibi ayarlayabilir."/>
 </texts>
 </l10n>
