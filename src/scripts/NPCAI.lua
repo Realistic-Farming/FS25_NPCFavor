@@ -508,8 +508,17 @@ function NPCAI:updateNPCState(npc, dt)
     end
 
     -- Update current action display from daily schedule
-    -- Don't overwrite gathering, greeting, or dodge actions while active
-    if npc.aiState ~= self.STATES.GATHERING
+    -- Don't overwrite gathering, greeting, or dodge actions while active, nor the
+    -- field-work labels while the NPC is actually on field work: an AI job
+    -- (activeAIJob), the combo fallback (usingComboFieldWork) or a pattern slot
+    -- (_fieldWorkFieldId). Those flags are the field-work code's own. aiState is not
+    -- the test: the AI job sets none, and WORKING and DRIVING are also ordinary
+    -- scheduled work and commuting. This is PLAYER-REPORTS row 93's second defect,
+    -- the roster showing the schedule's "working indoors" on a tractor; when the
+    -- flags clear, the next tick restores the schedule label on its own.
+    local onFieldWork = npc.activeAIJob ~= nil or npc.usingComboFieldWork == true or npc._fieldWorkFieldId ~= nil
+    if not onFieldWork
+       and npc.aiState ~= self.STATES.GATHERING
        and npc.currentAction ~= "greeting"
        and npc.currentAction ~= "stepping aside" then
         local minute = self.npcSystem.scheduler:getCurrentMinute()
@@ -1461,7 +1470,16 @@ function NPCAI:initFieldWorkLegacy(npc)
     local cx = npc.assignedField.center.x
     local cz = npc.assignedField.center.z
     local fieldSize = math.max(20, math.sqrt(npc.assignedField.size or 400))
-    local halfSize = fieldSize * 0.4  -- stay within 80% of field
+    -- Stay within 80% of the field, clamped to the half-size the zigzag path at
+    -- :3080 allows (15 to 100 m) and to the field's own extent around its label
+    -- point when the record carries one: with a real area (PLAYER-REPORTS row 93)
+    -- the old arithmetic reached 219 m either way at 30 ha, well off the field.
+    local halfSize = math.max(15, math.min(100, fieldSize * 0.4))
+    local extent = npc.assignedField.extent
+    if type(extent) == "table" and extent.minX ~= nil then
+        local room = math.min(cx - extent.minX, extent.maxX - cx, cz - extent.minZ, extent.maxZ - cz)
+        if room > 0 then halfSize = math.min(halfSize, room) end
+    end
 
     npc.fieldWorkPath = {}
 

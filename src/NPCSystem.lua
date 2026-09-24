@@ -1446,7 +1446,7 @@ function NPCSystem:createNPCAtLocation(location)
 end
 
 --- Find the nearest field to a world position using g_fieldManager.
--- Tries 3 field-center patterns: fieldArea.fieldCenterX, posX/posZ, rootNode.
+-- The field centre is the engine's label point (posX/posZ), else the root node.
 -- @param x      World X position
 -- @param z      World Z position
 -- @param npcId  NPC ID (for debug logging)
@@ -1706,6 +1706,52 @@ function NPCSystem:endAttemptOnLandRefusal(npc, where, status)
     end
 end
 
+--- The field's area in square metres from the engine's own Field: hectares
+--- (Field.lua:20, set at map load :60, read through Field:getAreaHa :138, the same
+--- member the engine's mission sizes read) times ten thousand; nil when the field
+--- carries no finite positive area, so a consumer falls back to its own default
+--- rather than to a one-metre plot.
+---
+--- Native Field carries NO `fieldArea` table (Field.new, :12-30: posX, posZ, areaHa,
+--- polygonPoints, rootNode, angle). The old read `field.fieldArea.fieldArea` was nil
+--- on every field, every field became one square metre, NPCFieldWork clamped that to
+--- a 20 m square around the label point, and a tractor drew three short rows in a
+--- loop that crossed itself: the figure of 8 of PLAYER-REPORTS row 93.
+function NPCSystem.fieldAreaSqm(field)
+    if type(field) ~= "table" then return nil end
+    local ha = nil
+    if type(field.getAreaHa) == "function" then
+        local ok, v = pcall(field.getAreaHa, field)
+        if ok then ha = v end
+    end
+    if ha == nil then ha = field.areaHa end
+    if type(ha) ~= "number" or ha ~= ha or ha == math.huge or ha <= 0 then return nil end
+    return ha * 10000
+end
+
+--- The field's polygon extent in world space (Field:getPolygonPoints, Field.lua:167;
+--- world positions read as the engine reads them, MathUtil.lua:825-830): the bounding
+--- box and the vertices themselves, so a work square can be clipped to the field and
+--- its rows kept on it. nil when fewer than three points can be placed.
+function NPCSystem.fieldExtent(field)
+    if type(field) ~= "table" or type(field.getPolygonPoints) ~= "function" then return nil end
+    local ok, points = pcall(field.getPolygonPoints, field)
+    if not ok or type(points) ~= "table" then return nil end
+    local polygon, minX, maxX, minZ, maxZ = {}, nil, nil, nil, nil
+    for _, node in ipairs(points) do
+        local okT, px, _, pz = pcall(getWorldTranslation, node)
+        if okT and type(px) == "number" and type(pz) == "number" and px == px and pz == pz then
+            polygon[#polygon + 1] = { x = px, z = pz }
+            if minX == nil or px < minX then minX = px end
+            if maxX == nil or px > maxX then maxX = px end
+            if minZ == nil or pz < minZ then minZ = pz end
+            if maxZ == nil or pz > maxZ then maxZ = pz end
+        end
+    end
+    if #polygon < 3 then return nil end
+    return { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ, polygon = polygon }
+end
+
 function NPCSystem:findNearestField(x, z, npcId)
     if not g_fieldManager or not g_fieldManager.fields then
         return nil
@@ -1725,13 +1771,12 @@ function NPCSystem:findNearestField(x, z, npcId)
         -- from the field's own CENTRE through the native manager, which is the read the
         -- eviction sweep has always used and the selector never did.
 
-        -- Try multiple field center location patterns used by FS25
+        -- The field's centre: the engine's label point (Field.lua:61-63), else its
+        -- root node. Native Field has no `fieldArea` table; the read of one that used
+        -- to come first here was dead on every field.
         local cx, cz = nil, nil
 
-        if field.fieldArea and field.fieldArea.fieldCenterX then
-            cx = field.fieldArea.fieldCenterX
-            cz = field.fieldArea.fieldCenterZ
-        elseif field.posX and field.posZ then
+        if field.posX and field.posZ then
             cx = field.posX
             cz = field.posZ
         elseif field.rootNode then
@@ -1761,7 +1806,11 @@ function NPCSystem:findNearestField(x, z, npcId)
                         farmlandId = recordParcel,
                         id = recordParcel,
                         center = { x = cx, y = 0, z = cz },
-                        size = (field.fieldArea and field.fieldArea.fieldArea) or 1
+                        -- Square metres from the engine's hectares, nil when unknown
+                        -- (consumers keep their defaults); the polygon extent so the
+                        -- work square and its rows stay on the field.
+                        size = NPCSystem.fieldAreaSqm(field),
+                        extent = NPCSystem.fieldExtent(field),
                     }
                 end
             end
@@ -1982,10 +2031,7 @@ function NPCSystem:assignFarmlands()
                     end
                     if fieldFarmlandId and fieldFarmlandId == farmlandEntry.farmlandId then
                         local fx, fz = nil, nil
-                        if field.fieldArea and field.fieldArea.fieldCenterX then
-                            fx = field.fieldArea.fieldCenterX
-                            fz = field.fieldArea.fieldCenterZ
-                        elseif field.posX and field.posZ then
+                        if field.posX and field.posZ then
                             fx = field.posX
                             fz = field.posZ
                         elseif field.rootNode then
@@ -2081,10 +2127,7 @@ function NPCSystem:assignFarmlands()
                         if fieldFarmlandId and fieldFarmlandId == farmlandEntry.farmlandId then
                             local fieldId = field.fieldId or 0
                             local fcx, fcz = nil, nil
-                            if field.fieldArea and field.fieldArea.fieldCenterX then
-                                fcx = field.fieldArea.fieldCenterX
-                                fcz = field.fieldArea.fieldCenterZ
-                            elseif field.posX and field.posZ then
+                            if field.posX and field.posZ then
                                 fcx = field.posX
                                 fcz = field.posZ
                             elseif field.rootNode then
@@ -4080,9 +4123,6 @@ function NPCSystem:getFieldEdgePosition(field)
         if field.center then
             cx = field.center.x
             cz = field.center.z
-        elseif field.fieldArea and field.fieldArea.fieldCenterX then
-            cx = field.fieldArea.fieldCenterX
-            cz = field.fieldArea.fieldCenterZ
         elseif field.posX and field.posZ then
             cx = field.posX
             cz = field.posZ
