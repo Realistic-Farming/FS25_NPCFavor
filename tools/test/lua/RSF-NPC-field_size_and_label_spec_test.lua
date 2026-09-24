@@ -247,6 +247,12 @@ group("C", function()
     math.random = function(n, m) if n == 100 and m == nil then return 10 end if n == nil then return origRandom() end if m == nil then return origRandom(n) end return origRandom(n, m) end
     local spots = sys.fieldWork:getWorkPattern(lazy, rec)
     T.eq("C8 a spot-check pattern draws its points inside the polygon", tostring(anyInside(spots, 100, 150, 100, 150)) .. "/" .. tostring(#spots >= 4), "false/true")
+    -- Every draw aimed at the notch: the filter retries and then takes the box centre.
+    sys.fieldWork:releaseWorker(rec.id, 4)
+    math.random = function(n, m) if n == 100 and m == nil then return 10 end if n == nil then return 0.95 end if m == nil then return origRandom(n) end return origRandom(n, m) end
+    local aimed = sys.fieldWork:getWorkPattern({ id = 5, personality = "lazy" }, rec)
+    T.eq("C8b a draw that lands in the notch every time is refused ten times and the point falls to the box centre, inside the L", tostring(anyInside(aimed, 100, 150, 100, 150)) .. "/" .. tostring(#aimed >= 4) .. "/" .. tostring(NPCFieldWork.pointInPolygon(aimed[1].x, aimed[1].z, lpoly)), "false/true/true")
+    sys.fieldWork:releaseWorker(rec.id, 5)
     math.random = origRandom
     sys.fieldWork:releaseWorker(rec.id, 4)
 
