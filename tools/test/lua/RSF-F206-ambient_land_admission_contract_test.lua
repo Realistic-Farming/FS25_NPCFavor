@@ -279,12 +279,13 @@ W.owners[10] = 0                       -- restore
 -- eligible and the record then stamped that zero in permanently.
 
 local function nativeField(parcelId, cx, cz, fieldId)
-    -- No flat `farmlandId` member anywhere. This is the native shape.
-    return {
-        fieldId = fieldId or 1,
-        farmland = { id = parcelId },
-        fieldArea = { fieldCenterX = cx, fieldCenterZ = cz, fieldArea = 4 },
-    }
+    -- No flat `farmlandId` member anywhere. This is the native shape (Field.new,
+    -- Field.lua:12-30): the centre is the label point posX/posZ and the area is
+    -- areaHa through getAreaHa. The `fieldArea` table this fixture used to carry
+    -- does not exist on the engine's Field (PLAYER-REPORTS row 93).
+    local f = { fieldId = fieldId or 1, farmland = { id = parcelId }, posX = cx, posZ = cz, areaHa = 0.0004 }
+    f.getAreaHa = function(self) return self.areaHa end
+    return f
 end
 
 local function oldSelectorGate(field)

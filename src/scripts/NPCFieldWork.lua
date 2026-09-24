@@ -27,10 +27,15 @@ end
 -- =========================================================
 
 --- Estimate rectangular bounds from field center and area.
--- FS25 provides field.center and field.size (area in m²).
--- We approximate the field as a square.
--- @param field  Table with .center {x,z} and .size (area)
--- @return bounds table {minX, maxX, minZ, maxZ, width, height}
+-- FS25 provides field.center and field.size (area in m²), and since the row 93 repair
+-- the field's polygon extent (field.extent: minX, maxX, minZ, maxZ, polygon).
+-- We approximate the field as a square around its label point, clamped to a sane
+-- range, then CLIPPED to the field's extent when the record carries one: a 50 by
+-- 600 m strip is 3 ha, and the 173 m square that area makes would otherwise reach
+-- 60 m onto the road and the neighbour either side of it. The polygon rides on the
+-- bounds so the row generator can keep its rows inside a rotated or L-shaped field.
+-- @param field  Table with .center {x,z}, .size (area) and optionally .extent
+-- @return bounds table {minX, maxX, minZ, maxZ, width, height, centerX, centerZ, polygon}
 function NPCFieldWork:estimateBounds(field)
     if not field or not field.center then return nil end
 
@@ -38,16 +43,77 @@ function NPCFieldWork:estimateBounds(field)
     local halfSide = math.sqrt(area) / 2
     halfSide = math.max(10, math.min(150, halfSide))  -- clamp to sane range
 
+    local minX, maxX = field.center.x - halfSide, field.center.x + halfSide
+    local minZ, maxZ = field.center.z - halfSide, field.center.z + halfSide
+    local polygon = nil
+    local extent = field.extent
+    if type(extent) == "table" and extent.minX ~= nil and extent.maxX ~= nil and extent.minZ ~= nil and extent.maxZ ~= nil then
+        minX, maxX = math.max(minX, extent.minX), math.min(maxX, extent.maxX)
+        minZ, maxZ = math.max(minZ, extent.minZ), math.min(maxZ, extent.maxZ)
+        if minX >= maxX or minZ >= maxZ then
+            -- The label point sits outside its own box (a concave field): the extent is
+            -- the work area, and the polygon below keeps the rows on the field.
+            minX, maxX, minZ, maxZ = extent.minX, extent.maxX, extent.minZ, extent.maxZ
+        end
+        polygon = extent.polygon
+    end
+
     return {
-        minX = field.center.x - halfSide,
-        maxX = field.center.x + halfSide,
-        minZ = field.center.z - halfSide,
-        maxZ = field.center.z + halfSide,
-        width = halfSide * 2,
-        height = halfSide * 2,
-        centerX = field.center.x,
-        centerZ = field.center.z,
+        minX = minX,
+        maxX = maxX,
+        minZ = minZ,
+        maxZ = maxZ,
+        width = maxX - minX,
+        height = maxZ - minZ,
+        centerX = (minX + maxX) * 0.5,
+        centerZ = (minZ + maxZ) * 0.5,
+        polygon = polygon,
     }
+end
+
+--- Point in polygon by ray casting (even-odd), pure Lua: the decompiled MathUtil has
+--- no such helper. `polygon` is { {x, z}, ... } in world space.
+function NPCFieldWork.pointInPolygon(x, z, polygon)
+    if type(polygon) ~= "table" or #polygon < 3 then return true end
+    local inside = false
+    local j = #polygon
+    for i = 1, #polygon do
+        local pi, pj = polygon[i], polygon[j]
+        if (pi.z > z) ~= (pj.z > z) then
+            local xCross = pj.x + (z - pj.z) * (pi.x - pj.x) / (pi.z - pj.z)
+            if x < xCross then inside = not inside end
+        end
+        j = i
+    end
+    return inside
+end
+
+--- The part of a row at `rowZ` between xA and xB that lies inside the polygon. An
+--- endpoint that is itself inside (tested a hair inward, since a clipped work square
+--- puts endpoints on the field's edge) is kept exactly; an endpoint outside is
+--- pulled in to the first inside sample at `step` metres. nil when no sample is
+--- inside (the row leaves the field entirely).
+function NPCFieldWork.clipRowToPolygon(rowZ, xA, xB, polygon, step)
+    if type(polygon) ~= "table" or #polygon < 3 then return xA, xB end
+    local lo, hi = math.min(xA, xB), math.max(xA, xB)
+    step = math.max(0.5, step or 1)
+    local eps = 0.01
+    local first = NPCFieldWork.pointInPolygon(lo + eps, rowZ, polygon) and lo or nil
+    local last = NPCFieldWork.pointInPolygon(hi - eps, rowZ, polygon) and hi or nil
+    if first == nil or last == nil then
+        local x = lo
+        while x <= hi + 1e-6 do
+            if NPCFieldWork.pointInPolygon(x, rowZ, polygon) then
+                if first == nil then first = x end
+                if last == nil or x > last then last = x end
+            end
+            x = x + step
+        end
+        if last ~= nil and NPCFieldWork.pointInPolygon(hi - eps, rowZ, polygon) then last = hi end
+    end
+    if first == nil then return nil end
+    if last == nil then last = first end
+    return first, last
 end
 
 -- =========================================================
@@ -242,6 +308,25 @@ function NPCFieldWork:generateRowPattern(bounds, config)
     local numRows = math.floor(fieldDepth / spacing)
     numRows = math.max(1, math.min(numRows, 60))  -- cap for performance
 
+    -- One row: its two endpoints in the walking direction, clipped to the field's
+    -- polygon when the bounds carry one (a row that leaves the field entirely is
+    -- dropped). Without a polygon the row spans the work area as before.
+    local polygon = bounds.polygon
+    local function addRow(rowZ, leftToRight)
+        local xStart, xEnd = workMinX, workMaxX
+        if polygon ~= nil then
+            xStart, xEnd = NPCFieldWork.clipRowToPolygon(rowZ, workMinX, workMaxX, polygon, math.max(1, spacing * 0.5))
+            if xStart == nil then return end
+        end
+        if leftToRight then
+            table.insert(waypoints, {x = xStart, z = rowZ})
+            table.insert(waypoints, {x = xEnd, z = rowZ})
+        else
+            table.insert(waypoints, {x = xEnd, z = rowZ})
+            table.insert(waypoints, {x = xStart, z = rowZ})
+        end
+    end
+
     for row = 0, numRows - 1 do
         -- Multi-worker foot mode: alternating rows
         if mode == "foot" and config.slot == 2 then
@@ -251,15 +336,8 @@ function NPCFieldWork:generateRowPattern(bounds, config)
                 -- but we need to continue the loop
             else
                 local rowZ = workMinZ + row * spacing + spacing * 0.5
-                if row % 4 == 0 then
-                    -- Even-even: go left to right
-                    table.insert(waypoints, {x = workMinX, z = rowZ})
-                    table.insert(waypoints, {x = workMaxX, z = rowZ})
-                else
-                    -- Even-odd: go right to left
-                    table.insert(waypoints, {x = workMaxX, z = rowZ})
-                    table.insert(waypoints, {x = workMinX, z = rowZ})
-                end
+                -- Even-even: left to right; even-odd: right to left
+                addRow(rowZ, row % 4 == 0)
             end
         elseif mode == "foot" and config.slot == 1 and self:_hasSecondWorker(config.fieldId) then
             -- Worker 1 gets odd rows (1, 3, 5...) when sharing
@@ -267,24 +345,12 @@ function NPCFieldWork:generateRowPattern(bounds, config)
                 -- skip even rows (those belong to worker 2)
             else
                 local rowZ = workMinZ + row * spacing + spacing * 0.5
-                if (row - 1) % 4 == 0 then
-                    table.insert(waypoints, {x = workMinX, z = rowZ})
-                    table.insert(waypoints, {x = workMaxX, z = rowZ})
-                else
-                    table.insert(waypoints, {x = workMaxX, z = rowZ})
-                    table.insert(waypoints, {x = workMinX, z = rowZ})
-                end
+                addRow(rowZ, (row - 1) % 4 == 0)
             end
         else
             -- Solo worker or vehicle mode: all rows, standard boustrophedon
             local rowZ = workMinZ + row * spacing + spacing * 0.5
-            if row % 2 == 0 then
-                table.insert(waypoints, {x = workMinX, z = rowZ})
-                table.insert(waypoints, {x = workMaxX, z = rowZ})
-            else
-                table.insert(waypoints, {x = workMaxX, z = rowZ})
-                table.insert(waypoints, {x = workMinX, z = rowZ})
-            end
+            addRow(rowZ, row % 2 == 0)
         end
     end
 
@@ -359,11 +425,18 @@ function NPCFieldWork:generateSpotcheckPattern(bounds)
     numPoints = math.min(numPoints, 8)
 
     local margin = 3
+    local polygon = bounds.polygon
     for _ = 1, numPoints do
-        table.insert(waypoints, {
-            x = bounds.minX + margin + math.random() * (bounds.width - margin * 2),
-            z = bounds.minZ + margin + math.random() * (bounds.height - margin * 2),
-        })
+        -- Inside the field's polygon when the bounds carry one: up to ten draws,
+        -- then the box centre, which the clipped bounds keep on the field.
+        local px, pz = nil, nil
+        for _ = 1, 10 do
+            local x = bounds.minX + margin + math.random() * (bounds.width - margin * 2)
+            local z = bounds.minZ + margin + math.random() * (bounds.height - margin * 2)
+            if polygon == nil or NPCFieldWork.pointInPolygon(x, z, polygon) then px, pz = x, z break end
+        end
+        if px == nil then px, pz = bounds.centerX, bounds.centerZ end
+        table.insert(waypoints, { x = px, z = pz })
     end
 
     -- Sort by distance from first point for a more natural walking order
