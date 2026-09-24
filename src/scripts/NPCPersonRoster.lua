@@ -921,7 +921,7 @@ function NPCPersonRoster:receivePage(page)
             invalid = false, loadState = page.loadState, reasonKey = page.reasonKey }
         self.pending = pending
     elseif sequence < pending.sequence then
-return "rejected"
+    return "rejected"
     end
     if pending.total ~= total or pending.pageCount ~= pageCount or pending.loadState ~= page.loadState then
         pending.invalid = true
@@ -1015,7 +1015,9 @@ end
 --- published yet, or the server could not assemble a current snapshot.
 function NPCPersonRoster:getClientSnapshotState()
     if self.clientRows == nil then return NPCPersonRoster.SNAPSHOT_UNAVAILABLE end
-    if self.pending ~= nil and self.pending.sequence > self.publishedSequence and not self.pending.invalid then
+    -- Valid or invalidated, a newer snapshot that has not published leaves the
+    -- displayed data last-confirmed until the next complete one replaces it.
+    if self.pending ~= nil and self.pending.sequence > self.publishedSequence then
         return NPCPersonRoster.SNAPSHOT_PENDING
     end
     if self.clientUnavailable then return NPCPersonRoster.SNAPSHOT_UNAVAILABLE end
@@ -1026,7 +1028,8 @@ end
 -- The copied roster view (section 9a)
 -- =========================================================
 
-local function viewRow(rec, index)
+local function viewRow(rec, index, current)
+    local actionable = rec.actionable == true and current ~= false
     local row = {
         displayKey = index,
         kind = rec.kind,
@@ -1038,10 +1041,10 @@ local function viewRow(rec, index)
         providerPresent = rec.providerPresent == true,
         isFemale = rec.isFemale == true,
         appearanceSeed = rec.appearanceSeed,
-        canTalk = rec.actionable == true,
-        canGift = rec.actionable == true,
-        canWork = rec.actionable == true,
-        canGoTo = rec.actionable == true and rec.positionPresent == true,
+        canTalk = actionable,
+        canGift = actionable,
+        canWork = actionable,
+        canGoTo = actionable and rec.positionPresent == true,
     }
     return row
 end
@@ -1074,7 +1077,8 @@ function NPCPersonRoster:getRosterView(isServer)
     view.snapshotState = self:getClientSnapshotState()
     view.reasonKey = self.clientReason or ""
     if self.clientRows ~= nil then
-        for i, rec in ipairs(self.clientRows) do view.rows[i] = viewRow(rec, i) end
+        local current = view.snapshotState == NPCPersonRoster.SNAPSHOT_CURRENT
+        for i, rec in ipairs(self.clientRows) do view.rows[i] = viewRow(rec, i, current) end
     end
     return view
 end

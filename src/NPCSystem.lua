@@ -817,7 +817,24 @@ function NPCSystem:applyLiveCount()
     -- Places already held by retained people are not handed out twice.
     local heldSpots = {}
     for _, person in ipairs(candidates) do
-        if person.homeUniqueId ~= nil then heldSpots[person.homeUniqueId] = true end
+        if person.homeUniqueId ~= nil then
+            heldSpots[person.homeUniqueId] = true
+        elseif person.homePosition ~= nil and self.classifiedBuildings ~= nil then
+            -- A kept spot with no recorded house (a pre-F357 row) holds the
+            -- building it stands at, so a newcomer is not placed in it.
+            local hx, hz = person.homePosition.x, person.homePosition.z
+            if NPCPersonRoster.isFiniteNumber(hx) and NPCPersonRoster.isFiniteNumber(hz) then
+                for _, entries in pairs(self.classifiedBuildings) do
+                    for _, entry in ipairs(entries) do
+                        local dx, dz = entry.x - hx, entry.z - hz
+                        if dx * dx + dz * dz <= 15 * 15 then
+                            local uid = self:placeableUniqueId(entry.placeable)
+                            if uid ~= nil then heldSpots[uid] = true end
+                        end
+                    end
+                end
+            end
+        end
     end
     local unheld = {}
     for _, loc in ipairs(freeLocations) do
@@ -941,8 +958,13 @@ function NPCSystem:isPersonActionable(npc)
     if not NPCPersonRoster.validId(npc.id) then return false end
     if self.isServer then
         if people:getPerson(npc.id) ~= npc then return false end
-    elseif people.clientById[npc.id] == nil or people.clientById[npc.id].kind ~= NPCPersonRoster.KIND_LIVE then
-        return false
+    else
+        -- A client acts only on a CURRENT snapshot: while a newer one is
+        -- incomplete, what is displayed is last-confirmed, not a target.
+        if people:getClientSnapshotState() ~= NPCPersonRoster.SNAPSHOT_CURRENT then return false end
+        if people.clientById[npc.id] == nil or people.clientById[npc.id].kind ~= NPCPersonRoster.KIND_LIVE then
+            return false
+        end
     end
     if not npc.live or npc.isActive == false then return false end
     return true
@@ -977,6 +999,17 @@ function NPCSystem:teardownTown(keepHighWater)
         rm.npcRelationships = {}
     end
     pcall(function() self:restoreAllOwnershipFlips() end)
+    -- Durable accepted work pauses as neighbour_unavailable before its person
+    -- leaves the town: work of a person who comes back is resumable by its
+    -- owner, work of one who does not stays paused. It is never left active
+    -- against nobody, to expire as failed.
+    if self.favorSystem ~= nil and self.favorSystem.pauseWorkForPerson ~= nil then
+        for _, npc in ipairs(self.activeNPCs) do
+            if npc.personKind == NPCPersonRoster.PERSON_DURABLE then
+                pcall(self.favorSystem.pauseWorkForPerson, self.favorSystem, npc.id)
+            end
+        end
+    end
     self:clearAllNPCs()
     if self.contractorBridge ~= nil and self.contractorBridge.delete ~= nil then
         self.contractorBridge:delete()
@@ -5448,7 +5481,7 @@ end
 function NPCSystem:serverAcceptFavor(npc, farmId)
     -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
     if not self:isPersonActionable(npc) then return false end
--- Rate limiting: check cooldown
+    -- Rate limiting: check cooldown
     if npc.favorCooldown > 0 then
         if self.settings.debugMode then
             print(string.format("[NPC Favor] Favor accept blocked: %s has cooldown %.0f", npc.name, npc.favorCooldown))
@@ -5476,7 +5509,7 @@ end
 function NPCSystem:serverCompleteFavor(npc, farmId)
     -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
     if not self:isPersonActionable(npc) then return false end
--- Resolve the NPC's active favor, then complete it by its real favorId.
+    -- Resolve the NPC's active favor, then complete it by its real favorId.
     -- completeFavor(favorId) is server-authoritative and pays favor.ownerFarmId once
     -- (idempotency flags + reward.relationship), so this is the single completion +
     -- money path. The old completeFavor(npc.id, farmId) passed npc.id as a favorId and
@@ -5510,7 +5543,7 @@ end
 function NPCSystem:serverAbandonFavor(npc, farmId)
     -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
     if not self:isPersonActionable(npc) then return false end
--- Resolve the favor, then abandon it by its real favorId. abandonFavor(favorId)
+    -- Resolve the favor, then abandon it by its real favorId. abandonFavor(favorId)
     -- applies its own (half) relationship penalty, so no extra penalty here. The old
     -- abandonFavor(npc.id, farmId) passed npc.id as a favorId and was dead.
     if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.abandonFavor then
@@ -5540,7 +5573,7 @@ end
 function NPCSystem:serverGiveGift(npc, farmId, giftValue, giftType)
     -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
     if not self:isPersonActionable(npc) then return false end
-if self.relationshipManager and self.relationshipManager.giveGiftToNPC then
+    if self.relationshipManager and self.relationshipManager.giveGiftToNPC then
         -- Server-authoritative money: a money gift moves giftValue out of the acting
         -- farm. Re-check the farm balance on the server (never trust the client's local
         -- check) and deduct only after the gift applies, so a rejected gift never
@@ -5569,7 +5602,7 @@ end
 function NPCSystem:serverUpdateRelationship(npc, farmId, change, reason)
     -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
     if not self:isPersonActionable(npc) then return false end
-if self.relationshipManager then
+    if self.relationshipManager then
         local success = self.relationshipManager:updateRelationship(npc.id, change, reason or "DAILY_INTERACTION")
         if success then
             self.syncDirty = true
@@ -5735,7 +5768,7 @@ function NPCSystem.writeFavorRecordXML(xmlFile, key, flat)
     if flat.personRefKind == "durable" then
         xmlFile:setString(key .. "#personRefKind", "durable")
     end
-if xmlIsNumber(flat.favorId) then
+    if xmlIsNumber(flat.favorId) then
         xmlFile:setInt(key .. "#favorId", flat.favorId)
     end
     xmlFile:setInt(key .. "#npcId", flat.npcId or 0)
@@ -6055,16 +6088,26 @@ end
 --- primitive fields can be written; a primitive row is written as #value.
 local function writeOpaqueRowXML(xmlFile, key, raw)
     if type(raw) == "table" then
+        -- Every primitive field, packed into one attribute so the reader can
+        -- give them all back without knowing their names: name=type:value
+        -- pairs, the value URL-style escaped (%XX) so '=', ';' and ':' are safe.
+        local parts = {}
+        local keys = {}
         for k, v in pairs(raw) do
-            if type(k) == "string" and k:match("^[%w_]+$") then
-                if type(v) == "number" then
-                    xmlFile:setFloat(key .. "#" .. k, v)
-                elseif type(v) == "boolean" then
-                    xmlFile:setBool(key .. "#" .. k, v)
-                elseif type(v) == "string" then
-                    xmlFile:setString(key .. "#" .. k, encodeXMLValue(v))
-                end
+            if type(k) == "string" and (type(v) == "number" or type(v) == "boolean" or type(v) == "string") then
+                keys[#keys + 1] = k
             end
+        end
+        table.sort(keys)
+        for _, k in ipairs(keys) do
+            local v = raw[k]
+            local encoded = tostring(v):gsub("[^%w%.%- ]", function(c) return string.format("%%%02X", c:byte()) end)
+            local kEnc = k:gsub("[^%w_]", function(c) return string.format("%%%02X", c:byte()) end)
+            parts[#parts + 1] = kEnc .. "=" .. type(v) .. ":" .. encoded
+        end
+        xmlFile:setString(key .. "#fields", encodeXMLValue(table.concat(parts, ";")))
+        if type(raw.name) == "string" then
+            xmlFile:setString(key .. "#name", encodeXMLValue(raw.name))
         end
         xmlFile:setBool(key .. "#opaqueTable", true)
     else
@@ -6322,8 +6365,22 @@ function NPCSystem:readSavedStateFromXML(missionInfo)
             elseif valueType == "boolean" then raw = (raw == "true") end
             data.opaquePeople[#data.opaquePeople + 1] = raw
         else
-            -- A table row: its label is the only field the writer is sure of.
-            data.opaquePeople[#data.opaquePeople + 1] = { name = xmlFile:getString(key .. "#name", ""), opaqueTable = true }
+            -- A table row: every primitive field packed by the writer comes back.
+            local row = {}
+            local packed = xmlFile:getString(key .. "#fields", "")
+            for pair in tostring(packed):gmatch("[^;]+") do
+                local k, ty, enc = pair:match("^([^=]+)=(%a+):(.*)$")
+                if k ~= nil then
+                    local unescape = function(s) return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)) end
+                    local name = unescape(k)
+                    local v = unescape(enc)
+                    if ty == "number" then row[name] = tonumber(v)
+                    elseif ty == "boolean" then row[name] = (v == "true")
+                    else row[name] = v end
+                end
+            end
+            if row.name == nil then row.name = xmlFile:getString(key .. "#name", "") end
+            data.opaquePeople[#data.opaquePeople + 1] = row
         end
     end)
     xmlFile:iterate(NPC_SAVE_ROOT .. ".favors.favor", function(_, favorKey)
@@ -6455,16 +6512,24 @@ function NPCSystem:applySelectedSnapshot(source, block)
         self._ledgerOriginalState = block
     end
 
+    local committed = false
     local ok, err = pcall(function()
         local selected = self:normalizeSavedState(block)
         local applied, why = people:applySelected(selected)
         if not applied then
             error(tostring(why))
         end
+        committed = true
         self:initializeNPCs()
         people:markReady()
     end)
     if not ok or not people:isReady() then
+        if committed then
+            -- The throw came from the town fill, after newcomers, bodies and
+            -- vehicles may have been made: a FAILED session makes no live
+            -- person mutation, so everything the fill built goes with it.
+            pcall(function() self:clearAllNPCs() end)
+        end
         self:_failSelectedLoad(tostring(err))
         return false
     end

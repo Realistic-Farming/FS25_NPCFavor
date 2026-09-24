@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="Tetangga itu tersimpan tetapi sedang tidak hadir; pekerjaan menunggu."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="Tetangga tersimpan tetapi tidak hadir"/>
 		<text name="npc_recovery_reason_person_unproven" text="Tidak dapat dikaitkan dengan tetangga yang sama"/>
+		<text name="npc_person_server_only" text="Hanya host yang dapat mendaftarkan konsultan."/>
+		<text name="npc_person_bad_claim" text="Klaim konsultan ditolak: nama atau posisi tidak dapat digunakan."/>
 </texts>
 </l10n>

@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="Den grannen är sparad men inte närvarande just nu; arbetet väntar."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="Granne sparad men inte närvarande"/>
 		<text name="npc_recovery_reason_person_unproven" text="Kan inte knytas till samma granne"/>
+		<text name="npc_person_server_only" text="Bara värden kan registrera en rådgivare."/>
+		<text name="npc_person_bad_claim" text="Rådgivarbegäran avvisades: namnet eller positionen gick inte att använda."/>
 </texts>
 </l10n>

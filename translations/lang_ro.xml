@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="Acel vecin este salvat, dar momentan nu este prezent; munca așteaptă."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="Vecin salvat, dar absent"/>
 		<text name="npc_recovery_reason_person_unproven" text="Nu poate fi legată de același vecin"/>
+		<text name="npc_person_server_only" text="Doar gazda poate înregistra un consultant."/>
+		<text name="npc_person_bad_claim" text="Cererea de consultant a fost refuzată: numele sau poziția nu au putut fi folosite."/>
 </texts>
 </l10n>

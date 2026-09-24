@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="その近所の人は保存されていますが、現在は不在です。仕事は待機中です。"/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="近所の人は保存済みだが不在"/>
 		<text name="npc_recovery_reason_person_unproven" text="同じ近所の人と結び付けられません"/>
+		<text name="npc_person_server_only" text="相談員を登録できるのはホストだけです。"/>
+		<text name="npc_person_bad_claim" text="相談員の申請は拒否されました: 名前または位置が使用できませんでした。"/>
 </texts>
 </l10n>

@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="Den naboen er lagret, men ikke til stede nå; arbeidet venter."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="Nabo lagret, men ikke til stede"/>
 		<text name="npc_recovery_reason_person_unproven" text="Kan ikke knyttes til den samme naboen"/>
+		<text name="npc_person_server_only" text="Bare verten kan registrere en rådgiver."/>
+		<text name="npc_person_bad_claim" text="Rådgiverforespørselen ble avvist: navnet eller posisjonen kunne ikke brukes."/>
 </texts>
 </l10n>

@@ -224,7 +224,7 @@ function NPCFavorSystem:getRecoveryUnavailableKey(favor)
         if retained ~= nil then return "npc_recovery_unavail_waiting" end
         return "npc_recovery_unavail_npc"
     end
-if not NPCFavorRecovery.paymentFactsKnown(favor) then return "npc_recovery_unavail_facts" end
+    if not NPCFavorRecovery.paymentFactsKnown(favor) then return "npc_recovery_unavail_facts" end
     if NPCFavorRecovery.KNOWN_REASONS[favor.recoveryReason] ~= true then return "npc_recovery_unavail_reason" end
     if favor.recoveryReason == NPCFavorRecovery.REASON_INVALID_RECORD then return "npc_recovery_unavail_reason" end
     if favor.recoveryReason == NPCFavorRecovery.REASON_OWNER_UNRESOLVED then return "npc_recovery_unavail_owner" end

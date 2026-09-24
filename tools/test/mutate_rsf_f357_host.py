@@ -90,6 +90,7 @@ MUTATIONS = [
     "        if not applied then\n"
     "            error(tostring(why))\n"
     "        end\n"
+    "        committed = true\n"
     "        self:initializeNPCs()\n"
     "        people:markReady()\n"
     "    end)\n",
@@ -100,6 +101,7 @@ MUTATIONS = [
     "        if not applied then\n"
     "            error(tostring(why))\n"
     "        end\n"
+    "        committed = true\n"
     "        self:initializeNPCs()\n"
     "        people:markReady()\n"
     "    end\n", 1)],
@@ -331,6 +333,37 @@ MUTATIONS = [
     "        people:clearPresences()\n"
     "        return\n", 1)],
   "an unreadable worker list removes the presences instead of marking them unavailable"),
+ # ── Bob's #115 MAJORs ───────────────────────────────────────────────────────
+ ("S47-town-fill-throw-leaves-bodies", SYS,
+  [("        if committed then\n"
+    "            -- The throw came from the town fill, after newcomers, bodies and\n"
+    "            -- vehicles may have been made: a FAILED session makes no live\n"
+    "            -- person mutation, so everything the fill built goes with it.\n"
+    "            pcall(function() self:clearAllNPCs() end)\n"
+    "        end\n", "", 1)],
+  "a throw in the town fill FAILs the load but leaves the bodies and live rows it made"),
+ ("S48-invalid-pending-reads-current", ROS,
+  [("    if self.pending ~= nil and self.pending.sequence > self.publishedSequence then\n"
+    "        return NPCPersonRoster.SNAPSHOT_PENDING\n",
+    "    if self.pending ~= nil and self.pending.sequence > self.publishedSequence and not self.pending.invalid then\n"
+    "        return NPCPersonRoster.SNAPSHOT_PENDING\n", 1)],
+  "an invalidated newer snapshot reports last-confirmed data as CURRENT"),
+ ("S49-client-acts-while-pending", SYS,
+  [("        if people:getClientSnapshotState() ~= NPCPersonRoster.SNAPSHOT_CURRENT then return false end\n", "", 1)],
+  "a client's live person is a target while a newer snapshot is incomplete"),
+ ("S50-view-flags-ignore-pending", ROS,
+  [("    local actionable = rec.actionable == true and current ~= false\n",
+    "    local actionable = rec.actionable == true\n", 1)],
+  "the view's action flags stay on while PENDING"),
+ ("S51-reset-orphans-durable-work", SYS,
+  [("    if self.favorSystem ~= nil and self.favorSystem.pauseWorkForPerson ~= nil then\n"
+    "        for _, npc in ipairs(self.activeNPCs) do\n"
+    "            if npc.personKind == NPCPersonRoster.PERSON_DURABLE then\n"
+    "                pcall(self.favorSystem.pauseWorkForPerson, self.favorSystem, npc.id)\n"
+    "            end\n"
+    "        end\n"
+    "    end\n", "", 1)],
+  "the developer reset leaves durable work active against a person who never comes back"),
 ]
 
 def sha(b): return hashlib.sha256(b).hexdigest()

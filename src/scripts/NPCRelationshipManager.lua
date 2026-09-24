@@ -273,7 +273,7 @@ function NPCRelationshipManager:updateNPCNPCRelationship(npc1, npc2, interaction
     if not npc1 or not npc2 then return end
     -- RSF-F357: a tie is between two live durable people; no presence takes part.
     if not self:isPersonActionable(npc1) or not self:isPersonActionable(npc2) then return end
-local rel = self:getNPCRelationship(npc1.id, npc2.id)
+    local rel = self:getNPCRelationship(npc1.id, npc2.id)
 
     -- Base change from interaction
     local change = 1

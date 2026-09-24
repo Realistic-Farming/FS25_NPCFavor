@@ -413,7 +413,7 @@ function NPCFieldWork:getWorkPattern(npc, field)
     -- another person's; a presence or an unnumbered row gets no slot.
     local npcId = npc.id
     if type(npcId) ~= "number" or npcId < 1 or npcId ~= math.floor(npcId) then return nil, nil end
-local fieldId = field.id or tostring(field.center.x) .. "_" .. tostring(field.center.z)
+    local fieldId = field.id or tostring(field.center.x) .. "_" .. tostring(field.center.z)
     local fieldArea = field.size or 0
 
     -- 20% chance for personality-driven pattern override

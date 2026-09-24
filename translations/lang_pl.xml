@@ -438,5 +438,7 @@
 		<text name="npc_recovery_unavail_waiting" text="Ten sąsiad jest zapisany, ale obecnie nieobecny; praca czeka."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="Sąsiad zapisany, ale nieobecny"/>
 		<text name="npc_recovery_reason_person_unproven" text="Nie można powiązać z tym samym sąsiadem"/>
+		<text name="npc_person_server_only" text="Tylko gospodarz może zarejestrować doradcę."/>
+		<text name="npc_person_bad_claim" text="Zgłoszenie doradcy odrzucono: nazwa lub pozycja nie nadawała się do użycia."/>
 </texts>
 </l10n>

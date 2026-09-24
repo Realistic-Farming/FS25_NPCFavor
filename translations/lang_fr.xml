@@ -438,5 +438,7 @@
 		<text name="npc_recovery_unavail_waiting" text="Ce voisin est sauvegardé mais absent pour le moment ; le travail attend."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="Voisin sauvegardé mais absent"/>
 		<text name="npc_recovery_reason_person_unproven" text="Impossible de le rattacher au même voisin"/>
+		<text name="npc_person_server_only" text="Seul l'hôte peut enregistrer un conseiller."/>
+		<text name="npc_person_bad_claim" text="La demande de conseiller a été refusée : le nom ou la position n'était pas utilisable."/>
 </texts>
 </l10n>

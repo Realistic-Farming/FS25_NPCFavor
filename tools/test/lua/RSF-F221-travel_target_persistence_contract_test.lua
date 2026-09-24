@@ -550,7 +550,7 @@ do
     -- RSF-F357: work whose durable person is absent pauses as neighbour_unavailable; its destinations are kept.
     T.eq("R3 missing NPC: pauses as neighbour_unavailable (RSF-F357), owner is a live farm", where, "recovery")
     T.eq("R3 missing NPC: the reason is neighbour_unavailable", restored.recoveryReason, NPCFavorRecovery.REASON_NEIGHBOUR_UNAVAILABLE)
-T.eq("R3 missing NPC: neighbour reported unresolved", restored.npcResolved, false)
+    T.eq("R3 missing NPC: neighbour reported unresolved", restored.npcResolved, false)
     T.eq("R3 missing NPC: full three-step list, not the one-step collapse", #restored.steps, 3)
     T.near("R3 missing NPC: fence point survives, x", restored.steps[3].location.x, fenceX, 0.0001)
     T.near("R3 missing NPC: fence point survives, z", restored.steps[3].location.z, fenceZ, 0.0001)
@@ -718,7 +718,7 @@ do
     local restoredPerson = hostB.people:getPerson(npcA.id)
     T.eq("R7 ledger: the NPC block restores the saved home as before", restoredPerson.homePosition.x, 12)
     T.ok("R7 ledger: the home step is not the neighbour's home record", not rawequal(got.steps[1].location, restoredPerson.homePosition))
-T.eq("R7 ledger: delivered block not mutated by restore", block.favors[1].steps[2].x, pileX)
+    T.eq("R7 ledger: delivered block not mutated by restore", block.favors[1].steps[2].x, pileX)
 end
 
 -- =====================================================================

@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="Ez a szomszéd mentve van, de jelenleg nincs jelen; a munka várakozik."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="Szomszéd mentve, de nincs jelen"/>
 		<text name="npc_recovery_reason_person_unproven" text="Nem köthető ugyanahhoz a szomszédhoz"/>
+		<text name="npc_person_server_only" text="Tanácsadót csak a házigazda regisztrálhat."/>
+		<text name="npc_person_bad_claim" text="A tanácsadói kérést elutasítottuk: a név vagy a pozíció nem volt használható."/>
 </texts>
 </l10n>

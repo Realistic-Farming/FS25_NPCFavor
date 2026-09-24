@@ -418,6 +418,25 @@ do
     T.eq("L29 the person it names is live", third:getNPCById(3) ~= nil, true)
     T.eq("L30 and still it cannot resume", third.favorSystem:resumeRecoveryRecord(held, 1), false)
     T.eq("L31 nor is it actionable", third.favorSystem:isRecoveryRecordActionable(held), false)
+    -- A legacy person keeping her saved spot (no recorded house) holds the house
+    -- at that spot: a newcomer is placed elsewhere.
+    local fourth = boot({ placeables = town(3), maxNPCs = 3, dir = dir })
+    local newcomer = nil
+    for _, npc in ipairs(fourth.activeNPCs) do if not npc.legacy then newcomer = npc end end
+    T.ok("L32 the count of three adds one newcomer beside the two legacy people", newcomer ~= nil and #fourth.activeNPCs == 3)
+    local legacyHouses = {}
+    for _, npc in ipairs(fourth.activeNPCs) do
+        if npc.legacy then
+            for _, p in ipairs(town(0)) do end
+            legacyHouses[#legacyHouses + 1] = npc.homePosition
+        end
+    end
+    local taken = false
+    for _, home in ipairs(legacyHouses) do
+        local dx, dz = home.x - newcomer.homePosition.x, home.z - newcomer.homePosition.z
+        if dx * dx + dz * dz <= 20 * 20 then taken = true end
+    end
+    T.ok("L33 the newcomer did not take a legacy person's house", not taken)
 end
 
 -- =========================================================
@@ -476,6 +495,14 @@ do
     T.eq("Q18 the roster view lists it as OPAQUE with no person id", ov.rows[3].kind .. "/" .. tostring(ov.rows[3].personId), "OPAQUE/nil")
     o:saveToXMLFile(g_currentMission.missionInfo)
     T.eq("Q19 it is written back at the next save", fileAt(dir3)["npcFavor.opaquePeople.row(0)#value"], "42")
+    -- A table row keeps every primitive field through a save cycle, not only its label.
+    fileAt(dir3)["npcFavor.opaquePeople.row(1)#opaqueTable"] = true
+    fileAt(dir3)["npcFavor.opaquePeople.row(1)#fields"] = "age=number:44;name=string:Ghost%20Row;seen=boolean:true"
+    local o2 = boot({ placeables = town(2), maxNPCs = 2, dir = dir3 })
+    local row = o2.people.opaque[2]
+    T.eq("Q20 a table row reads back every field", tostring(row.age) .. "/" .. tostring(row.name) .. "/" .. tostring(row.seen), "44/Ghost Row/true")
+    o2:saveToXMLFile(g_currentMission.missionInfo)
+    T.ok("Q21 and writes them all back", (fileAt(dir3)["npcFavor.opaquePeople.row(1)#fields"] or ""):find("age=number:44", 1, true) ~= nil)
 end
 
 -- =========================================================
@@ -535,6 +562,20 @@ do
     T.eq("G22 unsafe row: no newcomer was created", #fb.activeNPCs .. "/" .. fb.people:count(), "0/0")
     T.eq("G23 unsafe row: the delivered row is untouched", bad.npcs[1].encounters, 5)
     T.eq("G24 unsafe row: a repeated delivery does not revive the load", (badLedger:deliver() or fb.people:getLoadState()), "FAILED")
+
+    -- A throw in the town fill AFTER the commit (a named stub in the vehicle
+    -- pool): FAILED, and nothing the fill built stands: no live row, no body,
+    -- no roster, no newcomer. The player is told once.
+    local fillFail = boot({ placeables = placeables, maxNPCs = 3, dir = "g2", noTick = true })
+    fillFail.initializeNPCVehicles = function() error("vehicle pool unavailable") end
+    local okTick = pcall(tick, fillFail)
+    T.eq("G25 town-fill throw: the init pass survives", okTick, true)
+    T.eq("G26 town-fill throw: FAILED", fillFail.people:getLoadState(), "FAILED")
+    T.eq("G27 town-fill throw: no live row, no body, no roster", #fillFail.activeNPCs .. "/" .. tostring(next(fillFail.entityManager.npcEntities)) .. "/" .. fillFail.people:count(), "0/nil/0")
+    T.eq("G28 town-fill throw: the bodies the fill made were removed", #fillFail.entityManager.removed, #fillFail.entityManager.created)
+    T.eq("G29 town-fill throw: the player was told", fillFail._personLoadFailedNotified, true)
+    fillFail:saveToXMLFile(g_currentMission.missionInfo)
+    T.eq("G30 town-fill throw: nothing is saved", fileAt("g2"), nil)
 end
 
 -- =========================================================
@@ -592,6 +633,8 @@ do
     deliver(NPCPersonRoster.pageOf(big, 2))
     T.eq("C17 the out-of-order last page stages without publishing", client.people.publishedSequence, 1)
     T.eq("C18 while a newer snapshot is incomplete the view is PENDING", client:getNeighbourRosterView().snapshotState, "PENDING")
+    T.ok("C18b while PENDING a live person is not a target", not client:isPersonActionable(client.activeNPCs[1]))
+    T.eq("C18c and the view's action flags are off", tostring(client:getNeighbourRosterView().rows[1].canTalk) .. "/" .. tostring(client:getNeighbourRosterView().rows[1].canGoTo), "false/false")
     T.eq("C19 the displayed people are last-confirmed, not the partial town", #client.activeNPCs, 3)
     deliver(NPCPersonRoster.pageOf(big, 1))
     T.eq("C20 the first page completes it", client.people.publishedSequence, 2)
@@ -613,6 +656,8 @@ do
     T.eq("C23 a conflicting duplicate page cannot publish", client.people.publishedSequence, 2)
     deliver(NPCPersonRoster.pageOf(next1, 2))
     T.eq("C24 the invalidated snapshot stays unpublished even when its pages are all there", client.people.publishedSequence, 2)
+    T.eq("C24b an invalidated newer snapshot still reads PENDING, never CURRENT", client:getNeighbourRosterView().snapshotState, "PENDING")
+    T.ok("C24c and a live person is not a target until the next complete snapshot", not client:isPersonActionable(client.activeNPCs[1]))
     T.eq("C25 the last-confirmed trust is kept (not the conflicting page's)", client:getNPCById(1).relationship, 33)
 
     -- A newer complete snapshot (48 people now waiting: still records, no bodies)
@@ -625,6 +670,7 @@ do
     T.eq("C25c half of it published nothing", client.people.publishedSequence, 2)
     deliver(NPCPersonRoster.pageOf(smaller, 2))
     T.eq("C26 the newer complete snapshot publishes", client.people.publishedSequence, smaller.sequence)
+    T.ok("C26b once CURRENT again a live person is a target", client:getNeighbourRosterView().snapshotState == "CURRENT" and client:isPersonActionable(client.activeNPCs[1]))
     T.eq("C27 people the snapshot no longer carries live lose their bodies", #client.activeNPCs .. "/" .. #client.entityManager.removed, "3/48")
     T.eq("C28 waiting people are display rows, not bodies", #client:getNeighbourRosterView().rows, 51)
     deliver(NPCPersonRoster.pageOf(big, 1))
@@ -966,11 +1012,21 @@ do
     local placeables = town(3)
     local sys = boot({ placeables = placeables, maxNPCs = 2, dir = "d1" })
     sys:saveToXMLFile(g_currentMission.missionInfo)
+    -- A newcomer minted after the save, with accepted work, and one more number issued.
+    local newcomer = sys:createPersonAtLocation({ x = 5, y = 0, z = 5 }, "town")
+    local job = sys.favorSystem:createFavor(newcomer, "fix_fence")
+    table.insert(sys.favorSystem.activeFavors, job)
+    sys.favorSystem:acceptFavorForNPC(newcomer.id, 1)
+    T.eq("D0 the newcomer's work is active before the reset", job.status .. "/" .. newcomer.id, "active/3")
     sys.people:allocateId()   -- a number issued after the save (a presence, say)
     sys:consoleCommandReset()
     tick(sys)
     T.eq("D1 the developer reset ends the old town and starts one controlled load", sys.people:getLoadState() .. "/" .. #sys.activeNPCs, "READY/2")
-    T.eq("D2 the mark was never lowered, not even to the saved one", sys.people:getHighWater(), 3)
+    T.eq("D2 the mark was never lowered, not even to the saved one", sys.people:getHighWater(), 4)
+    T.eq("D2b the absent newcomer's work paused as neighbour_unavailable, not left active", job.status .. "/" .. tostring(job.recoveryReason), "paused_recovery/neighbour_unavailable")
+    T.eq("D2c it sits in recovery, not in the live list", #sys.favorSystem.activeFavors .. "/" .. #sys.favorSystem.recoveryFavors, "0/1")
+    sys.favorSystem:update(1e9)
+    T.eq("D2d and it does not expire as failed", tostring(job.status == "paused_recovery") .. "/" .. #sys.favorSystem.failedFavors, "true/0")
     T.eq("D3 the same numbers came back", join(ids(sys.activeNPCs)), "1,2")
     local seqBefore = sys.people.snapshotSequence
     sys:publishSnapshot()

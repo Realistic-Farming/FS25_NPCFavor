@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="Esse vizinho está guardado mas não está presente de momento; o trabalho espera."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="Vizinho guardado mas não presente"/>
 		<text name="npc_recovery_reason_person_unproven" text="Não pode ser ligado ao mesmo vizinho"/>
+		<text name="npc_person_server_only" text="Só o anfitrião pode registar um consultor."/>
+		<text name="npc_person_bad_claim" text="O pedido do consultor foi recusado: o nome ou a posição não eram utilizáveis."/>
 </texts>
 </l10n>

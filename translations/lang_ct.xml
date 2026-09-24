@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="該鄰居已儲存但目前不在；工作將等待。"/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="鄰居已儲存但不在"/>
 		<text name="npc_recovery_reason_person_unproven" text="無法與同一位鄰居連結"/>
+		<text name="npc_person_server_only" text="只有主機可以登記顧問。"/>
+		<text name="npc_person_bad_claim" text="顧問申請被拒絕：名稱或位置無法使用。"/>
 </texts>
 </l10n>

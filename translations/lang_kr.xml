@@ -440,5 +440,7 @@
 		<text name="npc_recovery_unavail_waiting" text="그 이웃은 저장되어 있지만 지금은 없습니다; 일이 대기합니다."/>
 		<text name="npc_recovery_reason_neighbour_unavailable" text="이웃 저장됨, 현재 없음"/>
 		<text name="npc_recovery_reason_person_unproven" text="같은 이웃과 연결할 수 없음"/>
+		<text name="npc_person_server_only" text="호스트만 상담가를 등록할 수 있습니다."/>
+		<text name="npc_person_bad_claim" text="상담가 요청이 거부되었습니다: 이름 또는 위치를 사용할 수 없습니다."/>
 </texts>
 </l10n>
