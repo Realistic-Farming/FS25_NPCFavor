@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="terakhir dikonfirmasi"/>
 		<text name="npc_rf_pda_completed_count" text="%d selesai untuk pertanian ini"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Tidak tersedia di sini: hanya host yang dapat menyesuaikan tetangga."/>
+		<text name="npc_contrib_generic_title" text="Permintaan tetangga" />
+		<text name="npc_contrib_generic_desc" text="Seorang tetangga meminta bantuan pertanianmu" />
+		<text name="npc_contrib_step_report" text="Kerjakan tugasnya" />
+		<text name="npc_contrib_step_talk" text="Bicara dengan tetangga" />
+		<text name="npc_contrib_hold_work_off" text="Ditunda: jenis pekerjaan ini dimatikan. Lepaskan menutupnya tanpa biaya." />
+		<text name="npc_contrib_hold_companion_missing" text="Ditunda: mod yang meminta pekerjaan ini tidak dimuat. Lepaskan menutupnya tanpa biaya." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Ditunda: mod yang meminta pekerjaan ini telah mengubahnya. Lepaskan menutupnya tanpa biaya." />
+		<text name="npc_contrib_let_go" text="Lepaskan" />
 </texts>
 </l10n>

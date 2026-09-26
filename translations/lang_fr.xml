@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="dernière confirmée"/>
 		<text name="npc_rf_pda_completed_count" text="%d terminés pour cette ferme"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Indisponible ici : seul l'hôte peut ajuster un voisin."/>
+		<text name="npc_contrib_generic_title" text="Demande d'un voisin" />
+		<text name="npc_contrib_generic_desc" text="Un voisin a demandé de l'aide à votre ferme" />
+		<text name="npc_contrib_step_report" text="Faire le travail" />
+		<text name="npc_contrib_step_talk" text="Parler au voisin" />
+		<text name="npc_contrib_hold_work_off" text="En attente : ce type de travail est désactivé. Libérer le clôt sans frais." />
+		<text name="npc_contrib_hold_companion_missing" text="En attente : le mod qui a demandé ce travail n'est pas chargé. Libérer le clôt sans frais." />
+		<text name="npc_contrib_hold_companion_incompatible" text="En attente : le mod qui a demandé ce travail l'a modifié. Libérer le clôt sans frais." />
+		<text name="npc_contrib_let_go" text="Libérer" />
 </texts>
 </l10n>

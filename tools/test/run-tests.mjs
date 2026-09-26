@@ -53,6 +53,23 @@ if (testFiles.length === 0) {
 
 let totalPass = 0, totalFail = 0, hadError = false;
 
+// `--!text: path, path` hands a bar the TEXT of a repo file as
+// SOURCE_TEXT["path"] (fengari has no io.open), so a bar can read the shipped
+// locale files. The file is quoted, never executed; the long-bracket level is
+// chosen from the text with the closer's "]" appended, so nothing in the file
+// can close the string early (the SoilFertilizer runner's MAINTENANCE 113 rule).
+function parseTexts(src) {
+  const m = src.match(/--!text:\s*(.+)/);
+  if (!m) return [];
+  return m[1].split(",").map((s) => s.trim()).filter(Boolean);
+}
+function luaLongString(text) {
+  let level = 0;
+  while ((text + "]").includes("]" + "=".repeat(level) + "]")) level += 1;
+  const eq = "=".repeat(level);
+  return `[${eq}[\n${text}]${eq}]`;
+}
+
 for (const tf of testFiles) {
   const testPath = join(LUA_DIR, tf);
   const testSrc = readFileSync(testPath, "utf8");
@@ -64,6 +81,15 @@ for (const tf of testFiles) {
       parts.push(`-- <<< ${d} >>>\n` + readFileSync(join(REPO_ROOT, d), "utf8"));
     } catch {
       console.log(c.red(`✗ ${tf}: cannot read declared dependency '${d}'`));
+      hadError = true;
+    }
+  }
+  for (const t of parseTexts(testSrc)) {
+    try {
+      const text = readFileSync(join(REPO_ROOT, t), "utf8");
+      parts.push(`-- <<< text: ${t} >>>\nSOURCE_TEXT = SOURCE_TEXT or {}\nSOURCE_TEXT[${JSON.stringify(t)}] = ${luaLongString(text)}\n`);
+    } catch {
+      console.log(c.red(`✗ ${tf}: cannot read declared text '${t}'`));
       hadError = true;
     }
   }

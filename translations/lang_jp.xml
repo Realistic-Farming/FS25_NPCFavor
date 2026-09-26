@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="最終確認"/>
 		<text name="npc_rf_pda_completed_count" text="この農場で%d件完了"/>
 		<text name="npc_admin_edit_unavailable_remote" text="ここでは利用できません: 近所の人を調整できるのはホストだけです。"/>
+		<text name="npc_contrib_generic_title" text="近所の人からの依頼" />
+		<text name="npc_contrib_generic_desc" text="近所の人があなたの農場に助けを求めています" />
+		<text name="npc_contrib_step_report" text="作業を行う" />
+		<text name="npc_contrib_step_talk" text="近所の人と話す" />
+		<text name="npc_contrib_hold_work_off" text="保留中：この種類の作業はオフになっています。手放すと無償で終了します。" />
+		<text name="npc_contrib_hold_companion_missing" text="保留中：この作業を依頼したMODが読み込まれていません。手放すと無償で終了します。" />
+		<text name="npc_contrib_hold_companion_incompatible" text="保留中：この作業を依頼したMODが内容を変更しました。手放すと無償で終了します。" />
+		<text name="npc_contrib_let_go" text="手放す" />
 </texts>
 </l10n>

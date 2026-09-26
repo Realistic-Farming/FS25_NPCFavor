@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="naposledy potvrzeno"/>
 		<text name="npc_rf_pda_completed_count" text="%d dokončeno pro tuto farmu"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Zde nedostupné: souseda může upravit pouze hostitel."/>
+		<text name="npc_contrib_generic_title" text="Žádost souseda" />
+		<text name="npc_contrib_generic_desc" text="Soused požádal tvou farmu o pomoc" />
+		<text name="npc_contrib_step_report" text="Udělat práci" />
+		<text name="npc_contrib_step_talk" text="Promluvit si se sousedem" />
+		<text name="npc_contrib_hold_work_off" text="Pozastaveno: tento druh práce je vypnutý. Uvolnění ji ukončí bez nákladů." />
+		<text name="npc_contrib_hold_companion_missing" text="Pozastaveno: mod, který o tuto práci požádal, není načten. Uvolnění ji ukončí bez nákladů." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Pozastaveno: mod, který o tuto práci požádal, ji změnil. Uvolnění ji ukončí bez nákladů." />
+		<text name="npc_contrib_let_go" text="Uvolnit" />
 </texts>
 </l10n>

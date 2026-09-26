@@ -172,6 +172,15 @@ function NPCPersonDialog.isPublicOffer(favor, now)
     return true
 end
 
+--- NPC-204 3.11: a companion's pending offer, addressed to this actor's farm and
+--- still open. No master exception.
+local function addressedOffer(favor, actor, now)
+    if type(favor) ~= "table" or type(favor.contribution) ~= "table" or favor.status ~= "pending" then return false end
+    if actor == nil or actor.farmId == nil or actor.farmId ~= favor.contribution.addressedFarmId then return false end
+    if isFiniteNumber(favor.expirationGameTime) and now ~= nil and favor.expirationGameTime <= now then return false end
+    return true
+end
+
 --- One copied work row for a verified actor. The person is named by durable
 --- number only when the favour is durable and she is a unique live person;
 --- otherwise the row carries the saved name and the unproven flag.
@@ -184,7 +193,7 @@ function NPCSystem:describeWorkRow(favor, actor)
     local now = nowMs()
     local step = nextStep(favor)
     local owned = ACTIVE_STATUS[favor.status] == true and actor.farmId ~= nil and favor.ownerFarmId == actor.farmId
-    local offer = NPCPersonDialog.isPublicOffer(favor, now)
+    local offer = NPCPersonDialog.isPublicOffer(favor, now) or addressedOffer(favor, actor, now)
     local eligible = owned and person ~= nil and favor.recoveredFromLegacy ~= true and NPCPersonDialog.completionEligible(favor)
     local timeRemaining = favor.timeRemaining
     if isFiniteNumber(favor.expirationGameTime) then timeRemaining = favor.expirationGameTime - now end
@@ -219,7 +228,18 @@ function NPCSystem:describeWorkRow(favor, actor)
         canComplete = eligible == true,
         canAbandon = owned and person ~= nil and favor.recoveredFromLegacy ~= true,
         completed = favor.status == "completed",
+        -- NPC-204 3.11: the keys the receiving machine resolves its own text from.
+        contributed = type(favor.contribution) == "table",
+        textMod = "", descKey = "", stepKey = "",
     }
+    if row.contributed and type(favor.contributionText) == "table" then
+        local t = favor.contributionText
+        row.textMod = textString(t.modName or "")
+        row.descKey = textString(t.descKey or "")
+        local key = t.reportKey
+        if step ~= nil and step.contributionStep == "TALK" then key = t.talkKey end
+        row.stepKey = textString(key or "")
+    end
     if row.nextStepLocationPresent then
         row.nextStepX, row.nextStepZ = step.location.x, step.location.z
     end
@@ -251,7 +271,8 @@ function NPCSystem:serverPersonalWorkPage(actor, requestId, cursor)
     for _, favor in ipairs(fav.activeFavors or {}) do
         if favor.recoveryToken == nil and fav.assignRecoveryToken ~= nil then fav:assignRecoveryToken(favor) end
         local owned = ACTIVE_STATUS[favor.status] == true and favor.ownerFarmId == actor.farmId
-        if favor.recoveryToken ~= nil and (owned or NPCPersonDialog.isPublicOffer(favor, now)) then
+        if favor.recoveryToken ~= nil and (owned or NPCPersonDialog.isPublicOffer(favor, now)
+            or addressedOffer(favor, actor, now)) then
             visible[#visible + 1] = favor
         end
     end
@@ -297,7 +318,16 @@ function NPCSystem:serverPersonDialogView(actor, npc, requestId, op)
     for _, favor in ipairs(fav.activeFavors or {}) do
         if favor.npcId == npc.id then
             if favor.recoveryToken == nil and fav.assignRecoveryToken ~= nil then fav:assignRecoveryToken(favor) end
-            if NPCPersonDialog.isPublicOffer(favor, now) then
+            if type(favor.contribution) == "table" and favor.status == "pending" then
+                -- NPC-204 3.11: the addressed farm sees the offer; every other farm reads BUSY.
+                if addressedOffer(favor, actor, now) then
+                    reply.rows[#reply.rows + 1] = self:describeWorkRow(favor, actor)
+                    reply.result, reply.messageKey = NPCPersonDialog.RESULT_OFFER, "npc_dialog_offer"
+                else
+                    reply.result, reply.messageKey = NPCPersonDialog.RESULT_BUSY, "npc_dialog_busy"
+                end
+                return reply
+            elseif NPCPersonDialog.isPublicOffer(favor, now) then
                 reply.rows[#reply.rows + 1] = self:describeWorkRow(favor, actor)
                 reply.result, reply.messageKey = NPCPersonDialog.RESULT_OFFER, "npc_dialog_offer"
                 return reply

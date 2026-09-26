@@ -71,8 +71,9 @@ NPCCompanion.CATEGORIES = {
     fieldwork = true, transport = true, repair = true, delivery = true, animal_care = true, social = true,
 }
 
--- Host generic copy for the existing doors. The locale keys and the provider
--- text proof arrive with the views and text slice (section 3.11).
+-- English fallbacks of NPCFavor's host copy keys (npc_contrib_generic_desc,
+-- npc_contrib_step_report, npc_contrib_step_talk), used only when a key
+-- cannot be read.
 NPCCompanion.GENERIC_DESC        = "A neighbour asked your farm for help"
 NPCCompanion.GENERIC_STEP_REPORT = "Do the work"
 NPCCompanion.GENERIC_STEP_TALK   = "Talk to the neighbour"
@@ -542,6 +543,9 @@ function NPCFavorSystem:registerFavorType(namespace, declaration)
     end
     if count >= NPCCompanion.MAX_KINDS then return answer(NPCCompanion.REFUSED, "kind_limit") end
     st.kinds[id] = kind
+    for _, favor in ipairs(self:collectContributed(namespace, true)) do
+        if favor.contribution.kindKey == kind.kindKey then self:applyContributionText(favor) end
+    end
     -- A compatible declaration binds held rows; an incompatible one holds them.
     self:readCompanionSurface()
     self:reevaluateContributedWork(namespace)
@@ -666,6 +670,7 @@ function NPCFavorSystem:requestFavorOffer(namespace, kindKey, request)
             reportDone = false,
         },
     }
+    self:applyContributionText(favor)
     table.insert(self.activeFavors, favor)
     self:assignRecoveryToken(favor)
     -- A contributed offer does not set favorCooldown.
@@ -1086,6 +1091,8 @@ function NPCFavorSystem:restoreContributedFavor(saved)
         contributionHoldReason = self:isCompanionSurfaceOpen() and NPCCompanion.HOLD_COMPANION_MISSING
             or NPCCompanion.HOLD_WORK_OFF,
     }
+    -- Text from a current declaration, else NPCFavor's host copy (3.10).
+    self:applyContributionText(record)
     return record, "recovery"
 end
 
@@ -1100,6 +1107,170 @@ function NPCFavorSystem:finishRestoredContribution(record)
         record.recoveryReason = NPCFavorRecovery.REASON_PERSON_UNPROVEN
         record.resumable = false
     end
+end
+
+-- =========================================================
+-- 3.11 Text and views, 3.12 provider reconciliation
+-- =========================================================
+
+--- NPCFavor's own copy for one of its keys; the English fallback only when the
+--- key cannot be read.
+function NPCCompanion.hostText(key, fallback)
+    if g_i18n == nil or type(g_i18n.getText) ~= "function" then return fallback end
+    local ok, text = pcall(function() return g_i18n:getText(key) end)
+    if ok and type(text) == "string" and text ~= "" and text ~= key and not text:find("^Missing") then
+        return text
+    end
+    return fallback
+end
+
+--- A provider's own text for `key`, proved to belong to that mod first: the
+--- mod text table inherits base-game texts through __index, so an ordinary
+--- .texts[key] read, hasText and hasModText do not prove ownership, and
+--- getText answers "Missing ..." for an unknown key (native I18N.lua:150-194).
+--- Only a non-empty rawget of the mod's own table proves it. Anything absent,
+--- malformed or thrown takes the fallback.
+function NPCCompanion.providerText(modName, key, fallback)
+    if type(modName) ~= "string" or modName == "" or type(key) ~= "string" or key == "" then return fallback end
+    local ok, text = pcall(function()
+        local envs = g_i18n and g_i18n.modEnvironments
+        local env = type(envs) == "table" and envs[modName] or nil
+        local texts = type(env) == "table" and env.texts or nil
+        if type(texts) ~= "table" then return nil end
+        local own = rawget(texts, key)
+        if type(own) ~= "string" or own == "" then return nil end
+        return g_i18n:getText(key, modName)
+    end)
+    if ok and type(text) == "string" and text ~= "" then return text end
+    return fallback
+end
+
+function NPCCompanion.genericDescription()
+    return NPCCompanion.hostText("npc_contrib_generic_desc", NPCCompanion.GENERIC_DESC)
+end
+
+function NPCCompanion.genericStep(isTalk)
+    if isTalk then return NPCCompanion.hostText("npc_contrib_step_talk", NPCCompanion.GENERIC_STEP_TALK) end
+    return NPCCompanion.hostText("npc_contrib_step_report", NPCCompanion.GENERIC_STEP_REPORT)
+end
+
+--- Resolve a contributed row's display text on this machine and store it in the
+--- existing display fields before any painter or notice reads them. The
+--- description is never empty, so no painter falls back to the kind id.
+function NPCFavorSystem:applyContributionText(favor)
+    local c = favor.contribution
+    local st = self:companionState()
+    local provider = st.providers[c.namespace]
+    local kind = st.kinds[NPCCompanion.kindId(c.namespace, c.kindKey)]
+    local text = { modName = provider and provider.modName or "" }
+    if kind ~= nil then
+        text.descKey, text.reportKey, text.talkKey = kind.descriptionKey, kind.reportTextKey, kind.talkTextKey
+    end
+    favor.contributionText = text
+    -- A contributed record's name is NPCFavor's own title key, as a built-in
+    -- favour's name is its type's key; no door paints a provider title.
+    favor.name = "npc_contrib_generic_title"
+    favor.description = NPCCompanion.providerText(text.modName, text.descKey, NPCCompanion.genericDescription())
+    if type(favor.steps) == "table" then
+        for _, step in ipairs(favor.steps) do
+            if step.contributionStep == NPCCompanion.STEP_REPORT then
+                step.description = NPCCompanion.providerText(text.modName, text.reportKey, NPCCompanion.genericStep(false))
+            elseif step.contributionStep == NPCCompanion.STEP_TALK then
+                step.description = NPCCompanion.providerText(text.modName, text.talkKey, NPCCompanion.genericStep(true))
+            end
+        end
+    end
+end
+
+--- The receiving machine's copy of a work row: re-resolve its text in this
+--- machine's language from the keys the row carries.
+function NPCCompanion.resolveRowText(row)
+    if type(row) ~= "table" or row.contributed ~= true then return end
+    row.description = NPCCompanion.providerText(row.textMod, row.descKey, NPCCompanion.genericDescription())
+    row.nextStepText = NPCCompanion.providerText(row.textMod, row.stepKey, NPCCompanion.genericStep(row.isDialogStep == true))
+end
+
+--- The Recovery reason key a contributed row shows: its hold first, then its
+--- F148 or F357 pause, never the unknown-type key.
+local HOLD_KEYS = {
+    WORK_OFF = "npc_contrib_hold_work_off",
+    COMPANION_MISSING = "npc_contrib_hold_companion_missing",
+    COMPANION_INCOMPATIBLE = "npc_contrib_hold_companion_incompatible",
+}
+function NPCCompanion.holdKey(reason) return HOLD_KEYS[reason] end
+
+function NPCFavorSystem:contributedUnavailableKey(favor)
+    if favor.contributionHeld == true then
+        return HOLD_KEYS[favor.contributionHoldReason] or "npc_contrib_hold_companion_missing"
+    end
+    local R = NPCFavorRecovery
+    if favor.personUnproven == true or favor.recoveryReason == R.REASON_PERSON_UNPROVEN then return "npc_recovery_unavail_person" end
+    if favor.recoveryReason == R.REASON_NEIGHBOUR_UNAVAILABLE and self:resolveFavorPerson(favor) == nil then
+        return "npc_recovery_unavail_waiting"
+    end
+    if favor.timeRemainingRaw ~= nil or not finite(favor.timeRemaining) or favor.timeRemaining <= 0 then
+        return "npc_recovery_unavail_time"
+    end
+    return ""
+end
+
+--- The Recovery row fields of a contributed row (section 3.11), laid over the
+--- ordinary description. Resume comes from the contributed Resume predicate
+--- for its owning farm, never from isRecoveryRecordActionable; nothing is
+--- assignable, completable or abandonable here.
+function NPCFavorSystem:describeContributedRecoveryRow(favor, row)
+    local canResume = favor.status == PAUSED and contains(self.recoveryFavors, favor)
+        and self:contributedResumeRefusal({ farmId = favor.ownerFarmId }, favor) == nil
+    local canLetGo = favor.status == PAUSED and contains(self.recoveryFavors, favor) and self:contributedLetGoAllowed(favor)
+    row.knownOwnerResumable = canResume
+    row.resumable = canResume
+    row.assignable = false
+    row.canComplete = false
+    row.canAbandon = false
+    row.canLetGo = canLetGo
+    row.inspectOnly = not (canResume or canLetGo)
+    row.unavailableKey = canResume and "" or self:contributedUnavailableKey(favor)
+    row.timeKnown = favor.timeRemainingRaw == nil and finite(favor.timeRemaining)
+    row.timeRemaining = row.timeKnown and favor.timeRemaining or 0
+    row.fieldKnown = true
+    return row
+end
+
+-- =========================================================
+-- 3.12 Provider reconciliation
+-- =========================================================
+
+--- Copied rows of one provider's own open offers and jobs, for its own
+--- reconciliation. No callback and no authority over the host record.
+function NPCFavorSystem:getProviderWork(namespace)
+    if not NPCCompanion.validNamespace(namespace) then return answer(NPCCompanion.REFUSED, "bad_namespace") end
+    if not self:isFavorLoadReady() then return answer(NPCCompanion.UNAVAILABLE, "favor_load_waiting") end
+    self:readCompanionSurface()
+    local rows = {}
+    for _, favor in ipairs(self:collectContributed(namespace, true)) do
+        local c = favor.contribution
+        local state
+        if favor.status == "pending" then state = "OFFERED"
+        elseif favor.contributionHeld == true then state = "HELD"
+        elseif favor.status == PAUSED then state = "PAUSED"
+        else state = "ACCEPTED" end
+        rows[#rows + 1] = {
+            favorId = favor.id,
+            kindKey = c.kindKey,
+            kindVersion = c.kindVersion,
+            targetKind = c.targetKind,
+            targetKey = c.targetKey,
+            personId = favor.npcId,
+            farmId = (favor.status == "pending") and c.addressedFarmId or favor.ownerFarmId,
+            state = state,
+            holdReason = favor.contributionHoldReason,
+            expectedOutcome = c.reportOutcome,
+            reportDone = c.reportDone == true,
+            recordRevision = favor.recordRevision or 0,
+        }
+    end
+    table.sort(rows, function(a, b) return a.favorId < b.favorId end)
+    return answer(NPCCompanion.READY, "work", { rows = rows })
 end
 
 --- A contributed row's notice shows only on the addressed or owning farm's

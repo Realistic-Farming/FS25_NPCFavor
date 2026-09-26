@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="viimeksi vahvistettu"/>
 		<text name="npc_rf_pda_completed_count" text="%d valmiina tälle tilalle"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Ei saatavilla täällä: vain isäntä voi muokata naapuria."/>
+		<text name="npc_contrib_generic_title" text="Naapurin pyyntö" />
+		<text name="npc_contrib_generic_desc" text="Naapuri pyysi tilaltasi apua" />
+		<text name="npc_contrib_step_report" text="Tee työ" />
+		<text name="npc_contrib_step_talk" text="Puhu naapurin kanssa" />
+		<text name="npc_contrib_hold_work_off" text="Odottaa: tämäntyyppinen työ on pois päältä. Päästä irti sulkee sen maksutta." />
+		<text name="npc_contrib_hold_companion_missing" text="Odottaa: modi, joka pyysi tätä työtä, ei ole ladattu. Päästä irti sulkee sen maksutta." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Odottaa: modi, joka pyysi tätä työtä, on muuttanut sitä. Päästä irti sulkee sen maksutta." />
+		<text name="npc_contrib_let_go" text="Päästä irti" />
 </texts>
 </l10n>

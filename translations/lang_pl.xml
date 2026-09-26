@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="ostatnio potwierdzona"/>
 		<text name="npc_rf_pda_completed_count" text="%d ukończonych dla tej farmy"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Niedostępne tutaj: tylko gospodarz może zmienić sąsiada."/>
+		<text name="npc_contrib_generic_title" text="Prośba sąsiada" />
+		<text name="npc_contrib_generic_desc" text="Sąsiad poprosił twoją farmę o pomoc" />
+		<text name="npc_contrib_step_report" text="Wykonaj pracę" />
+		<text name="npc_contrib_step_talk" text="Porozmawiaj z sąsiadem" />
+		<text name="npc_contrib_hold_work_off" text="Wstrzymane: ten rodzaj pracy jest wyłączony. Odpuść zamyka ją bez kosztów." />
+		<text name="npc_contrib_hold_companion_missing" text="Wstrzymane: mod, który zlecił tę pracę, nie jest wczytany. Odpuść zamyka ją bez kosztów." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Wstrzymane: mod, który zlecił tę pracę, zmienił ją. Odpuść zamyka ją bez kosztów." />
+		<text name="npc_contrib_let_go" text="Odpuść" />
 </texts>
 </l10n>

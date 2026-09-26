@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="laatst bevestigd"/>
 		<text name="npc_rf_pda_completed_count" text="%d voltooid voor deze boerderij"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Hier niet beschikbaar: alleen de host kan een buur aanpassen."/>
+		<text name="npc_contrib_generic_title" text="Verzoek van een buur" />
+		<text name="npc_contrib_generic_desc" text="Een buur heeft jouw boerderij om hulp gevraagd" />
+		<text name="npc_contrib_step_report" text="Doe het werk" />
+		<text name="npc_contrib_step_talk" text="Praat met de buur" />
+		<text name="npc_contrib_hold_work_off" text="In de wacht: dit soort werk staat uit. Loslaten sluit het zonder kosten." />
+		<text name="npc_contrib_hold_companion_missing" text="In de wacht: de mod die om dit werk vroeg, is niet geladen. Loslaten sluit het zonder kosten." />
+		<text name="npc_contrib_hold_companion_incompatible" text="In de wacht: de mod die om dit werk vroeg, heeft het gewijzigd. Loslaten sluit het zonder kosten." />
+		<text name="npc_contrib_let_go" text="Loslaten" />
 </texts>
 </l10n>

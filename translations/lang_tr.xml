@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="son onaylanan"/>
 		<text name="npc_rf_pda_completed_count" text="Bu çiftlik için %d tamamlandı"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Burada kullanılamaz: bir komşuyu yalnızca sunucu sahibi ayarlayabilir."/>
+		<text name="npc_contrib_generic_title" text="Bir komşunun isteği" />
+		<text name="npc_contrib_generic_desc" text="Bir komşu çiftliğinden yardım istedi" />
+		<text name="npc_contrib_step_report" text="İşi yap" />
+		<text name="npc_contrib_step_talk" text="Komşuyla konuş" />
+		<text name="npc_contrib_hold_work_off" text="Beklemede: bu tür işler kapalı. Bırak, işi ücretsiz kapatır." />
+		<text name="npc_contrib_hold_companion_missing" text="Beklemede: bu işi isteyen mod yüklü değil. Bırak, işi ücretsiz kapatır." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Beklemede: bu işi isteyen mod işi değiştirdi. Bırak, işi ücretsiz kapatır." />
+		<text name="npc_contrib_let_go" text="Bırak" />
 </texts>
 </l10n>

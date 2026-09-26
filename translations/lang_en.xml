@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="last confirmed" />
 		<text name="npc_rf_pda_completed_count" text="%d completed for this farm" />
 		<text name="npc_admin_edit_unavailable_remote" text="Unavailable here: only the host can adjust a neighbour." />
+		<text name="npc_contrib_generic_title" text="A neighbour's request" />
+		<text name="npc_contrib_generic_desc" text="A neighbour asked your farm for help" />
+		<text name="npc_contrib_step_report" text="Do the work" />
+		<text name="npc_contrib_step_talk" text="Talk to the neighbour" />
+		<text name="npc_contrib_hold_work_off" text="On hold: this kind of work is switched off. Let go closes it at no cost." />
+		<text name="npc_contrib_hold_companion_missing" text="On hold: the mod that asked for this work is not loaded. Let go closes it at no cost." />
+		<text name="npc_contrib_hold_companion_incompatible" text="On hold: the mod that asked for this work has changed it. Let go closes it at no cost." />
+		<text name="npc_contrib_let_go" text="Let go" />
 </texts>
 </l10n>

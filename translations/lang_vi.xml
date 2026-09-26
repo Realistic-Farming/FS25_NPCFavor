@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="xác nhận gần nhất"/>
 		<text name="npc_rf_pda_completed_count" text="%d đã hoàn thành cho nông trại này"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Không khả dụng ở đây: chỉ chủ phòng mới có thể điều chỉnh hàng xóm."/>
+		<text name="npc_contrib_generic_title" text="Yêu cầu của hàng xóm" />
+		<text name="npc_contrib_generic_desc" text="Một người hàng xóm đã nhờ nông trại của bạn giúp đỡ" />
+		<text name="npc_contrib_step_report" text="Làm công việc" />
+		<text name="npc_contrib_step_talk" text="Nói chuyện với hàng xóm" />
+		<text name="npc_contrib_hold_work_off" text="Tạm dừng: loại công việc này đang tắt. Buông bỏ sẽ đóng nó mà không tốn phí." />
+		<text name="npc_contrib_hold_companion_missing" text="Tạm dừng: mod yêu cầu công việc này chưa được tải. Buông bỏ sẽ đóng nó mà không tốn phí." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Tạm dừng: mod yêu cầu công việc này đã thay đổi nó. Buông bỏ sẽ đóng nó mà không tốn phí." />
+		<text name="npc_contrib_let_go" text="Buông bỏ" />
 </texts>
 </l10n>

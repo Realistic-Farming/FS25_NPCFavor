@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="ultima confirmată"/>
 		<text name="npc_rf_pda_completed_count" text="%d finalizate pentru această fermă"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Indisponibil aici: doar gazda poate ajusta un vecin."/>
+		<text name="npc_contrib_generic_title" text="Cererea unui vecin" />
+		<text name="npc_contrib_generic_desc" text="Un vecin a cerut ajutorul fermei tale" />
+		<text name="npc_contrib_step_report" text="Fă lucrarea" />
+		<text name="npc_contrib_step_talk" text="Vorbește cu vecinul" />
+		<text name="npc_contrib_hold_work_off" text="În așteptare: acest tip de lucrare este oprit. Renunță o închide fără cost." />
+		<text name="npc_contrib_hold_companion_missing" text="În așteptare: modul care a cerut această lucrare nu este încărcat. Renunță o închide fără cost." />
+		<text name="npc_contrib_hold_companion_incompatible" text="În așteptare: modul care a cerut această lucrare a modificat-o. Renunță o închide fără cost." />
+		<text name="npc_contrib_let_go" text="Renunță" />
 </texts>
 </l10n>

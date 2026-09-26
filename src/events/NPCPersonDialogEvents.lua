@@ -205,6 +205,11 @@ local function writeWorkRow(streamId, row)
     streamWriteBool(streamId, row.canComplete == true)
     streamWriteBool(streamId, row.canAbandon == true)
     streamWriteBool(streamId, row.completed == true)
+    -- NPC-204 3.11: a companion row's text keys, so the receiver resolves its own language.
+    streamWriteBool(streamId, row.contributed == true)
+    streamWriteString(streamId, textString(row.textMod))
+    streamWriteString(streamId, textString(row.descKey))
+    streamWriteString(streamId, textString(row.stepKey))
 end
 
 local function readWorkRow(streamId)
@@ -236,6 +241,13 @@ local function readWorkRow(streamId)
     row.canComplete = streamReadBool(streamId)
     row.canAbandon = streamReadBool(streamId)
     row.completed = streamReadBool(streamId)
+    row.contributed = streamReadBool(streamId)
+    row.textMod = textString(streamReadString(streamId))
+    row.descKey = textString(streamReadString(streamId))
+    row.stepKey = textString(streamReadString(streamId))
+    if row.contributed and NPCCompanion ~= nil and NPCCompanion.resolveRowText ~= nil then
+        NPCCompanion.resolveRowText(row)
+    end
     if not row.personIdPresent then row.personId = 0 end
     if not row.nextStepLocationPresent then row.nextStepX, row.nextStepZ = 0, 0 end
     if not row.loanAmountPresent then row.loanAmount = 0 end

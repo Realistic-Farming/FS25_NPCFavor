@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="最後確認"/>
 		<text name="npc_rf_pda_completed_count" text="此農場已完成 %d 項"/>
 		<text name="npc_admin_edit_unavailable_remote" text="此處無法使用：只有主機可以調整鄰居。"/>
+		<text name="npc_contrib_generic_title" text="鄰居的請求" />
+		<text name="npc_contrib_generic_desc" text="一位鄰居請你的農場幫忙" />
+		<text name="npc_contrib_step_report" text="完成工作" />
+		<text name="npc_contrib_step_talk" text="與鄰居交談" />
+		<text name="npc_contrib_hold_work_off" text="暫停中：此類工作已關閉。放手即可免費結束。" />
+		<text name="npc_contrib_hold_companion_missing" text="暫停中：提出此工作的模組未載入。放手即可免費結束。" />
+		<text name="npc_contrib_hold_companion_incompatible" text="暫停中：提出此工作的模組已變更此工作。放手即可免費結束。" />
+		<text name="npc_contrib_let_go" text="放手" />
 </texts>
 </l10n>
