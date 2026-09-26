@@ -23,6 +23,11 @@
 -- no-fault close, including while LOCKED. Paused work resumes through the
 -- contributed Resume, never resumeRecoveryRecord. A waiting person's pending
 -- offer, and every row of a deleted or reused farm number, close without fault.
+--
+-- Save and load (3.10): accepted and held work saves its contribution block
+-- beside the F148 row in both writers (pending offers do not), with the
+-- favour-number high-water; it reloads held in Recovery until its companion
+-- declares the kind again. Any other contribution schema stays inert.
 -- =========================================================
 
 NPCCompanion = NPCCompanion or {}
@@ -889,6 +894,212 @@ function NPCFavorSystem:closeContributionsForFarm(farmId)
         end
     end
     return closed
+end
+
+-- =========================================================
+-- 3.10 Save and load
+-- =========================================================
+
+--- A deep copy of a saved row or block (primitives and nested tables).
+function NPCCompanion.copyRow(row)
+    if type(row) ~= "table" then return row end
+    local out = {}
+    for k, v in pairs(row) do out[k] = NPCCompanion.copyRow(v) end
+    return out
+end
+
+--- The saved contribution block of one accepted or held row (both writers).
+--- The copied reward rides in the ordinary rewardRelationship / rewardMoney.
+function NPCCompanion.exportBlock(favor)
+    local c = favor.contribution
+    return {
+        schema = c.schema,
+        namespace = c.namespace,
+        kindKey = c.kindKey,
+        kindVersion = c.kindVersion,
+        targetKind = c.targetKind,
+        targetKey = c.targetKey,
+        addressedFarmId = c.addressedFarmId,
+        reportOutcome = c.reportOutcome,
+        reportDone = c.reportDone == true,
+        held = favor.contributionHeld == true,
+        holdReason = favor.contributionHoldReason,
+        penaltyRelationship = (type(favor.penalty) == "table" and favor.penalty.relationship) or 0,
+    }
+end
+
+--- Decode a schema 1 block into a live contribution, or nil when it is any
+--- other schema or does not hold together. Nothing here trusts the save.
+function NPCCompanion.decodeBlock(block)
+    if type(block) ~= "table" or block.schema ~= NPCCompanion.CONTRIBUTION_SCHEMA then return nil end
+    if not NPCCompanion.validNamespace(block.namespace) or not NPCCompanion.validKey(block.kindKey) then return nil end
+    if not intIn(block.kindVersion, 1, 65535) then return nil end
+    if block.targetKind == NPCCompanion.TARGET_FIELD then
+        if not validTargetKey(block.targetKey) then return nil end
+    elseif block.targetKind ~= NPCCompanion.TARGET_NONE or block.targetKey ~= nil then
+        return nil
+    end
+    if not NPCFarmIdentity.isOrdinaryFarmIdShape(block.addressedFarmId) then return nil end
+    if not NPCCompanion.validKey(block.reportOutcome) or NPCCompanion.RESERVED_OUTCOMES[block.reportOutcome] then return nil end
+    if type(block.reportDone) ~= "boolean" then return nil end
+    if not intIn(block.penaltyRelationship, -15, 0) then return nil end
+    return {
+        schema = NPCCompanion.CONTRIBUTION_SCHEMA,
+        namespace = block.namespace,
+        kindKey = block.kindKey,
+        kindVersion = block.kindVersion,
+        targetKind = block.targetKind,
+        targetKey = block.targetKey,
+        addressedFarmId = block.addressedFarmId,
+        reportOutcome = block.reportOutcome,
+        reportDone = block.reportDone,
+    }
+end
+
+local function knownBool(present, value)
+    if present == true and type(value) == "boolean" then return value, true end
+    return nil, false
+end
+
+--- An unsupported or broken contribution row: kept in Recovery, inspect-only,
+--- never decoded, paid, resumed or reassigned, and written back as it was read.
+local function inertRecord(saved)
+    return {
+        npcId = saved.npcId or 0,
+        npcName = saved.npcName or "",
+        type = tostring(saved.type or ""),
+        name = "",
+        description = (type(saved.description) == "string") and saved.description or "",
+        status = PAUSED,
+        recoveryReason = NPCFavorRecovery.REASON_INVALID_RECORD,
+        resumable = false,
+        progress = 0,
+        progressDetails = {},
+        createdTime = nowMs(),
+        timeRemaining = 0,
+        timeRemainingRaw = "contribution_unsupported",
+        requirements = {},
+        reward = {},
+        penalty = {},
+        taskData = {},
+        steps = {},
+        currentStep = 1,
+        totalSteps = 1,
+        ownerFarmId = (saved.ownerFarmIdPresent == true) and saved.ownerFarmId or nil,
+        ownerFarmIdPresent = saved.ownerFarmIdPresent == true and saved.ownerFarmId ~= nil,
+        rewardPaidPresent = false,
+        repaymentCollectedPresent = false,
+        loanAmountPresent = false,
+        loanAmountDeductedPresent = false,
+        recoveredFromLegacy = false,
+        recordRevision = 0,
+        f148Schema = NPCFavorRecovery.SCHEMA,
+        contributionInert = true,
+        inertSavedRow = NPCCompanion.copyRow(saved),
+    }
+end
+
+--- Restore one saved row that carries a contribution block (section 3.10).
+--- Returns the record and its collection, or nil and a reason. A schema 1
+--- accepted or held job rebuilds its two fixed steps from the block and enters
+--- Recovery held: WORK_OFF while the surface is LOCKED, otherwise
+--- COMPANION_MISSING until its kind is declared and compatible (the
+--- re-evaluation after the snapshot installs does the rest). Any saved F148 or
+--- F357 pause reason is kept.
+function NPCFavorSystem:restoreContributedFavor(saved)
+    local c = NPCCompanion.decodeBlock(saved.contribution)
+    local st = saved.status
+    if c ~= nil and st == "pending" then
+        -- A companion offer is never saved; one found in a save is not restored.
+        return nil, "withdrawn"
+    end
+    local original = st
+    if st == PAUSED then original = saved.originalStatus end
+    local ownerShape = saved.ownerFarmIdPresent == true and NPCFarmIdentity.isOrdinaryFarmIdShape(saved.ownerFarmId)
+    if c == nil or not ACTIVE_STATUS[original] or not ownerShape then
+        return inertRecord(saved), "recovery"
+    end
+    -- 3.9: work whose owning or addressed farm is gone closes without fault.
+    if not NPCFarmIdentity.isOrdinaryFarmId(saved.ownerFarmId) or not NPCFarmIdentity.isOrdinaryFarmId(c.addressedFarmId) then
+        return nil, "withdrawn"
+    end
+
+    local timeRemaining = (saved.timeRemainingPresent == true) and saved.timeRemaining or nil
+    local timeOk = finite(timeRemaining)
+    local rewardPaid, rewardPaidKnown = knownBool(saved.rewardPaidPresent, saved.rewardPaid)
+    local repayment, repaymentKnown = knownBool(saved.repaymentCollectedPresent, saved.repaymentCollected)
+    local kind = self:companionState().kinds[NPCCompanion.kindId(c.namespace, c.kindKey)]
+    local description = saved.description
+    if type(description) ~= "string" or description == "" then description = NPCCompanion.GENERIC_DESC end
+    local reason = nil
+    if st == PAUSED and type(saved.recoveryReason) == "string" and saved.recoveryReason ~= "" then
+        reason = saved.recoveryReason
+    end
+    local record = {
+        id = nil,
+        npcId = saved.npcId or 0,
+        npcName = saved.npcName or "",
+        type = NPCCompanion.kindId(c.namespace, c.kindKey),
+        name = "",
+        description = description,
+        difficulty = kind and kind.difficulty or 1,
+        category = kind and kind.category or "misc",
+        status = PAUSED,
+        originalStatus = original,
+        progress = c.reportDone and 50 or 0,
+        progressDetails = {},
+        createdTime = nowMs(),
+        expirationGameTime = nil,
+        timeRemaining = timeOk and timeRemaining or 0,
+        timeRemainingRaw = (not timeOk) and tostring(saved.timeRemaining) or nil,
+        requirements = {},
+        reward = { relationship = tonumber(saved.rewardRelationship) or 0, money = tonumber(saved.rewardMoney) or 0 },
+        penalty = { relationship = saved.contribution.penaltyRelationship },
+        taskData = {},
+        ownerFarmId = saved.ownerFarmId,
+        ownerFarmIdPresent = true,
+        rewardPaid = rewardPaid,
+        rewardPaidPresent = rewardPaidKnown,
+        repaymentCollected = repayment,
+        repaymentCollectedPresent = repaymentKnown,
+        loanAmountPresent = false,
+        loanAmountDeductedPresent = false,
+        awaitingConfirmation = false,
+        recoveredFromLegacy = false,
+        recoveryReason = reason,
+        resumable = (reason ~= nil and saved.resumable == true) or nil,
+        originalOwnerFarmId = (saved.originalOwnerFarmIdPresent == true) and saved.originalOwnerFarmId or nil,
+        recordRevision = 0,
+        playerNotes = "",
+        priority = 1,
+        currentStep = c.reportDone and 2 or 1,
+        totalSteps = 2,
+        steps = {
+            { id = 1, contributionStep = NPCCompanion.STEP_REPORT, description = NPCCompanion.GENERIC_STEP_REPORT,
+              completed = c.reportDone, isDialogStep = false },
+            { id = 2, contributionStep = NPCCompanion.STEP_TALK, description = NPCCompanion.GENERIC_STEP_TALK,
+              completed = false, isDialogStep = true },
+        },
+        f148Schema = NPCFavorRecovery.SCHEMA,
+        contribution = c,
+        contributionHeld = true,
+        contributionHoldReason = self:isCompanionSurfaceOpen() and NPCCompanion.HOLD_COMPANION_MISSING
+            or NPCCompanion.HOLD_WORK_OFF,
+    }
+    return record, "recovery"
+end
+
+--- After F357's person proof: a person that could not be proved gives the
+--- held row the person_unproven reason beside its hold (LET_GO is then its
+--- exit). A provider person merely waiting for her companion's claim adds
+--- nothing: the hold already covers that wait, and if she is still away when
+--- the hold clears, the row takes F357's neighbour pause then.
+function NPCFavorSystem:finishRestoredContribution(record)
+    if record.recoveryReason ~= nil then return end
+    if record.personUnproven == true then
+        record.recoveryReason = NPCFavorRecovery.REASON_PERSON_UNPROVEN
+        record.resumable = false
+    end
 end
 
 --- A contributed row's notice shows only on the addressed or owning farm's

@@ -317,7 +317,9 @@ function NPCFavorSystem:installFavorSnapshot(staging)
         return false
     end
 
-    local nextId = math.max(self._nextFavorId or 1, (staging.maxId or 0) + 1)
+    -- NPC-204 3.10: the saved favour-number high-water too, so a number a
+    -- completed or unsaved job used is never issued again after a reload.
+    local nextId = math.max(self._nextFavorId or 1, (staging.maxId or 0) + 1, staging.savedNextId or 1)
     for _, record in ipairs(staging.unnumbered) do
         record.id = nextId
         nextId = nextId + 1
@@ -329,6 +331,12 @@ function NPCFavorSystem:installFavorSnapshot(staging)
     self._loadStaging = nil
     self._favorLoadState = NPCFavorRecovery.LOAD_READY
     self:rebuildRecoveryTokens()
+    -- NPC-204 3.8 at restore: read the surface and bind restored companion
+    -- work to any provider already registered and declared.
+    if self.readCompanionSurface ~= nil then
+        self:readCompanionSurface()
+        self:reevaluateContributedWork(nil)
+    end
     return true
 end
 
@@ -351,6 +359,11 @@ end
 --- Export a favor as a flat table of primitives. Both the XML writer and the
 --- StateLedger writer serialize exactly this table.
 function NPCFavorSystem:exportFavorRecord(favor)
+    -- NPC-204 3.10: a row with an unsupported contribution schema is written
+    -- back with its saved fields unchanged; it was never decoded.
+    if favor.contributionInert == true and type(favor.inertSavedRow) == "table" and NPCCompanion ~= nil then
+        return NPCCompanion.copyRow(favor.inertSavedRow)
+    end
     local td = favor.taskData or {}
     local reward = favor.reward
     local flat = {
@@ -421,6 +434,10 @@ function NPCFavorSystem:exportFavorRecord(favor)
         end
         flat.stepCount = #rows
         flat.steps = rows
+    end
+    -- NPC-204 3.10: the contribution block, a separate schema beside F148's.
+    if NPCCompanion ~= nil and NPCCompanion.isContributed(favor) then
+        flat.contribution = NPCCompanion.exportBlock(favor)
     end
     return flat
 end
@@ -895,12 +912,26 @@ function NPCFavorSystem:restoreFavor(saved, staging)
         return nil, "unsupported_schema"
     end
 
-    local record = self:buildRestoredRecord(saved, schema)
-    local collection = self:classifyRestoredRecord(record, saved, schema)
+    -- NPC-204 3.10: a row carrying a contribution block is read from that
+    -- block first; the built-in builder would rebuild its steps from
+    -- favorTypes and the classifier would call its kind an invalid record.
+    local record, collection
+    if saved.contribution ~= nil and self.restoreContributedFavor ~= nil then
+        record, collection = self:restoreContributedFavor(saved)
+        if record == nil then
+            return nil, collection
+        end
+    else
+        record = self:buildRestoredRecord(saved, schema)
+        collection = self:classifyRestoredRecord(record, saved, schema)
+    end
     -- RSF-F357: the person proof decides last. A withdrawn offer is not staged.
     collection = self:applyPersonProof(record, saved, collection)
     if collection == "withdrawn" then
         return nil, "withdrawn"
+    end
+    if record.contribution ~= nil and self.finishRestoredContribution ~= nil then
+        self:finishRestoredContribution(record)
     end
 
     local savedId = saved.favorId
