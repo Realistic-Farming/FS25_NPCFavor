@@ -391,14 +391,76 @@ function NPCFieldWork:_hasSecondWorker(fieldId)
     return workers and #workers >= 2
 end
 
+--- The field polygon's own edges as a closed walk `inset` metres inside the field.
+--- The inside comes from the polygon's winding (a map's points may run either way).
+--- Each edge is sampled at most `spacing` metres apart and each sample moved along the
+--- edge's inward normal; a corner is mitred from its two edges' normals so it sits
+--- `inset` from both (capped at a spike). A point that does not land inside the
+--- polygon (a part narrower than twice the inset) tries half the inset, then is
+--- dropped. The walk ends where it began. Empty when the polygon has no area.
+function NPCFieldWork.perimeterWalk(polygon, inset, spacing)
+    local n = type(polygon) == "table" and #polygon or 0
+    if n < 3 then return {} end
+    local area2 = 0
+    for i = 1, n do
+        local a, b = polygon[i], polygon[i % n + 1]
+        area2 = area2 + a.x * b.z - b.x * a.z
+    end
+    if not (area2 > 0 or area2 < 0) then return {} end
+    local side = area2 > 0 and 1 or -1
+    local normals = {}
+    for i = 1, n do
+        local a, b = polygon[i], polygon[i % n + 1]
+        local dx, dz = b.x - a.x, b.z - a.z
+        local len = math.sqrt(dx * dx + dz * dz)
+        if len > 1e-6 then normals[i] = { x = -dz / len * side, z = dx / len * side, len = len } end
+    end
+    local waypoints = {}
+    local function place(px, pz, ox, oz)
+        for _, d in ipairs({ 1, 0.5 }) do
+            local qx, qz = px + ox * d, pz + oz * d
+            if NPCFieldWork.pointInPolygon(qx, qz, polygon) then
+                waypoints[#waypoints + 1] = { x = qx, z = qz }
+                return
+            end
+        end
+    end
+    local prev = nil
+    for i = n, 1, -1 do
+        if normals[i] ~= nil then prev = normals[i] break end
+    end
+    for i = 1, n do
+        local e = normals[i]
+        if e ~= nil then
+            local a, b = polygon[i], polygon[i % n + 1]
+            local denom = math.max(0.5, 1 + prev.x * e.x + prev.z * e.z)
+            place(a.x, a.z, inset * (prev.x + e.x) / denom, inset * (prev.z + e.z) / denom)
+            local steps = math.max(1, math.ceil(e.len / spacing))
+            for s = 1, steps - 1 do
+                local t = s / steps
+                place(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, inset * e.x, inset * e.z)
+            end
+            prev = e
+        end
+    end
+    if #waypoints > 0 then waypoints[#waypoints + 1] = { x = waypoints[1].x, z = waypoints[1].z } end
+    return waypoints
+end
+
 --- Generate perimeter walk pattern (grumpy NPCs — fence inspection).
--- Walks the field edges with slight inset.
+-- Walks the field edges with slight inset: the field's own polygon when the bounds
+-- carry one, so an L, U or C shaped field is walked round its notch or gap instead
+-- of across it; the work square otherwise, or when the polygon gives no walk.
 -- @param bounds  Field bounds from estimateBounds()
 -- @return table  Array of {x, z} waypoints
 function NPCFieldWork:generatePerimeterPattern(bounds)
     if not bounds then return {} end
 
     local inset = 2  -- stay 2m inside field edge
+    if bounds.polygon ~= nil then
+        local walk = NPCFieldWork.perimeterWalk(bounds.polygon, inset, 15)
+        if #walk >= 4 then return walk end
+    end
     local minX = bounds.minX + inset
     local maxX = bounds.maxX - inset
     local minZ = bounds.minZ + inset

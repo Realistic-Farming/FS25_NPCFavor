@@ -26,6 +26,12 @@
 -- the AI are the real ones, built by their own constructors; nothing hand-fills a
 -- record, a bound, a waypoint or a label.
 --
+-- MAINTENANCE row 109 (Bob's cold verdict on #117): the grumpy perimeter walk went
+-- round the clipped work square's corners, so on an L or a U it cut across the notch
+-- or the gap. It now walks the field polygon's own edges 2 m inside. Group P drives it
+-- from the same selector record through getWorkPattern; its rows P1 to P4 are the
+-- entry-point bar for that walk.
+--
 --!load: src/utils/NPCFarmIdentity.lua, src/utils/NPCLandAdmission.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/events/NPCInteractionEvent.lua, src/NPCSystem.lua, src/scripts/NPCFieldWork.lua, src/scripts/NPCAI.lua
 
 local A = NPCLandAdmission
@@ -333,6 +339,101 @@ group("D", function()
     npc = { id = 1, personality = "grumpy", position = { x = 100, y = 0, z = 100 }, assignedField = { center = { x = 100, z = 100 }, size = 300000 }, movementSpeed = 3 }
     ai:initFieldWorkLegacy(npc)
     T.eq("D4 with no extent the clamp alone holds the perimeter at 100 m", num(farthest(npc.fieldWorkPath, 100, 100)), "100")
+end)
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- P. THE PERIMETER WALKS THE FIELD'S OWN EDGES (MAINTENANCE row 109)
+-- ══════════════════════════════════════════════════════════════════════════
+group("P", function()
+    local sys = newSys()
+    local origRandom = math.random
+    -- The personality roll at 10 of 100: a grumpy person takes the perimeter.
+    math.random = function(n, m) if n == 100 and m == nil then return 10 end if n == nil then return origRandom() end if m == nil then return origRandom(n) end return origRandom(n, m) end
+    -- Every leg between two waypoints, sampled each metre, inside the polygon.
+    local function legsInside(path, polygon)
+        for i = 1, #path - 1 do
+            local a, b = path[i], path[i + 1]
+            local steps = math.max(1, math.ceil(math.sqrt((b.x - a.x) ^ 2 + (b.z - a.z) ^ 2)))
+            for s = 0, steps do
+                local t = s / steps
+                if not NPCFieldWork.pointInPolygon(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, polygon) then return false end
+            end
+        end
+        return #path > 1
+    end
+    -- The least distance from any waypoint to any edge of the polygon.
+    local function nearest(path, polygon)
+        local best = math.huge
+        for _, p in ipairs(path) do
+            for i = 1, #polygon do
+                local a, b = polygon[i], polygon[i % #polygon + 1]
+                local dx, dz = b.x - a.x, b.z - a.z
+                local t = math.max(0, math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz)))
+                local ex, ez = a.x + dx * t - p.x, a.z + dz * t - p.z
+                best = math.min(best, math.sqrt(ex * ex + ez * ez))
+            end
+        end
+        return best
+    end
+    local function has(path, x, z)
+        for _, p in ipairs(path) do if math.abs(p.x - x) < 1e-6 and math.abs(p.z - z) < 1e-6 then return true end end
+        return false
+    end
+    local function closed(path) return #path > 1 and path[1].x == path[#path].x and path[1].z == path[#path].z end
+
+    -- The L of C6: the walk goes round the missing quarter, turning at its inner
+    -- corner (100, 100) 2 m inside both edges.
+    local L = { { 50, 50 }, { 150, 50 }, { 150, 100 }, { 100, 100 }, { 100, 150 }, { 50, 150 } }
+    g_fieldManager = { fields = { engineField(10, 75, 75, 0.75, L, 9) } }
+    local rec = sys:findNearestField(70, 70, 1)
+    local walk = sys.fieldWork:getWorkPattern({ id = 1, personality = "grumpy" }, rec)
+    T.eq("P1 an L-shaped field: every leg of the grumpy walk, sampled each metre, stays inside the L, and the walk turns at the inner corner (98, 98)",
+        tostring(legsInside(walk, rec.extent.polygon)) .. "/" .. tostring(has(walk, 98, 98)), "true/true")
+    T.eq("P2 every waypoint is 2 m inside the L's nearest edge, the corners included, and the walk ends where it began",
+        num(nearest(walk, rec.extent.polygon)) .. "/" .. tostring(closed(walk)), "2/true")
+    -- The same L with its points in the other order.
+    local Lcw = {}
+    for i = #L, 1, -1 do Lcw[#Lcw + 1] = L[i] end
+    g_fieldManager = { fields = { engineField(10, 75, 75, 0.75, Lcw, 13) } }
+    rec = sys:findNearestField(70, 70, 1)
+    local back = sys.fieldWork:getWorkPattern({ id = 2, personality = "grumpy" }, rec)
+    T.eq("P3 the same L with its points in the other winding is walked 2 m inside too, round the notch",
+        tostring(legsInside(back, rec.extent.polygon)) .. "/" .. num(nearest(back, rec.extent.polygon)) .. "/" .. tostring(has(back, 98, 98)), "true/2/true")
+
+    -- The U of C10: the walk goes up the west arm's inner side and down the east
+    -- arm's, round the gap.
+    local U = { { 50, 50 }, { 80, 50 }, { 80, 120 }, { 120, 120 }, { 120, 50 }, { 150, 50 }, { 150, 150 }, { 50, 150 } }
+    g_fieldManager = { fields = { engineField(10, 100, 135, 0.72, U, 12) } }
+    rec = sys:findNearestField(95, 130, 1)
+    local uwalk = sys.fieldWork:getWorkPattern({ id = 3, personality = "grumpy" }, rec)
+    local upWest, downEast = 0, 0
+    for _, p in ipairs(uwalk) do
+        if math.abs(p.x - 78) < 1e-6 and p.z < 100 then upWest = upWest + 1 end
+        if math.abs(p.x - 122) < 1e-6 and p.z < 100 then downEast = downEast + 1 end
+    end
+    T.eq("P4 a U-shaped field: the walk runs along both sides of the gap (x 78 and x 122 below z 100), and every leg stays inside the U",
+        upWest .. "/" .. downEast .. "/" .. tostring(legsInside(uwalk, rec.extent.polygon)), "4/4/true")
+
+    -- A square field with a lane 1.5 m wide running east: 2 m in from a lane edge is
+    -- past the other edge, so the lane's points take half the inset.
+    local lane = { { 50, 50 }, { 100, 50 }, { 100, 70 }, { 140, 70 }, { 140, 71.5 }, { 100, 71.5 }, { 100, 100 }, { 50, 100 } }
+    g_fieldManager = { fields = { engineField(10, 75, 75, 0.256, lane, 14) } }
+    rec = sys:findNearestField(70, 70, 1)
+    local lwalk = sys.fieldWork:getWorkPattern({ id = 4, personality = "grumpy" }, rec)
+    local allIn, onLane = #lwalk > 0, 0
+    for _, p in ipairs(lwalk) do
+        if not NPCFieldWork.pointInPolygon(p.x, p.z, rec.extent.polygon) then allIn = false end
+        if p.x > 100 and (math.abs(p.z - 71) < 1e-6 or math.abs(p.z - 70.5) < 1e-6) then onLane = onLane + 1 end
+    end
+    T.eq("P5 a lane narrower than twice the inset: its points take half the inset, and every waypoint lies inside the field",
+        tostring(allIn) .. "/" .. onLane, "true/6")
+    math.random = origRandom
+
+    -- No polygon: the work square's walk, as before.
+    local plain = sys.fieldWork:generatePerimeterPattern(sys.fieldWork:estimateBounds({ center = { x = 100, z = 100 }, size = 400 }))
+    local lo, hi = math.huge, -math.huge
+    for _, p in ipairs(plain) do lo, hi = math.min(lo, p.x), math.max(hi, p.x) end
+    T.eq("P6 UNCHANGED: with no polygon the walk is the work square 2 m inside, nine waypoints", num(lo) .. "/" .. num(hi) .. "/" .. #plain, "92/108/9")
 end)
 
 -- ══════════════════════════════════════════════════════════════════════════
