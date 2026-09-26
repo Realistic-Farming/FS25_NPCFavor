@@ -18,6 +18,11 @@
 -- offers, acceptance and advancing reports refuse; pending offers are
 -- withdrawn without fault and accepted work is held with its clock stopped,
 -- returning by itself when the surface reads OPEN again.
+--
+-- Recovery (3.8, 3.9): held work always has the owning farm's LET_GO, a
+-- no-fault close, including while LOCKED. Paused work resumes through the
+-- contributed Resume, never resumeRecoveryRecord. A waiting person's pending
+-- offer, and every row of a deleted or reused farm number, close without fault.
 -- =========================================================
 
 NPCCompanion = NPCCompanion or {}
@@ -783,6 +788,107 @@ function NPCFavorSystem:completeContributedFavor(favorId)
         self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1, 0.3, 1})
     end
     return true
+end
+
+-- =========================================================
+-- 3.8 Recovery commands and 3.9 farm lifecycle
+-- =========================================================
+
+local function hasLiveJob(self, npcId)
+    for _, live in ipairs(self.activeFavors or {}) do
+        if live.npcId == npcId then return true end
+    end
+    return false
+end
+
+--- The contributed Resume predicate: the owning farm, a live proved person,
+--- known positive remaining time, complete payment facts, no contribution hold,
+--- not person_unproven, and no other open job on the person. Returns nil when
+--- resumable, else the refusal key.
+function NPCFavorSystem:contributedResumeRefusal(actor, favor)
+    local R = NPCFavorRecovery
+    if actor == nil or not NPCFarmIdentity.isOrdinaryFarmId(favor.ownerFarmId)
+        or actor.farmId == nil or actor.farmId ~= favor.ownerFarmId then
+        return "npc_recovery_refused_not_owner"
+    end
+    if favor.contributionHeld == true then return "npc_recovery_refused_not_resumable" end
+    if favor.personUnproven == true or favor.recoveryReason == R.REASON_PERSON_UNPROVEN then
+        return "npc_recovery_unavail_person"
+    end
+    if favor.timeRemainingRaw ~= nil or not finite(favor.timeRemaining) or favor.timeRemaining <= 0 then
+        return "npc_recovery_unavail_time"
+    end
+    if not R.paymentFactsKnown(favor) then return "npc_recovery_unavail_facts" end
+    if self:resolveFavorPerson(favor) == nil then return "npc_recovery_unavail_waiting" end
+    if hasLiveJob(self, favor.npcId) then return "npc_recovery_refused_live_job" end
+    return nil
+end
+
+--- LET_GO is for held work the farmer cannot resume: a contribution hold, or a
+--- person that could not be proved.
+function NPCFavorSystem:contributedLetGoAllowed(favor)
+    return favor.contributionHeld == true or favor.personUnproven == true
+        or favor.recoveryReason == NPCFavorRecovery.REASON_PERSON_UNPROVEN
+end
+
+--- One recovery command on a contributed row whose exact record and revision
+--- the caller has already resolved. Returns a result code and a message key.
+function NPCFavorSystem:contributedRecoveryCommand(actor, op, favor)
+    local R = NPCFavorRecovery
+    -- A lock or a provider change takes effect before anything is decided.
+    self:readCompanionSurface()
+    if op == R.OP_RESUME then
+        if not contains(self.recoveryFavors, favor) or favor.status ~= PAUSED then
+            return R.RESULT_NO_LONGER_PAUSED, "npc_recovery_no_longer_paused"
+        end
+        local hold = self:contributionHoldFor(favor)
+        if hold ~= nil then self:holdContributedFavor(favor, hold) end
+        local refusal = self:contributedResumeRefusal(actor, favor)
+        if refusal ~= nil then return R.RESULT_REFUSED, refusal end
+        removeFrom(self.recoveryFavors, favor)
+        favor.status = (favor.originalStatus == "in_progress") and "in_progress" or "active"
+        favor.originalStatus = nil
+        favor.originalOwnerFarmId = nil
+        favor.recoveryReason = nil
+        favor.resumable = nil
+        favor.expirationGameTime = nowMs() + favor.timeRemaining
+        self:retireRecoveryToken(favor)
+        self:bumpRecordRevision(favor)
+        table.insert(self.activeFavors, favor)
+        self:assignRecoveryToken(favor)
+        if self.npcSystem ~= nil then self.npcSystem.syncDirty = true end
+        return R.RESULT_OK, "npc_recovery_ok_resumed"
+    elseif op == R.OP_LET_GO then
+        -- The verified owning farm only; masters get no exception. Available
+        -- while the surface is LOCKED.
+        if actor == nil or not NPCFarmIdentity.isOrdinaryFarmId(favor.ownerFarmId)
+            or actor.farmId == nil or actor.farmId ~= favor.ownerFarmId then
+            return R.RESULT_REFUSED, "npc_recovery_refused_not_owner"
+        end
+        if not contains(self.recoveryFavors, favor) or favor.status ~= PAUSED then
+            return R.RESULT_NO_LONGER_PAUSED, "npc_recovery_no_longer_paused"
+        end
+        if not self:contributedLetGoAllowed(favor) then
+            return R.RESULT_REFUSED, "npc_recovery_refused_operation"
+        end
+        self:closeContributionNoFault(favor, "let_go")
+        return R.RESULT_OK, "npc_contrib_let_go"
+    end
+    -- ASSIGN, COMPLETE and ABANDON never act on companion work.
+    return R.RESULT_REFUSED, "npc_recovery_refused_operation"
+end
+
+--- 3.9: close, without fault, every open contributed row in either collection
+--- whose owning or addressed farm is this farm number.
+function NPCFavorSystem:closeContributionsForFarm(farmId)
+    local closed = 0
+    for _, favor in ipairs(self:collectContributed(nil, true)) do
+        if favor.ownerFarmId == farmId or favor.contribution.addressedFarmId == farmId then
+            self:closeContributionNoFault(favor, "farm_gone")
+            closed = closed + 1
+        end
+    end
+    return closed
 end
 
 --- A contributed row's notice shows only on the addressed or owning farm's
