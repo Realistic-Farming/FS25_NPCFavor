@@ -799,7 +799,7 @@ function NPCSystem:applyLiveCount()
 
     local candidates = {}
     for _, person in ipairs(people.roster) do
-        if person.origin == NPCPersonRoster.ORIGIN_CONSULTANT then
+        if person.origin == NPCPersonRoster.ORIGIN_CONSULTANT or person.origin == NPCPersonRoster.ORIGIN_PROVIDER then
             if not person.live then
                 self:setPersonLive(person, false, NPCPersonRoster.REASON_WAITING_COMPANION)
             else
@@ -5363,6 +5363,127 @@ function NPCSystem:claimCropStressConsultant(displayName, position)
     return npc.id
 end
 
+--- NPC-204: the provider verbs, API version 1, on the published mission
+--- handle (g_currentMission.npcFavorSystem). Server only; every verb answers a
+--- table { result, reason, ... } and never a silent nil. A companion binds with
+--- a protected call and treats a missing handle or method as NPCFavor absent.
+function NPCSystem:_companionCall(name, ...)
+    if not self.isServer then return { result = "REFUSED", reason = "not_server" } end
+    local fav = self.favorSystem
+    if fav == nil or type(fav[name]) ~= "function" then return { result = "UNAVAILABLE", reason = "favours_absent" } end
+    local ok, reply = pcall(fav[name], fav, ...)
+    if not ok then
+        print(string.format("[NPC Favor] Companion verb %s failed: %s", name, tostring(reply)))
+        return { result = "UNAVAILABLE", reason = "internal_error" }
+    end
+    if type(reply) ~= "table" then return { result = "UNAVAILABLE", reason = "internal_error" } end
+    return reply
+end
+
+function NPCSystem:registerCompanionProvider(spec)
+    return self:_companionCall("registerCompanionProvider", spec)
+end
+
+function NPCSystem:unregisterCompanionProvider(namespace)
+    return self:_companionCall("unregisterCompanionProvider", namespace)
+end
+
+function NPCSystem:registerFavorType(namespace, declaration)
+    return self:_companionCall("registerFavorType", namespace, declaration)
+end
+
+function NPCSystem:requestFavorOffer(namespace, kindKey, request)
+    return self:_companionCall("requestFavorOffer", namespace, kindKey, request)
+end
+
+function NPCSystem:reportFavorStep(namespace, report)
+    return self:_companionCall("reportFavorStep", namespace, report)
+end
+
+--- NPC-204 3.2: F357's saved-person claim, generalized to a provider's own
+--- people in the same durable store. The identity is (namespace, personKey);
+--- a unique proved saved row wakes, ambiguity creates nothing, and at most four
+--- people per provider exist. The consultant claim above stays its own alias.
+function NPCSystem:claimProviderPerson(namespace, personKey, spec)
+    if not self.isServer then return { result = "REFUSED", reason = "not_server" } end
+    local ok, reply = pcall(self._claimProviderPerson, self, namespace, personKey, spec)
+    if not ok then
+        print(string.format("[NPC Favor] Companion verb claimProviderPerson failed: %s", tostring(reply)))
+        return { result = "UNAVAILABLE", reason = "internal_error" }
+    end
+    return reply
+end
+
+local PERSON_SPEC_KEYS = { displayName = true, roleTextKey = true, home = true }
+local HOME_KEYS = { x = true, z = true }
+
+function NPCSystem:_claimProviderPerson(namespace, personKey, spec)
+    local fav = self.favorSystem
+    if fav == nil or fav.getCompanionProvider == nil then return { result = "UNAVAILABLE", reason = "favours_absent" } end
+    if not NPCCompanion.validNamespace(namespace) then return { result = "REFUSED", reason = "bad_namespace" } end
+    if fav:getCompanionProvider(namespace) == nil then return { result = "REFUSED", reason = "provider_unknown" } end
+    if not NPCCompanion.validKey(personKey) then return { result = "REFUSED", reason = "bad_person_key" } end
+    if type(spec) ~= "table" then return { result = "REFUSED", reason = "bad_spec" } end
+    for k in pairs(spec) do
+        if PERSON_SPEC_KEYS[k] ~= true then return { result = "REFUSED", reason = "bad_spec" } end
+    end
+    local name = spec.displayName
+    if type(name) ~= "string" or #name < 1 or #name > 64 then return { result = "REFUSED", reason = "bad_name" } end
+    local role = spec.roleTextKey
+    if role ~= nil and (type(role) ~= "string" or #role < 1 or #role > 64) then
+        return { result = "REFUSED", reason = "bad_role" }
+    end
+    local home = spec.home
+    if type(home) ~= "table" then return { result = "REFUSED", reason = "bad_home" } end
+    for k in pairs(home) do
+        if HOME_KEYS[k] ~= true then return { result = "REFUSED", reason = "bad_home" } end
+    end
+    if not NPCPersonRoster.isFiniteNumber(home.x) or not NPCPersonRoster.isFiniteNumber(home.z) then
+        return { result = "REFUSED", reason = "bad_home" }
+    end
+    if self.people == nil or not self.people:isReady() then return { result = "WAIT", reason = "people_loading" } end
+
+    local token = NPCPersonRoster.providerPersonToken(namespace, personKey)
+    local matches = self.people:peopleWithToken(token)
+    if #matches > 1 then
+        for _, person in ipairs(matches) do
+            person.providerConflict = true
+            if person.live then
+                self:setPersonLive(person, false, NPCPersonRoster.REASON_IDENTITY_CONFLICT)
+            else
+                person.waitingReason = NPCPersonRoster.REASON_IDENTITY_CONFLICT
+            end
+        end
+        self.people:touch()
+        print(string.format("[NPC Favor] Provider person claim refused: more than one saved record is %s", token))
+        return { result = "UNAVAILABLE", reason = "identity_conflict" }
+    end
+    if #matches == 1 then
+        local person = matches[1]
+        if person.providerConflict then return { result = "UNAVAILABLE", reason = "identity_conflict" } end
+        if not person.live then
+            local location = self:resolvePersonHome(person, nil)
+                or { x = home.x, y = 0, z = home.z, building = nil, buildingName = person.homeBuildingName or "", ownerFarmId = 0 }
+            self:assignPersonPlaces(person, location, true)
+            self:setPersonLive(person, true)
+            self.syncDirty = true
+        end
+        return { result = "READY", reason = "claimed", personId = person.id }
+    end
+    if #self.people:peopleOfProvider(namespace) >= NPCCompanion.MAX_PEOPLE then
+        return { result = "REFUSED", reason = "person_limit" }
+    end
+    local location = { x = home.x, y = 0, z = home.z, building = nil, buildingName = "", ownerFarmId = 0 }
+    local npc, why = self:createPersonAtLocation(location, NPCPersonRoster.ORIGIN_PROVIDER)
+    if npc == nil then return { result = "UNAVAILABLE", reason = tostring(why or "person_unplaced") } end
+    npc.name = NPCPersonRoster.boundLabel(name, NPCPersonRoster.NAME_LIMIT)
+    npc.providerToken = token
+    npc.providerRoleTextKey = role
+    self.people:touch()
+    self.syncDirty = true
+    return { result = "READY", reason = "created", personId = npc.id }
+end
+
 --- RSF-F357 section 7: the read-only getter. A number only for the unique live
 --- consultant in a complete authoritative local roster; otherwise nil plus an
 --- unavailable reason. Copied scalars, never a model table.
@@ -5555,6 +5676,8 @@ function NPCSystem:serverAcceptFavor(npc, farmId, selection)
     local record, why = self:_selectedWorkRecord(npc, selection)
     if record == nil then return false, why end
     if record.personRefKind ~= "durable" then return false, "npc_dialog_refused_stale" end
+    -- NPC-204: companion work has its own accept; this one refuses it.
+    if type(record.contribution) == "table" then return false, "npc_dialog_refused_stale" end
     if not (NPCPersonDialog ~= nil and NPCPersonDialog.isPublicOffer(record, TimeHelper.getGameTimeMs())) then
         return false, "npc_dialog_refused_stale"
     end
@@ -5580,6 +5703,8 @@ function NPCSystem:serverCompleteFavor(npc, farmId, selection)
     if fav == nil or fav.completeFavor == nil then return false, "npc_dialog_unavailable" end
     local record, why = self:_selectedWorkRecord(npc, selection)
     if record == nil then return false, why end
+    -- NPC-204: companion work completes only through its TALK adapter.
+    if type(record.contribution) == "table" then return false, "npc_dialog_refused_stale" end
     -- The selected ordinary active work owned by the verified actor farm, not
     -- a recovered row (those use the exact F148 token command).
     local inActive = false
@@ -5623,6 +5748,70 @@ function NPCSystem:serverCompleteFavor(npc, farmId, selection)
     -- The owner refused: the record keeps the facts it had before this call.
     if clearedConfirmation then record.awaitingConfirmation = true end
     if markedStep ~= nil then markedStep.completed = false end
+    return false, "npc_dialog_refused_stale"
+end
+
+--- NPC-204 3.5: ACCEPT_OFFER for a record carrying a contribution block, routed
+--- here by NPCInteractionEvent before any built-in accept check.
+function NPCSystem:serverAcceptContributedFavor(npc, farmId, selection)
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then return false, "npc_dialog_refused_farm" end
+    local fav = self.favorSystem
+    if fav == nil or fav.acceptContributedFavor == nil then return false, "npc_dialog_unavailable" end
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    local ok, reason = fav:acceptContributedFavor(record.id, selection.recordRevision, npc.id, farmId)
+    if not ok then
+        if reason == "not_addressed" then return false, "npc_dialog_refused_farm" end
+        if reason == "person" then return false, "npc_dialog_refused_person" end
+        if reason == "stale" then return false, "npc_dialog_refused_stale" end
+        return false, "npc_dialog_unavailable"
+    end
+    self.syncDirty = true
+    return true, "npc_dialog_accepted", record
+end
+
+--- NPC-204 3.6: the TALK adapter. COMPLETE_WORK for a record carrying a
+--- contribution block, never the built-in serverCompleteFavor. It repeats that
+--- function's checks; completionEligible then allows finishing only once the
+--- REPORT step (not a dialog step) is done and the open step is TALK.
+function NPCSystem:serverCompleteContributedFavor(npc, farmId, selection)
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    local fav = self.favorSystem
+    if fav == nil or fav.completeContributedFavor == nil then return false, "npc_dialog_unavailable" end
+    -- A lock takes effect before any completion can pay.
+    if fav.readCompanionSurface ~= nil then fav:readCompanionSurface() end
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    if not NPCCompanion.isContributed(record) then return false, "npc_dialog_refused_stale" end
+    local inActive = false
+    for _, candidate in ipairs(fav.activeFavors or {}) do
+        if candidate == record then inActive = true break end
+    end
+    if not inActive or not (record.status == "active" or record.status == "in_progress") then
+        return false, "npc_dialog_refused_stale"
+    end
+    if record.recoveredFromLegacy == true then
+        return false, "npc_recovery_dialog_use_view"
+    end
+    if record.ownerFarmId ~= farmId then
+        print(string.format("[NPC Favor SECURITY] Complete refused: farm %s does not own favor %s (owner %s)",
+            tostring(farmId), tostring(record.id), tostring(record.ownerFarmId)))
+        return false, "npc_recovery_refused_not_owner"
+    end
+    local eligible, step = NPCPersonDialog.completionEligible(record)
+    if not eligible or step == nil or step.isDialogStep ~= true then
+        return false, "npc_dialog_refused_not_ready"
+    end
+    step.completed = true
+    if fav:completeContributedFavor(record.id) then
+        fav:bumpRecordRevision(record)
+        fav:retireRecoveryToken(record)
+        self.syncDirty = true
+        return true, "npc_dialog_completed"
+    end
+    -- The owner refused: the record keeps the facts it had before this call.
+    step.completed = false
     return false, "npc_dialog_refused_stale"
 end
 

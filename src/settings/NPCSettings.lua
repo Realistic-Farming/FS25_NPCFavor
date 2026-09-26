@@ -94,6 +94,9 @@ function NPCSettings:resetToDefaults()
     self.npcBreakFrequency = 1.0
     self.npcSocialFrequency = 1.0
 
+    -- Release gate: experimental systems, at the player's own risk (NPC-204).
+    self.experimentalSystems = false
+
     -- Debug
     self.debugMode = false
     self.showPaths = false
@@ -209,6 +212,8 @@ function NPCSettings:load()
     self.npcBreakFrequency = getFloat("npcBreakFrequency", self.npcBreakFrequency)
     self.npcSocialFrequency = getFloat("npcSocialFrequency", self.npcSocialFrequency)
 
+    self.experimentalSystems = getBool("experimentalSystems", self.experimentalSystems)
+
     -- Debug
     self.debugMode = getBool("debugMode", self.debugMode)
     self.showPaths = getBool("showPaths", self.showPaths)
@@ -313,6 +318,8 @@ function NPCSettings:saveToXMLFile(missionInfo)
     setFloat("npcBreakFrequency", self.npcBreakFrequency)
     setFloat("npcSocialFrequency", self.npcSocialFrequency)
 
+    setBool("experimentalSystems", self.experimentalSystems)
+
     -- Debug
     setBool("debugMode", self.debugMode)
     setBool("showPaths", self.showPaths)
@@ -396,6 +403,7 @@ function NPCSettings:validateSettings()
     self.showNames = not not self.showNames
     self.showNotifications = not not self.showNotifications
     self.debugMode = not not self.debugMode
+    self.experimentalSystems = self.experimentalSystems == true
     self.enableFavors = not not self.enableFavors
 end
 

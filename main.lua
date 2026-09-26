@@ -77,6 +77,7 @@ if modDirectory then
     source(modDirectory .. "src/utils/TimeHelper.lua")
     source(modDirectory .. "src/utils/NPCFarmIdentity.lua")
     source(modDirectory .. "src/utils/NPCLandAdmission.lua")
+    source(modDirectory .. "src/utils/NPCReleaseGate.lua")
 
     -- Configuration & settings
     source(modDirectory .. "src/settings/NPCConfig.lua")
@@ -97,6 +98,7 @@ if modDirectory then
     source(modDirectory .. "src/scripts/NPCRelationshipManager.lua")
     source(modDirectory .. "src/scripts/NPCFavorSystem.lua")
     source(modDirectory .. "src/scripts/NPCFavorRecovery.lua")
+    source(modDirectory .. "src/scripts/NPCCompanionContribution.lua")
     source(modDirectory .. "src/scripts/NPCEntity.lua")
     source(modDirectory .. "src/scripts/NPCAI.lua")
     source(modDirectory .. "src/scripts/NPCFieldWork.lua")

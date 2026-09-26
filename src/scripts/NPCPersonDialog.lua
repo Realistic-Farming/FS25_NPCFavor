@@ -162,6 +162,8 @@ end
 --- A positively clean unaccepted offer: pending, unowned, unpaid, unprogressed, unexpired.
 function NPCPersonDialog.isPublicOffer(favor, now)
     if type(favor) ~= "table" or favor.status ~= "pending" then return false end
+    -- NPC-204: an addressed companion offer is never public.
+    if type(favor.contribution) == "table" then return false end
     if favor.ownerFarmId ~= nil or favor.ownerFarmIdPresent == true then return false end
     if favor.rewardPaid == true or favor.repaymentCollected == true then return false end
     if (favor.progress or 0) > 0 or favor.awaitingConfirmation == true then return false end

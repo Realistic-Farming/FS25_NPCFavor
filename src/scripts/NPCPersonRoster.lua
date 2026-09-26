@@ -61,6 +61,8 @@ NPCPersonRoster.REF_DURABLE     = "durable"
 NPCPersonRoster.ORIGIN_TOWN       = "town"
 NPCPersonRoster.ORIGIN_CONSULTANT = "consultant"
 NPCPersonRoster.ORIGIN_OUTSIDE    = "outside"
+-- NPC-204: a companion provider's own person, identified by (namespace, personKey).
+NPCPersonRoster.ORIGIN_PROVIDER   = "provider"
 
 -- The one supported provider token. Callers cannot supply another.
 NPCPersonRoster.CONSULTANT_TOKEN = "cs_alex_chen"
@@ -291,6 +293,18 @@ end
 --- durable number is assigned by the caller after the reservation pass.
 --- Raises on a structurally unsafe nested shape; the apply's protected call
 --- turns that into FAILED with the original preserved.
+--- NPC-204: the saved identity of a provider person is (namespace, personKey),
+--- stored as one token. Display name, slot and position never identify her.
+function NPCPersonRoster.providerPersonToken(namespace, personKey)
+    return tostring(namespace) .. "/" .. tostring(personKey)
+end
+
+function NPCPersonRoster.isProviderPersonToken(token)
+    if type(token) ~= "string" or #token > 65 then return false end
+    local namespace, personKey = token:match("^([a-z0-9_]+)/([a-z0-9_]+)$")
+    return namespace ~= nil and #namespace >= 3 and #namespace <= 32 and #personKey <= 32
+end
+
 function NPCPersonRoster.importPersonRow(row)
     if type(row) ~= "table" then
         error("person row is not a table")
@@ -379,6 +393,11 @@ function NPCPersonRoster.importPersonRow(row)
     end
     if row.providerToken == NPCPersonRoster.CONSULTANT_TOKEN then
         person.providerToken = NPCPersonRoster.CONSULTANT_TOKEN
+    elseif row.origin == NPCPersonRoster.ORIGIN_PROVIDER and NPCPersonRoster.isProviderPersonToken(row.providerToken) then
+        -- NPC-204: a provider person keeps her identity token; one without a
+        -- valid token stays an ordinary kept person (ORIGIN_OUTSIDE).
+        person.origin = NPCPersonRoster.ORIGIN_PROVIDER
+        person.providerToken = row.providerToken
     end
     if person.origin == NPCPersonRoster.ORIGIN_TOWN then
         person.townCandidate = true
@@ -599,6 +618,17 @@ end
 
 function NPCPersonRoster:count()
     return #self.roster
+end
+
+--- NPC-204: every saved person of one provider, for its four-person limit.
+function NPCPersonRoster:peopleOfProvider(namespace)
+    local out = {}
+    local prefix = tostring(namespace) .. "/"
+    for _, person in ipairs(self.roster) do
+        local token = person.providerToken
+        if type(token) == "string" and token:sub(1, #prefix) == prefix then out[#out + 1] = person end
+    end
+    return out
 end
 
 function NPCPersonRoster:peopleWithToken(token)

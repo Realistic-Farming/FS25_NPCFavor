@@ -242,6 +242,12 @@ function NPCFavorSystem:update(dt)
         return
     end
 
+    -- NPC-204 3.7: the companion work surface is read every tick; a change
+    -- withdraws or holds contributed work, or returns lock-held work.
+    if self.readCompanionSurface ~= nil then
+        self:readCompanionSurface()
+    end
+
     local currentGameTime = TimeHelper.getGameTimeMs()
 
     -- Update active favors using in-game clock (scales with game speed).
@@ -254,12 +260,19 @@ function NPCFavorSystem:update(dt)
             favor.timeRemaining = favor.expirationGameTime - currentGameTime
         end
 
+        local contributed = NPCCompanion ~= nil and NPCCompanion.isContributed(favor)
         if favor.timeRemaining and favor.timeRemaining <= 0 then
-            -- failFavor owns the removal from activeFavors (RSF-F220). A second
-            -- table.remove here deleted whichever favor had shifted into slot i.
-            self:failFavor(favor.id, "time_expired")
-        else
-            -- Check progress conditions
+            if contributed and favor.status == "pending" then
+                -- NPC-204 3.7: an unanswered companion offer lapses without fault.
+                self:closeContributionNoFault(favor, "lapsed")
+            else
+                -- failFavor owns the removal from activeFavors (RSF-F220). A second
+                -- table.remove here deleted whichever favor had shifted into slot i.
+                self:failFavor(favor.id, "time_expired")
+            end
+        elseif not contributed then
+            -- Check progress conditions. Contributed work has no auto-progress
+            -- and no loan debit; its REPORT comes from the companion.
             self:checkFavorProgress(favor, dt)
         end
     end
@@ -662,6 +675,13 @@ function NPCFavorSystem:canNPCRequestFavor(npc)
         return false
     end
 
+    -- NPC-204: one open obligation per neighbour. An open companion job, active
+    -- or held in Recovery, closes the random roll, the contextual trigger and
+    -- npcForceFavor, which all pass through here.
+    if self.isPersonHeldByContribution ~= nil and self:isPersonHeldByContribution(npc.id) then
+        return false
+    end
+
     -- Personality-based checks
     if npc.personality == "grumpy" and npc.relationship < 40 then
         return false -- Grumpy NPCs need higher relationship
@@ -1026,6 +1046,12 @@ function NPCFavorSystem:completeFavor(favorId)
         return false
     end
 
+    -- NPC-204: companion work completes and pays only through its TALK
+    -- adapter; no other caller of completeFavor can finish it.
+    if NPCCompanion ~= nil and NPCCompanion.isContributed(favor) then
+        return false
+    end
+
     -- RSF-F148: a paused / recovery record cannot be completed by any caller,
     -- and a job with no ordinary owner farm cannot complete either: refusing
     -- here, before any status change, means a row is never marked complete
@@ -1144,7 +1170,7 @@ function NPCFavorSystem:failFavor(favorId, reason)
     end
     
     -- Flash notification on HUD
-    if self.npcSystem.favorHUD then
+    if self.npcSystem.favorHUD and (self.mayFlashFavor == nil or self:mayFlashFavor(favor)) then
         local msg = string.format(g_i18n:getText("npc_hud_failed") or "Failed: %s", favor.description or favor.npcName)
         self.npcSystem.favorHUD:flashFavor(msg, {1, 0.3, 0.3, 1})
     end
@@ -1207,7 +1233,7 @@ function NPCFavorSystem:abandonFavor(favorId)
     end
     
     -- Flash notification on HUD
-    if self.npcSystem.favorHUD then
+    if self.npcSystem.favorHUD and (self.mayFlashFavor == nil or self:mayFlashFavor(favor)) then
         local msg = string.format(g_i18n:getText("npc_hud_cancelled") or "Cancelled: %s", favor.description or favor.npcName)
         self.npcSystem.favorHUD:flashFavor(msg, {1, 0.5, 0.3, 1})
     end
@@ -1239,6 +1265,14 @@ function NPCFavorSystem:applyFavorRewards(favor)
             tostring(favor.id), tostring(favor.npcId)))
         return
     end
+
+    -- NPC-204 contributed mode: the declared reward is paid once, relationship
+    -- and money alike under rewardPaid, with no loan return and no perfect
+    -- bonus. It adds no money write of its own.
+    local contributed = NPCCompanion ~= nil and NPCCompanion.isContributed(favor)
+    if contributed and favor.rewardPaid ~= false then
+        return
+    end
     
     if npc then
         -- Update relationship
@@ -1261,7 +1295,7 @@ function NPCFavorSystem:applyFavorRewards(favor)
         -- Return the loan principal to the owning farm when a loan favor completes
         -- (the NPC pays you back). Guarded by repaymentCollected so a reconnect or a
         -- double-complete cannot collect it twice. Replaces the old inline dialog payout.
-        if favor.type == "loan_money" and not favor.repaymentCollected then
+        if not contributed and favor.type == "loan_money" and not favor.repaymentCollected then
             local loanAmount = (favor.taskData and favor.taskData.loanAmount) or 5000
             g_currentMission:addMoney(loanAmount, farmId, MoneyType.OTHER, true)
             favor.repaymentCollected = true
@@ -1287,7 +1321,7 @@ function NPCFavorSystem:applyFavorRewards(favor)
         -- 4m: Bonus rewards for perfect completion
         -- Perfect = completed well before deadline (>50% time remaining)
         local isPerfect = false
-        if favor.completionDuration and favor.expirationTime and favor.createdTime then
+        if not contributed and favor.completionDuration and favor.expirationTime and favor.createdTime then
             local totalTime = favor.expirationTime - favor.createdTime
             local timeUsed = favor.completionDuration
             if totalTime > 0 and timeUsed < totalTime * 0.5 then
@@ -1482,7 +1516,8 @@ function NPCFavorSystem:acceptFavorForNPC(npcId, farmId)
         return nil
     end
     for _, favor in ipairs(self.activeFavors) do
-        if favor.npcId == npcId and favor.status == "pending" then
+        if favor.npcId == npcId and favor.status == "pending"
+            and not (NPCCompanion ~= nil and NPCCompanion.isContributed(favor)) then
             favor.status = "active"
             favor.startTime = TimeHelper.getGameTimeMs()
             favor.ownerFarmId = farmId
@@ -1520,6 +1555,10 @@ function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated, actingFarmId)
 
     -- RSF-F148: a structurally resumable recovery record holds this slot.
     if self.isNPCReservedByRecovery ~= nil and self:isNPCReservedByRecovery(npc.id) then
+        return nil
+    end
+    -- NPC-204: so does an open companion job, active or held in Recovery.
+    if self.isPersonHeldByContribution ~= nil and self:isPersonHeldByContribution(npc.id) then
         return nil
     end
 
