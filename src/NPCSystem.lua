@@ -6039,6 +6039,42 @@ local function xmlIsNumber(v)
     return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
 end
 
+--- NPC-204 3.10: the contribution block travels as one packed attribute of a
+--- .contribution child: every primitive field as name=type:value, %XX escaped,
+--- so a block of a future schema comes back with every field it carried.
+local function packContributionFields(block)
+    local keys = {}
+    for k, v in pairs(block) do
+        if type(k) == "string" and (type(v) == "number" or type(v) == "boolean" or type(v) == "string") then
+            keys[#keys + 1] = k
+        end
+    end
+    table.sort(keys)
+    local parts = {}
+    for _, k in ipairs(keys) do
+        local v = block[k]
+        local encoded = tostring(v):gsub("[^%w%.%- ]", function(c) return string.format("%%%02X", c:byte()) end)
+        local kEnc = k:gsub("[^%w_]", function(c) return string.format("%%%02X", c:byte()) end)
+        parts[#parts + 1] = kEnc .. "=" .. type(v) .. ":" .. encoded
+    end
+    return table.concat(parts, ";")
+end
+
+local function unpackContributionFields(packed)
+    local block = {}
+    local function unescape(s) return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)) end
+    for pair in tostring(packed or ""):gmatch("[^;]+") do
+        local k, ty, enc = pair:match("^([^=]+)=(%a+):(.*)$")
+        if k ~= nil then
+            local v = unescape(enc)
+            if ty == "number" then block[unescape(k)] = tonumber(v)
+            elseif ty == "boolean" then block[unescape(k)] = (v == "true")
+            else block[unescape(k)] = v end
+        end
+    end
+    return block
+end
+
 function NPCSystem.writeFavorRecordXML(xmlFile, key, flat)
     xmlFile:setInt(key .. "#f148Schema", flat.f148Schema or 1)
     -- RSF-F357: the durable person mark, written only when present.
@@ -6115,6 +6151,10 @@ function NPCSystem.writeFavorRecordXML(xmlFile, key, flat)
                 end
             end
         end
+    end
+
+    if type(flat.contribution) == "table" then
+        xmlFile:setString(key .. ".contribution#fields", encodeXMLValue(packContributionFields(flat.contribution)))
     end
 end
 
@@ -6214,6 +6254,10 @@ function NPCSystem.readFavorRecordXML(xmlFile, key)
             end
             flat.steps[i] = row
         end
+    end
+    -- NPC-204 3.10: the contribution block, read whatever its schema.
+    if xmlFile:hasProperty(key .. ".contribution#fields") then
+        flat.contribution = unpackContributionFields(xmlFile:getString(key .. ".contribution#fields", ""))
     end
     return flat
 end
@@ -6453,6 +6497,10 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
     xmlFile:setInt(NPC_SAVE_ROOT .. "#npcCount", self.npcCount)
     xmlFile:setInt(NPC_SAVE_ROOT .. "#personSchema", state.personSchema)
     xmlFile:setInt(NPC_SAVE_ROOT .. "#personIdHighWater", state.personIdHighWater)
+    -- NPC-204 3.10: the next favour number, so none is ever issued twice.
+    if type(state.nextFavorId) == "number" then
+        xmlFile:setInt(NPC_SAVE_ROOT .. "#nextFavorId", state.nextFavorId)
+    end
 
     -- Every retained person, live and waiting, through the shared row shape.
     for npcIndex, d in ipairs(state.npcs) do
@@ -6626,6 +6674,9 @@ function NPCSystem:readSavedStateFromXML(missionInfo)
     end
     if xmlFile:hasProperty(NPC_SAVE_ROOT .. "#personIdHighWater") then
         data.personIdHighWater = xmlFile:getInt(NPC_SAVE_ROOT .. "#personIdHighWater", nil)
+    end
+    if xmlFile:hasProperty(NPC_SAVE_ROOT .. "#nextFavorId") then
+        data.nextFavorId = xmlFile:getInt(NPC_SAVE_ROOT .. "#nextFavorId", nil)
     end
     if schemaVersionLessThan(data.schemaVersion, SAVE_SCHEMA_VERSION) then
         self:migrateSaveData(xmlFile, data.schemaVersion)
@@ -6856,6 +6907,10 @@ function NPCSystem:restoreFavorsFromState(data)
     if fav == nil or fav.restoreFavor == nil or fav.beginFavorLoad == nil then return end
     local staging = fav:beginFavorLoad()
     if staging == nil then return end
+    -- NPC-204 3.10: the saved favour-number high-water, when it is usable.
+    if type(data) == "table" and NPCFarmIdentity.isInteger(data.nextFavorId) and data.nextFavorId >= 1 then
+        staging.savedNextId = data.nextFavorId
+    end
     local ok, err = pcall(function()
         if type(data) == "table" then
             for _, f in ipairs(data.favors or {}) do
@@ -6928,6 +6983,7 @@ function NPCSystem:serializeState()
     if not favorLoadReady then
         state.favors = self._ledgerOriginalState.favors
         state.recoveryFavors = self._ledgerOriginalState.recoveryFavors
+        state.nextFavorId = self._ledgerOriginalState.nextFavorId
     end
 
     -- Every retained person, live and waiting, in number order; presences are
@@ -6942,8 +6998,12 @@ function NPCSystem:serializeState()
     -- RSF-F148: both favor arrays through the same flat record shape as XML.
     if favorLoadReady and self.favorSystem and self.favorSystem.exportFavorRecord then
         for _, favor in ipairs(self.favorSystem:getActiveFavors() or {}) do
-            state.favors[#state.favors + 1] = self.favorSystem:exportFavorRecord(favor)
+            -- NPC-204 3.10: a companion's pending offer is not saved.
+            if not (NPCCompanion ~= nil and NPCCompanion.isContributed(favor) and favor.status == "pending") then
+                state.favors[#state.favors + 1] = self.favorSystem:exportFavorRecord(favor)
+            end
         end
+        state.nextFavorId = self.favorSystem._nextFavorId
         state.recoveryFavors = {}
         for _, favor in ipairs(self.favorSystem:getRecoveryFavors() or {}) do
             state.recoveryFavors[#state.recoveryFavors + 1] = self.favorSystem:exportFavorRecord(favor)
