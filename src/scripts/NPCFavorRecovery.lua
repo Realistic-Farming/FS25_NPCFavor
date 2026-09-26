@@ -56,8 +56,11 @@ NPCFavorRecovery.OP_RESUME            = 1
 NPCFavorRecovery.OP_ASSIGN_AND_RESUME = 2
 NPCFavorRecovery.OP_COMPLETE          = 3
 NPCFavorRecovery.OP_ABANDON           = 4
+-- NPC-204 3.8: the owning farm's no-fault exit from held companion work.
+-- Never an alias of OP_ABANDON. The command event's whitelist reads OP_MAX.
+NPCFavorRecovery.OP_LET_GO            = 5
 NPCFavorRecovery.OP_MIN = 1
-NPCFavorRecovery.OP_MAX = 4
+NPCFavorRecovery.OP_MAX = 5
 
 NPCFavorRecovery.RESULT_OK               = 1
 NPCFavorRecovery.RESULT_REFUSED          = 2
@@ -547,7 +550,11 @@ function NPCFavorSystem:pauseWorkForPerson(personId)
     for i = #(self.activeFavors or {}), 1, -1 do
         local favor = self.activeFavors[i]
         if favor.npcId == personId then
-            if favor.status == "pending" then
+            if favor.status == "pending" and NPCCompanion ~= nil and NPCCompanion.isContributed(favor) then
+                -- NPC-204 3.8: the provider sees its offer closed (token retired,
+                -- revision bumped); nothing is paid or penalised.
+                self:closeContributionNoFault(favor, "person_waiting")
+            elseif favor.status == "pending" then
                 table.remove(self.activeFavors, i)
             elseif ACTIVE_STATUS[favor.status] then
                 table.remove(self.activeFavors, i)
@@ -1003,6 +1010,9 @@ end
 function NPCFavorSystem:onFarmDeleted(farmId)
     if not NPCFarmIdentity.isOrdinaryFarmIdShape(farmId) then return 0 end
     if NPCFarmIdentity.getLiveFarm(farmId) ~= nil then return 0 end
+    -- NPC-204 3.9: companion work owned by or addressed to the farm closes
+    -- without fault; it is never orphaned as owner_farm_deleted.
+    if self.closeContributionsForFarm ~= nil then self:closeContributionsForFarm(farmId) end
     return orphanRowsOwnedBy(self, farmId)
 end
 
@@ -1011,6 +1021,8 @@ end
 --- farm did not exist to accept anything.
 function NPCFavorSystem:onFarmCreated(farmId)
     if not NPCFarmIdentity.isOrdinaryFarmIdShape(farmId) then return 0 end
+    -- NPC-204 3.9: a reused number never inherits or receives companion work.
+    if self.closeContributionsForFarm ~= nil then self:closeContributionsForFarm(farmId) end
     return orphanRowsOwnedBy(self, farmId)
 end
 
@@ -1333,6 +1345,20 @@ function NPCFavorSystem:serverRecoveryCommand(actor, cmd)
     end
     if tonumber(cmd.recordRevision) ~= (record.recordRevision or 0) then
         return reply(NPCFavorRecovery.RESULT_REFUSED, "npc_recovery_refused_stale")
+    end
+
+    -- NPC-204 3.8: companion work has its own Resume and LET_GO and is never
+    -- assigned, completed or abandoned by a recovery command. LET_GO is for
+    -- companion work only.
+    if NPCCompanion ~= nil and NPCCompanion.isContributed(record) then
+        local cResult, cKey = self:contributedRecoveryCommand(actor, op, record)
+        if cResult == NPCFavorRecovery.RESULT_OK then
+            self:retainRecoveryRequest(requestKey, { fingerprint = fingerprint, rights = rights, result = cResult, messageKey = cKey })
+        end
+        return reply(cResult, cKey)
+    end
+    if op == NPCFavorRecovery.OP_LET_GO then
+        return reply(NPCFavorRecovery.RESULT_REFUSED, "npc_recovery_refused_operation")
     end
 
     local result, key
