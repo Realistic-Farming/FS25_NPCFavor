@@ -355,8 +355,21 @@ function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data, act
     end
 
     -- Dispatch to appropriate handler
+    -- NPC-204: resolve the selection's record first; a record carrying a
+    -- contribution block has its own accept and its own TALK completion.
+    local contributed = false
+    if (actionType == NPCInteractionEvent.ACTION_FAVOR_ACCEPT or actionType == NPCInteractionEvent.ACTION_FAVOR_COMPLETE)
+        and NPCCompanion ~= nil and sys._selectedWorkRecord ~= nil then
+        contributed = NPCCompanion.isContributed((sys:_selectedWorkRecord(npc, selection)))
+    end
+
     if actionType == NPCInteractionEvent.ACTION_FAVOR_ACCEPT then
-        local ok, key, record = sys:serverAcceptFavor(npc, farmId, selection)
+        local ok, key, record
+        if contributed then
+            ok, key, record = sys:serverAcceptContributedFavor(npc, farmId, selection)
+        else
+            ok, key, record = sys:serverAcceptFavor(npc, farmId, selection)
+        end
         local r = reply(resultFor(ok, NPCPersonDialog.RESULT_ACCEPTED, key), key)
         -- The accepted row rides with the answer so the dialog shows the work
         -- without a second request.
@@ -366,7 +379,12 @@ function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data, act
         return finish(ok, r)
 
     elseif actionType == NPCInteractionEvent.ACTION_FAVOR_COMPLETE then
-        local ok, key = sys:serverCompleteFavor(npc, farmId, selection)
+        local ok, key
+        if contributed then
+            ok, key = sys:serverCompleteContributedFavor(npc, farmId, selection)
+        else
+            ok, key = sys:serverCompleteFavor(npc, farmId, selection)
+        end
         return finish(ok, reply(resultFor(ok, NPCPersonDialog.RESULT_OK, key), key))
 
     elseif actionType == NPCInteractionEvent.ACTION_FAVOR_ABANDON then
