@@ -15,6 +15,11 @@
 #   field, and the selector's own dead read is pinned by A9.
 # - the ray-casting arithmetic inside pointInPolygon beyond the shapes C6 and C7 drive: read,
 #   not mutated.
+# - row 109's fallback from a polygon walk of fewer than four points to the work square
+#   (generatePerimeterPattern): only a polygon with no area gives such a walk, and an empty
+#   pattern there already falls to initFieldWorkLegacy (NPCAI.lua:1443), so the bench cannot
+#   tell the two apart; the mitre's cap at a spike (denom 0.5), which no rectilinear field
+#   reaches.
 #
 # Anchors are written with "\n"; in a CRLF file they are matched as "\r\n".
 #
@@ -86,6 +91,24 @@ MUTATIONS = [
   [("            if polygon == nil or NPCFieldWork.pointInPolygon(x, z, polygon) then px, pz = x, z break end",
     "            px, pz = x, z break", 1)],
   "spot-check points land in the notch"),
+ # ── the perimeter walk (MAINTENANCE row 109; targeted battery: run with the prefix P) ──
+ ("P1-perimeter-ignores-polygon", FW,
+  [("    if bounds.polygon ~= nil then\n        local walk = NPCFieldWork.perimeterWalk(bounds.polygon, inset, 15)\n        if #walk >= 4 then return walk end\n    end\n", "", 1)],
+  "the grumpy walk goes round the work square and cuts across an L's notch"),
+ ("P2-winding-ignored", FW,
+  [("    local side = area2 > 0 and 1 or -1\n", "    local side = 1\n", 1)],
+  "a polygon wound the other way is inset outward, so its walk is dropped for the square"),
+ ("P3-corner-not-mitred", FW,
+  [("            place(a.x, a.z, inset * (prev.x + e.x) / denom, inset * (prev.z + e.z) / denom)\n",
+    "            place(a.x, a.z, inset * e.x, inset * e.z)\n", 1)],
+  "a corner is inset from its outgoing edge only and sits on the other edge"),
+ ("P4-inset-not-checked", FW,
+  [("            if NPCFieldWork.pointInPolygon(qx, qz, polygon) then\n                waypoints[#waypoints + 1] = { x = qx, z = qz }\n                return\n            end\n",
+    "            waypoints[#waypoints + 1] = { x = qx, z = qz }\n            return\n", 1)],
+  "a point inset past a narrow part's far edge is kept outside the field"),
+ ("P5-walk-not-closed", FW,
+  [("    if #waypoints > 0 then waypoints[#waypoints + 1] = { x = waypoints[1].x, z = waypoints[1].z } end\n", "", 1)],
+  "the walk stops short of where it began"),
  # ── the legacy clamp ────────────────────────────────────────────────────────
  ("L1-legacy-not-clamped", AI,
   [("    local halfSize = math.max(15, math.min(100, fieldSize * 0.4))", "    local halfSize = fieldSize * 0.4", 1)],
