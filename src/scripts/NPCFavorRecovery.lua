@@ -1190,6 +1190,12 @@ end
 -- =========================================================
 
 local function rowVisibleTo(favor, actor)
+    -- NPC-204 3.11: companion work (and an inert companion row) is private to
+    -- its owning farm, masters included.
+    if (NPCCompanion ~= nil and NPCCompanion.isContributed(favor)) or favor.contributionInert == true then
+        return actor.farmId ~= nil and favor.ownerFarmId == actor.farmId
+            and NPCFarmIdentity.isOrdinaryFarmId(favor.ownerFarmId)
+    end
     if actor.isMaster then return true end
     if actor.farmId == nil then return false end
     return favor.ownerFarmId == actor.farmId and NPCFarmIdentity.isOrdinaryFarmId(favor.ownerFarmId)
@@ -1223,7 +1229,7 @@ function NPCFavorSystem:describeRecoveryRow(favor)
     local ownerOrdinary = NPCFarmIdentity.isOrdinaryFarmId(favor.ownerFarmId)
     local actionable = self:isRecoveryRecordActionable(favor)
     local liveRecovered = favor.recoveredFromLegacy == true and ACTIVE_STATUS[favor.status] == true
-    return {
+    local row = {
         token = NPCFarmIdentity.encodeWireNumber(favor.recoveryToken) or "",
         recordRevision = NPCFarmIdentity.encodeWireNumber(favor.recordRevision or 0) or "0",
         npcId = favor.npcId or 0,
@@ -1251,7 +1257,16 @@ function NPCFavorSystem:describeRecoveryRow(favor)
         recoveredFromLegacy = favor.recoveredFromLegacy == true,
         canComplete = liveRecovered,
         canAbandon = liveRecovered,
+        -- NPC-204 3.11: the pause and hold facts, for every row.
+        pauseReason = favor.recoveryReason or "",
+        contributionHeld = favor.contributionHeld == true,
+        contributionHoldReason = favor.contributionHoldReason or "",
+        canLetGo = false,
     }
+    if NPCCompanion ~= nil and NPCCompanion.isContributed(favor) then
+        self:describeContributedRecoveryRow(favor, row)
+    end
+    return row
 end
 
 --- Build the page reply for a verified actor. Never broadcast.

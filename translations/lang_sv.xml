@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="senast bekräftad"/>
 		<text name="npc_rf_pda_completed_count" text="%d avklarade för den här gården"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Inte tillgängligt här: bara värden kan justera en granne."/>
+		<text name="npc_contrib_generic_title" text="En grannes förfrågan" />
+		<text name="npc_contrib_generic_desc" text="En granne har bett din gård om hjälp" />
+		<text name="npc_contrib_step_report" text="Gör arbetet" />
+		<text name="npc_contrib_step_talk" text="Prata med grannen" />
+		<text name="npc_contrib_hold_work_off" text="Pausat: den här typen av arbete är avstängd. Släpp stänger det utan kostnad." />
+		<text name="npc_contrib_hold_companion_missing" text="Pausat: modden som bad om arbetet är inte inläst. Släpp stänger det utan kostnad." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Pausat: modden som bad om arbetet har ändrat det. Släpp stänger det utan kostnad." />
+		<text name="npc_contrib_let_go" text="Släpp" />
 </texts>
 </l10n>

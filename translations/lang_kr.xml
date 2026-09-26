@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="마지막 확인"/>
 		<text name="npc_rf_pda_completed_count" text="이 농장에서 %d개 완료"/>
 		<text name="npc_admin_edit_unavailable_remote" text="여기서는 이용할 수 없습니다: 호스트만 이웃을 조정할 수 있습니다."/>
+		<text name="npc_contrib_generic_title" text="이웃의 요청" />
+		<text name="npc_contrib_generic_desc" text="이웃이 당신의 농장에 도움을 요청했습니다" />
+		<text name="npc_contrib_step_report" text="작업하기" />
+		<text name="npc_contrib_step_talk" text="이웃과 대화하기" />
+		<text name="npc_contrib_hold_work_off" text="보류 중: 이 종류의 작업이 꺼져 있습니다. 놓아주기로 비용 없이 종료합니다." />
+		<text name="npc_contrib_hold_companion_missing" text="보류 중: 이 작업을 요청한 모드가 로드되지 않았습니다. 놓아주기로 비용 없이 종료합니다." />
+		<text name="npc_contrib_hold_companion_incompatible" text="보류 중: 이 작업을 요청한 모드가 작업을 변경했습니다. 놓아주기로 비용 없이 종료합니다." />
+		<text name="npc_contrib_let_go" text="놓아주기" />
 </texts>
 </l10n>

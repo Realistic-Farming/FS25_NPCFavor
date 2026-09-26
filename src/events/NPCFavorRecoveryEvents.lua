@@ -147,6 +147,11 @@ local function writeRow(streamId, row)
     streamWriteBool(streamId, row.recoveredFromLegacy == true)
     streamWriteBool(streamId, row.canComplete == true)
     streamWriteBool(streamId, row.canAbandon == true)
+    -- NPC-204 3.11
+    streamWriteString(streamId, textString(row.pauseReason))
+    streamWriteBool(streamId, row.contributionHeld == true)
+    streamWriteString(streamId, textString(row.contributionHoldReason))
+    streamWriteBool(streamId, row.canLetGo == true)
 end
 
 local function readRow(streamId)
@@ -177,6 +182,10 @@ local function readRow(streamId)
     row.recoveredFromLegacy = streamReadBool(streamId)
     row.canComplete = streamReadBool(streamId)
     row.canAbandon = streamReadBool(streamId)
+    row.pauseReason = textString(streamReadString(streamId))
+    row.contributionHeld = streamReadBool(streamId)
+    row.contributionHoldReason = textString(streamReadString(streamId))
+    row.canLetGo = streamReadBool(streamId)
     return row
 end
 

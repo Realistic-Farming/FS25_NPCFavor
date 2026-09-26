@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="última confirmada"/>
 		<text name="npc_rf_pda_completed_count" text="%d completados para esta granja"/>
 		<text name="npc_admin_edit_unavailable_remote" text="No disponible aquí: solo el anfitrión puede ajustar a un vecino."/>
+		<text name="npc_contrib_generic_title" text="Petición de un vecino" />
+		<text name="npc_contrib_generic_desc" text="Un vecino ha pedido ayuda a tu granja" />
+		<text name="npc_contrib_step_report" text="Hacer el trabajo" />
+		<text name="npc_contrib_step_talk" text="Hablar con el vecino" />
+		<text name="npc_contrib_hold_work_off" text="En espera: este tipo de trabajo está desactivado. Soltar lo cierra sin coste." />
+		<text name="npc_contrib_hold_companion_missing" text="En espera: el mod que pidió este trabajo no está cargado. Soltar lo cierra sin coste." />
+		<text name="npc_contrib_hold_companion_incompatible" text="En espera: el mod que pidió este trabajo lo ha cambiado. Soltar lo cierra sin coste." />
+		<text name="npc_contrib_let_go" text="Soltar" />
 </texts>
 </l10n>

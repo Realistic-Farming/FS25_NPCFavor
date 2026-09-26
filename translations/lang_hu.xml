@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="utoljára megerősítve"/>
 		<text name="npc_rf_pda_completed_count" text="%d befejezve ennek a farmnak"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Itt nem elérhető: csak a házigazda módosíthat egy szomszédot."/>
+		<text name="npc_contrib_generic_title" text="Egy szomszéd kérése" />
+		<text name="npc_contrib_generic_desc" text="Egy szomszéd segítséget kért a gazdaságodtól" />
+		<text name="npc_contrib_step_report" text="Végezd el a munkát" />
+		<text name="npc_contrib_step_talk" text="Beszélj a szomszéddal" />
+		<text name="npc_contrib_hold_work_off" text="Szünetel: ez a fajta munka ki van kapcsolva. Az Elengedés költség nélkül lezárja." />
+		<text name="npc_contrib_hold_companion_missing" text="Szünetel: a munkát kérő mod nincs betöltve. Az Elengedés költség nélkül lezárja." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Szünetel: a munkát kérő mod megváltoztatta. Az Elengedés költség nélkül lezárja." />
+		<text name="npc_contrib_let_go" text="Elengedés" />
 </texts>
 </l10n>

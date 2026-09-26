@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="останній підтверджений"/>
 		<text name="npc_rf_pda_completed_count" text="%d виконано для цієї ферми"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Тут недоступно: змінити сусіда може лише хост."/>
+		<text name="npc_contrib_generic_title" text="Прохання сусіда" />
+		<text name="npc_contrib_generic_desc" text="Сусід попросив вашу ферму про допомогу" />
+		<text name="npc_contrib_step_report" text="Виконати роботу" />
+		<text name="npc_contrib_step_talk" text="Поговорити з сусідом" />
+		<text name="npc_contrib_hold_work_off" text="Призупинено: цей вид роботи вимкнено. «Відпустити» закриває її без витрат." />
+		<text name="npc_contrib_hold_companion_missing" text="Призупинено: мод, що запросив цю роботу, не завантажено. «Відпустити» закриває її без витрат." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Призупинено: мод, що запросив цю роботу, змінив її. «Відпустити» закриває її без витрат." />
+		<text name="npc_contrib_let_go" text="Відпустити" />
 </texts>
 </l10n>

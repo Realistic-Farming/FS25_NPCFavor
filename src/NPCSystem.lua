@@ -5400,6 +5400,11 @@ function NPCSystem:reportFavorStep(namespace, report)
     return self:_companionCall("reportFavorStep", namespace, report)
 end
 
+--- NPC-204 3.12: the provider's own open offers and jobs, copied.
+function NPCSystem:getProviderWork(namespace)
+    return self:_companionCall("getProviderWork", namespace)
+end
+
 --- NPC-204 3.2: F357's saved-person claim, generalized to a provider's own
 --- people in the same durable store. The identity is (namespace, personKey);
 --- a unique proved saved row wakes, ambiguity creates nothing, and at most four

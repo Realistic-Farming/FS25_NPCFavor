@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="zuletzt bestätigt"/>
 		<text name="npc_rf_pda_completed_count" text="%d für diesen Hof erledigt"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Hier nicht verfügbar: Nur der Host kann einen Nachbarn anpassen."/>
+		<text name="npc_contrib_generic_title" text="Bitte eines Nachbarn" />
+		<text name="npc_contrib_generic_desc" text="Ein Nachbar hat deinen Hof um Hilfe gebeten" />
+		<text name="npc_contrib_step_report" text="Die Arbeit erledigen" />
+		<text name="npc_contrib_step_talk" text="Mit dem Nachbarn sprechen" />
+		<text name="npc_contrib_hold_work_off" text="Angehalten: Diese Art von Arbeit ist abgeschaltet. Loslassen beendet sie ohne Kosten." />
+		<text name="npc_contrib_hold_companion_missing" text="Angehalten: Die Mod, die um diese Arbeit gebeten hat, ist nicht geladen. Loslassen beendet sie ohne Kosten." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Angehalten: Die Mod, die um diese Arbeit gebeten hat, hat sie geändert. Loslassen beendet sie ohne Kosten." />
+		<text name="npc_contrib_let_go" text="Loslassen" />
 </texts>
 </l10n>

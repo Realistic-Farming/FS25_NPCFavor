@@ -558,6 +558,11 @@ function NPCFavorManagementDialog:fillRecoveryRow(rowNum, row, sys)
         local desc = row.description or row.type or "Unknown favor"
         local reason = self:reasonLabel(row.recoveryReason)
         if reason ~= "" then desc = desc .. "  |  " .. reason end
+        -- NPC-204 3.11: a companion job's hold reason.
+        if row.contributionHeld == true and NPCCompanion ~= nil then
+            local holdKey = NPCCompanion.holdKey(row.contributionHoldReason)
+            if holdKey ~= nil then desc = desc .. "  |  " .. getModText(holdKey, row.contributionHoldReason) end
+        end
         setText(descElem, desc:sub(1, 110))
         setVisible(descElem, true)
         if descElem.setTextColor then descElem:setTextColor(0.9, 0.9, 0.9, 1) end
@@ -603,9 +608,16 @@ function NPCFavorManagementDialog:fillRecoveryRow(rowNum, row, sys)
     self:setButtonVisible(prefix .. "view", true)
     self:setButtonVisible(prefix .. "goto", npc ~= nil)
 
-    -- Cancel = token ABANDON for a live recovered row only.
-    setText(self[prefix .. "canceltxt"], getModText("npc_mgmt_btn_cancel", "Cancel"))
-    self:setButtonVisible(prefix .. "cancel", row.canAbandon == true)
+    -- Cancel = token ABANDON for a live recovered row only. A companion job
+    -- never shows Cancel; its LET_GO (NPC-204) takes this slot with its own
+    -- label, operation and confirmation.
+    if row.canLetGo == true then
+        setText(self[prefix .. "canceltxt"], getModText("npc_contrib_let_go", "Let go"))
+        self:setButtonVisible(prefix .. "cancel", true)
+    else
+        setText(self[prefix .. "canceltxt"], getModText("npc_mgmt_btn_cancel", "Cancel"))
+        self:setButtonVisible(prefix .. "cancel", row.canAbandon == true)
+    end
 
     -- Complete slot: Resume / Assign / Done, or hidden for inspect-only rows.
     local completeLabel = nil
@@ -745,6 +757,14 @@ function NPCFavorManagementDialog:confirmRecovery(ctx)
         lines[#lines + 1] = getModText("npc_recovery_confirm_resume", "Resume this favor for your farm?")
     elseif ctx.op == NPCFavorRecovery.OP_COMPLETE then
         lines[#lines + 1] = getModText("npc_recovery_confirm_complete", "Ask the neighbour to close this recovered favor?")
+    elseif ctx.op == NPCFavorRecovery.OP_LET_GO then
+        lines[#lines + 1] = getModText("npc_contrib_let_go", "Let go") .. "?"
+        local holdKey = NPCCompanion ~= nil and NPCCompanion.holdKey(row.contributionHoldReason) or nil
+        if row.contributionHeld == true and holdKey ~= nil then
+            lines[#lines + 1] = getModText(holdKey, "")
+        elseif row.unavailableKey ~= nil and row.unavailableKey ~= "" then
+            lines[#lines + 1] = getModText(row.unavailableKey, "")
+        end
     else
         lines[#lines + 1] = getModText("npc_recovery_confirm_abandon", "Cancel this recovered favor? The abandon penalty applies.")
     end
@@ -762,7 +782,9 @@ function NPCFavorManagementDialog:confirmRecovery(ctx)
             amount, triText(row.loanAmountDeducted), triText(row.repaymentCollected))
     end
     lines[#lines + 1] = string.format(getModText("npc_recovery_reward_paid", "Reward paid: %s"), triText(row.rewardPaid))
-    lines[#lines + 1] = getModText("npc_recovery_confirm_no_money", "Resuming moves no money by itself.")
+    if ctx.op ~= NPCFavorRecovery.OP_LET_GO then
+        lines[#lines + 1] = getModText("npc_recovery_confirm_no_money", "Resuming moves no money by itself.")
+    end
 
     if YesNoDialog == nil or YesNoDialog.show == nil then
         self.footerMessage = getModText("npc_recovery_unavailable", "Recovery is unavailable until the game is reloaded.")
@@ -873,7 +895,9 @@ for i = 1, NPCFavorManagementDialog.MAX_FAVORS do
         if not favor or not self.npcSystem or not self.npcSystem.favorSystem then return end
 
         if self.mode == "recovery" then
-            if favor.canAbandon then
+            if favor.canLetGo then
+                self:confirmRecovery(self:buildCommandContext(favor, NPCFavorRecovery.OP_LET_GO))
+            elseif favor.canAbandon then
                 self:confirmRecovery(self:buildCommandContext(favor, NPCFavorRecovery.OP_ABANDON))
             end
             return

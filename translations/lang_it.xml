@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="ultima confermata"/>
 		<text name="npc_rf_pda_completed_count" text="%d completati per questa fattoria"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Non disponibile qui: solo l'host può modificare un vicino."/>
+		<text name="npc_contrib_generic_title" text="Richiesta di un vicino" />
+		<text name="npc_contrib_generic_desc" text="Un vicino ha chiesto aiuto alla tua fattoria" />
+		<text name="npc_contrib_step_report" text="Svolgi il lavoro" />
+		<text name="npc_contrib_step_talk" text="Parla con il vicino" />
+		<text name="npc_contrib_hold_work_off" text="In sospeso: questo tipo di lavoro è disattivato. Lascia andare lo chiude senza costi." />
+		<text name="npc_contrib_hold_companion_missing" text="In sospeso: la mod che ha chiesto questo lavoro non è caricata. Lascia andare lo chiude senza costi." />
+		<text name="npc_contrib_hold_companion_incompatible" text="In sospeso: la mod che ha chiesto questo lavoro lo ha modificato. Lascia andare lo chiude senza costi." />
+		<text name="npc_contrib_let_go" text="Lascia andare" />
 </texts>
 </l10n>

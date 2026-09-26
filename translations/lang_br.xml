@@ -474,5 +474,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="última confirmada"/>
 		<text name="npc_rf_pda_completed_count" text="%d concluídos para esta fazenda"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Indisponível aqui: só o anfitrião pode ajustar um vizinho."/>
+		<text name="npc_contrib_generic_title" text="Pedido de um vizinho" />
+		<text name="npc_contrib_generic_desc" text="Um vizinho pediu ajuda à sua fazenda" />
+		<text name="npc_contrib_step_report" text="Fazer o trabalho" />
+		<text name="npc_contrib_step_talk" text="Falar com o vizinho" />
+		<text name="npc_contrib_hold_work_off" text="Em espera: este tipo de trabalho está desativado. Liberar encerra sem custo." />
+		<text name="npc_contrib_hold_companion_missing" text="Em espera: o mod que pediu este trabalho não está carregado. Liberar encerra sem custo." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Em espera: o mod que pediu este trabalho o alterou. Liberar encerra sem custo." />
+		<text name="npc_contrib_let_go" text="Liberar" />
 </texts>
 </l10n>

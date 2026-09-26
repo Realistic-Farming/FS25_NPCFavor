@@ -476,5 +476,13 @@
 		<text name="npc_work_view_last_confirmed_short" text="senest bekræftet"/>
 		<text name="npc_rf_pda_completed_count" text="%d fuldført for denne gård"/>
 		<text name="npc_admin_edit_unavailable_remote" text="Ikke tilgængelig her: kun værten kan justere en nabo."/>
+		<text name="npc_contrib_generic_title" text="En nabos anmodning" />
+		<text name="npc_contrib_generic_desc" text="En nabo har bedt din gård om hjælp" />
+		<text name="npc_contrib_step_report" text="Udfør arbejdet" />
+		<text name="npc_contrib_step_talk" text="Tal med naboen" />
+		<text name="npc_contrib_hold_work_off" text="På hold: denne slags arbejde er slået fra. Slip lukker det uden omkostninger." />
+		<text name="npc_contrib_hold_companion_missing" text="På hold: det mod, der bad om dette arbejde, er ikke indlæst. Slip lukker det uden omkostninger." />
+		<text name="npc_contrib_hold_companion_incompatible" text="På hold: det mod, der bad om dette arbejde, har ændret det. Slip lukker det uden omkostninger." />
+		<text name="npc_contrib_let_go" text="Slip" />
 </texts>
 </l10n>
