@@ -6712,23 +6712,18 @@
   "2026-09-30": [
     {
       "referrer": "github.com",
-      "count": 73,
-      "uniques": 39
+      "count": 72,
+      "uniques": 38
     },
     {
       "referrer": "Google",
-      "count": 40,
-      "uniques": 27
+      "count": 34,
+      "uniques": 24
     },
     {
       "referrer": "chatgpt.com",
       "count": 16,
       "uniques": 9
-    },
-    {
-      "referrer": "Bing",
-      "count": 9,
-      "uniques": 3
     },
     {
       "referrer": "yandex.ru",
@@ -6739,6 +6734,11 @@
       "referrer": "realisticfarming.com",
       "count": 4,
       "uniques": 3
+    },
+    {
+      "referrer": "Bing",
+      "count": 2,
+      "uniques": 2
     },
     {
       "referrer": "kingmods.net",
