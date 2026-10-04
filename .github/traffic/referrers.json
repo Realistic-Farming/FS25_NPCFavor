@@ -6816,23 +6816,18 @@
   "2026-10-04": [
     {
       "referrer": "github.com",
-      "count": 59,
-      "uniques": 35
+      "count": 53,
+      "uniques": 36
     },
     {
       "referrer": "Google",
-      "count": 39,
-      "uniques": 26
+      "count": 40,
+      "uniques": 27
     },
     {
       "referrer": "chatgpt.com",
-      "count": 11,
-      "uniques": 8
-    },
-    {
-      "referrer": "yandex.ru",
-      "count": 5,
-      "uniques": 3
+      "count": 8,
+      "uniques": 6
     },
     {
       "referrer": "realisticfarming.com",
@@ -6845,17 +6840,17 @@
       "uniques": 2
     },
     {
+      "referrer": "yandex.ru",
+      "count": 2,
+      "uniques": 2
+    },
+    {
       "referrer": "DuckDuckGo",
       "count": 1,
       "uniques": 1
     },
     {
       "referrer": "Yahoo",
-      "count": 1,
-      "uniques": 1
-    },
-    {
-      "referrer": "kingmods.net",
       "count": 1,
       "uniques": 1
     },
