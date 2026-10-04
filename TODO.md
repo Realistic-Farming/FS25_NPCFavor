@@ -158,3 +158,8 @@ Built as one coherent pass per the farm-attribution cert (NPCFAVOR-FARM-ATTRIBUT
 > Every item on this list should support the core goal: making NPCs feel *noticed*, *persistent*, and *socially meaningful* without overwhelming the farming experience.
 
 This list is expected to evolve as FS25 modding constraints and design ideas change.
+
+## 2026-10-04 (Fred): the shared RF Esc door (Wizard, #127)
+
+- [x] The four shared door files at the suite's STOCK page set, byte-same in all ten door mods; StockGuard's STOCK page chrome inert without StockGuard; the herd-advisory panel hidden.
+- [~] In game (owed): TESTING row 416.
