@@ -6910,33 +6910,23 @@
   "2026-10-06": [
     {
       "referrer": "github.com",
-      "count": 51,
-      "uniques": 37
+      "count": 44,
+      "uniques": 35
     },
     {
       "referrer": "Google",
-      "count": 40,
-      "uniques": 28
+      "count": 31,
+      "uniques": 24
     },
     {
       "referrer": "chatgpt.com",
-      "count": 8,
-      "uniques": 6
+      "count": 6,
+      "uniques": 5
     },
     {
       "referrer": "Bing",
       "count": 3,
       "uniques": 3
-    },
-    {
-      "referrer": "yandex.ru",
-      "count": 2,
-      "uniques": 2
-    },
-    {
-      "referrer": "realisticfarming.com",
-      "count": 2,
-      "uniques": 1
     },
     {
       "referrer": "DuckDuckGo",
