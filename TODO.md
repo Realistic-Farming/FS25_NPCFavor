@@ -168,3 +168,8 @@ This list is expected to evolve as FS25 modding constraints and design ideas cha
 
 - [x] The side info boxes start clear of the selected tab; text bodies 352 and 348 px wide, so line length and the right edge are unchanged; byte-same in all ten door mods.
 - [~] In game (owed): TESTING row 445.
+
+## 2026-10-06 (Fred): modDesc.xml encoding repair (MAINTENANCE row 224)
+
+- [x] 14 garbled title and description lines decoded back to the text already decided; nothing else touched.
+- [~] In game (owed): TESTING row 480.
