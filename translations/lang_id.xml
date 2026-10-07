@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Ditunda: mod yang meminta pekerjaan ini tidak dimuat. Lepaskan menutupnya tanpa biaya." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Ditunda: mod yang meminta pekerjaan ini telah mengubahnya. Lepaskan menutupnya tanpa biaya." />
 		<text name="npc_contrib_let_go" text="Lepaskan" />
+		<text name="rf_live_key_unbound" text="Tidak terikat"/>
+		<text name="rf_live_key_keyboard_unbound" text="Keyboard tidak terikat"/>
+		<text name="rf_live_key_unavailable" text="tidak tersedia"/>
 </texts>
 </l10n>

@@ -482,5 +482,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Wstrzymane: mod, który zlecił tę pracę, nie jest wczytany. Odpuść zamyka ją bez kosztów." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Wstrzymane: mod, który zlecił tę pracę, zmienił ją. Odpuść zamyka ją bez kosztów." />
 		<text name="npc_contrib_let_go" text="Odpuść" />
+		<text name="rf_live_key_unbound" text="Nieprzypisane"/>
+		<text name="rf_live_key_keyboard_unbound" text="Klawiatura nieprzypisana"/>
+		<text name="rf_live_key_unavailable" text="niedostępne"/>
 </texts>
 </l10n>

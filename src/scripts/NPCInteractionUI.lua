@@ -359,7 +359,22 @@ function NPCInteractionUI:drawInteractionHint()
 
     if screenX and screenY then
         local pulse = 0.5 + 0.5 * math.sin(self.interactionHintTimer * 3)
-        local text = g_i18n:getText("npc_interact_hint") -- or "Press [E] to talk"
+        -- The authored sentence is kept in every language; only the "[E]" token is
+        -- replaced, with the live NPC_INTERACT chord. The approved default is
+        -- Right Shift + E, so the shipped "[E]" named a key that does nothing. Resolved
+        -- per draw, so a remap shows immediately and an unbound action reads honestly
+        -- rather than naming a factory key.
+        local text = g_i18n:getText("npc_interact_hint")
+        if NpcLiveKeyLabel ~= nil and type(NpcLiveKeyLabel.resolve) == "function" then
+            local label = NpcLiveKeyLabel.resolve("NPC_INTERACT")
+            if type(label) ~= "string" or label == "" then
+                label = (type(NpcLiveKeyLabel.unavailableText) == "function")
+                    and NpcLiveKeyLabel.unavailableText() or nil
+            end
+            if type(label) == "string" and label ~= "" and type(text) == "string" then
+                text = string.gsub(text, "%[E%]", (string.gsub(label, "%%", "%%%%")))
+            end
+        end
 
         setTextAlignment(RenderText.ALIGN_CENTER)
         setTextBold(true)

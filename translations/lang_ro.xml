@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="În așteptare: modul care a cerut această lucrare nu este încărcat. Renunță o închide fără cost." />
 		<text name="npc_contrib_hold_companion_incompatible" text="În așteptare: modul care a cerut această lucrare a modificat-o. Renunță o închide fără cost." />
 		<text name="npc_contrib_let_go" text="Renunță" />
+		<text name="rf_live_key_unbound" text="Neatribuit"/>
+		<text name="rf_live_key_keyboard_unbound" text="Tastatura neatribuita"/>
+		<text name="rf_live_key_unavailable" text="indisponibil"/>
 </texts>
 </l10n>

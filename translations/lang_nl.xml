@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="In de wacht: de mod die om dit werk vroeg, is niet geladen. Loslaten sluit het zonder kosten." />
 		<text name="npc_contrib_hold_companion_incompatible" text="In de wacht: de mod die om dit werk vroeg, heeft het gewijzigd. Loslaten sluit het zonder kosten." />
 		<text name="npc_contrib_let_go" text="Loslaten" />
+		<text name="rf_live_key_unbound" text="Niet toegewezen"/>
+		<text name="rf_live_key_keyboard_unbound" text="Toetsenbord niet toegewezen"/>
+		<text name="rf_live_key_unavailable" text="niet beschikbaar"/>
 </texts>
 </l10n>

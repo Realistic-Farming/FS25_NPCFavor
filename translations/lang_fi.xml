@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Odottaa: modi, joka pyysi tätä työtä, ei ole ladattu. Päästä irti sulkee sen maksutta." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Odottaa: modi, joka pyysi tätä työtä, on muuttanut sitä. Päästä irti sulkee sen maksutta." />
 		<text name="npc_contrib_let_go" text="Päästä irti" />
+		<text name="rf_live_key_unbound" text="Ei sidottu"/>
+		<text name="rf_live_key_keyboard_unbound" text="Nappaimisto ei sidottu"/>
+		<text name="rf_live_key_unavailable" text="ei saatavilla"/>
 </texts>
 </l10n>

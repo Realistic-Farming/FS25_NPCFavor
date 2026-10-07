@@ -482,5 +482,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Приостановлено: мод, запросивший эту работу, не загружен. «Отпустить» закрывает её без затрат." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Приостановлено: мод, запросивший эту работу, изменил её. «Отпустить» закрывает её без затрат." />
 		<text name="npc_contrib_let_go" text="Отпустить" />
+		<text name="rf_live_key_unbound" text="Не назначено"/>
+		<text name="rf_live_key_keyboard_unbound" text="Клавиатура не назначена"/>
+		<text name="rf_live_key_unavailable" text="недоступно"/>
 </texts>
 </l10n>

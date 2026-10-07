@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Szünetel: a munkát kérő mod nincs betöltve. Az Elengedés költség nélkül lezárja." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Szünetel: a munkát kérő mod megváltoztatta. Az Elengedés költség nélkül lezárja." />
 		<text name="npc_contrib_let_go" text="Elengedés" />
+		<text name="rf_live_key_unbound" text="Nincs hozzárendelve"/>
+		<text name="rf_live_key_keyboard_unbound" text="Billentyuzet nincs hozzarendelve"/>
+		<text name="rf_live_key_unavailable" text="nem elérhető"/>
 </texts>
 </l10n>

@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Em espera: o mod que pediu este trabalho não está carregado. Libertar fecha-o sem custos." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Em espera: o mod que pediu este trabalho alterou-o. Libertar fecha-o sem custos." />
 		<text name="npc_contrib_let_go" text="Libertar" />
+		<text name="rf_live_key_unbound" text="Não atribuído"/>
+		<text name="rf_live_key_keyboard_unbound" text="Teclado não atribuído"/>
+		<text name="rf_live_key_unavailable" text="indisponível"/>
 </texts>
 </l10n>
