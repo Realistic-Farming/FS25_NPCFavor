@@ -58,13 +58,13 @@
              main.lua:907. Flagged on the desk rather than fixed here, because
              adding the registration is Lua and this token fences to modDesc. -->
         <actionBinding action="NPC_TOGGLE_HUD">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_grave" />
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_backquote" />
         </actionBinding>
         <actionBinding action="NPC_INTERACT">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_e" />
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_e" />
         </actionBinding>
         <actionBinding action="FAVOR_MENU">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_9" />
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_6" />
         </actionBinding>
         <actionBinding action="NPC_LIST">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_8" />

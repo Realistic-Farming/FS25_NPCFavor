@@ -482,5 +482,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Angehalten: Die Mod, die um diese Arbeit gebeten hat, ist nicht geladen. Loslassen beendet sie ohne Kosten." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Angehalten: Die Mod, die um diese Arbeit gebeten hat, hat sie geändert. Loslassen beendet sie ohne Kosten." />
 		<text name="npc_contrib_let_go" text="Loslassen" />
+		<text name="rf_live_key_unbound" text="Nicht belegt"/>
+		<text name="rf_live_key_keyboard_unbound" text="Tastatur nicht belegt"/>
+		<text name="rf_live_key_unavailable" text="nicht verfügbar"/>
 </texts>
 </l10n>

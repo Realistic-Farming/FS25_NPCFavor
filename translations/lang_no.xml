@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="På vent: modden som ba om dette arbeidet er ikke lastet. Slipp lukker det uten kostnad." />
 		<text name="npc_contrib_hold_companion_incompatible" text="På vent: modden som ba om dette arbeidet har endret det. Slipp lukker det uten kostnad." />
 		<text name="npc_contrib_let_go" text="Slipp" />
+		<text name="rf_live_key_unbound" text="Ikke bundet"/>
+		<text name="rf_live_key_keyboard_unbound" text="Tastatur ikke bundet"/>
+		<text name="rf_live_key_unavailable" text="utilgjengelig"/>
 </texts>
 </l10n>

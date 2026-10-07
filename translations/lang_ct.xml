@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="暫停中：提出此工作的模組未載入。放手即可免費結束。" />
 		<text name="npc_contrib_hold_companion_incompatible" text="暫停中：提出此工作的模組已變更此工作。放手即可免費結束。" />
 		<text name="npc_contrib_let_go" text="放手" />
+		<text name="rf_live_key_unbound" text="未綁定"/>
+		<text name="rf_live_key_keyboard_unbound" text="鍵盤未綁定"/>
+		<text name="rf_live_key_unavailable" text="無法使用"/>
 </texts>
 </l10n>

@@ -482,5 +482,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Pozastaveno: mod, který o tuto práci požádal, není načten. Uvolnění ji ukončí bez nákladů." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Pozastaveno: mod, který o tuto práci požádal, ji změnil. Uvolnění ji ukončí bez nákladů." />
 		<text name="npc_contrib_let_go" text="Uvolnit" />
+		<text name="rf_live_key_unbound" text="Nepřiřazeno"/>
+		<text name="rf_live_key_keyboard_unbound" text="Klávesnice neprirazena"/>
+		<text name="rf_live_key_unavailable" text="nedostupné"/>
 </texts>
 </l10n>

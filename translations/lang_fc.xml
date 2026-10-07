@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="En attente : le mod qui a demandé ce travail n'est pas chargé. Libérer le clôt sans frais." />
 		<text name="npc_contrib_hold_companion_incompatible" text="En attente : le mod qui a demandé ce travail l'a modifié. Libérer le clôt sans frais." />
 		<text name="npc_contrib_let_go" text="Libérer" />
+		<text name="rf_live_key_unbound" text="未绑定"/>
+		<text name="rf_live_key_keyboard_unbound" text="键盘未绑定"/>
+		<text name="rf_live_key_unavailable" text="不可用"/>
 </texts>
 </l10n>

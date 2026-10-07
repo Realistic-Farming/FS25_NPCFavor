@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Beklemede: bu işi isteyen mod yüklü değil. Bırak, işi ücretsiz kapatır." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Beklemede: bu işi isteyen mod işi değiştirdi. Bırak, işi ücretsiz kapatır." />
 		<text name="npc_contrib_let_go" text="Bırak" />
+		<text name="rf_live_key_unbound" text="Atanmamış"/>
+		<text name="rf_live_key_keyboard_unbound" text="Klavye atanmamis"/>
+		<text name="rf_live_key_unavailable" text="kullanılamıyor"/>
 </texts>
 </l10n>

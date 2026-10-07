@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Tạm dừng: mod yêu cầu công việc này chưa được tải. Buông bỏ sẽ đóng nó mà không tốn phí." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Tạm dừng: mod yêu cầu công việc này đã thay đổi nó. Buông bỏ sẽ đóng nó mà không tốn phí." />
 		<text name="npc_contrib_let_go" text="Buông bỏ" />
+		<text name="rf_live_key_unbound" text="Chưa gán"/>
+		<text name="rf_live_key_keyboard_unbound" text="Ban phim chua gan"/>
+		<text name="rf_live_key_unavailable" text="không khả dụng"/>
 </texts>
 </l10n>
