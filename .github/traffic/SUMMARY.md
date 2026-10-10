@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-10-06T06:55:53Z
-**Days tracked:** 165 | **Download snapshots:** 820 (hourly)
+**Last updated:** 2026-10-10T00:22:04Z
+**Days tracked:** 166 | **Download snapshots:** 829 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 220 | 96 |
-| Git Clones | 607 | 239 |
+| Page Views | 216 | 87 |
+| Git Clones | 514 | 196 |
 
-> **Engagement:** 2.2 pages per visitor (14-day avg)
+> **Engagement:** 2.4 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 1286 of 96 visitors cloned or downloaded (**1339.5%**)
+> **14-day conversion:** 1254 of 87 visitors cloned or downloaded (**1441.3%**)
 >
-> Unique cloners: 239 | Release downloads: 1047
+> Unique cloners: 196 | Release downloads: 1058
 
 ---
 
@@ -42,9 +42,9 @@
 
 | Channel | Count |
 |---------|-------|
-| Zip Downloads | 1047 |
-| Git Clones (14-day) | 607 |
-| **Total Acquisitions** | **1654** |
+| Zip Downloads | 1058 |
+| Git Clones (14-day) | 514 |
+| **Total Acquisitions** | **1572** |
 
 ---
 
@@ -54,13 +54,10 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 44 | 35 |
-| Google | 31 | 24 |
-| chatgpt.com | 6 | 5 |
+| Google | 45 | 34 |
+| github.com | 34 | 27 |
+| chatgpt.com | 5 | 4 |
 | Bing | 3 | 3 |
-| DuckDuckGo | 1 | 1 |
-| Yahoo | 1 | 1 |
-| modhoster.de | 1 | 1 |
 
 ---
 
@@ -80,16 +77,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/Realistic-Farming/FS25_NPCFavor` | 112 | 81 |
-| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 30 | 23 |
+| `/Realistic-Farming/FS25_NPCFavor` | 106 | 73 |
+| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 38 | 26 |
 | `/Realistic-Farming/FS25_NPCFavor/releases` | 8 | 7 |
-| `/Realistic-Farming/FS25_NPCFavor/tree/development` | 6 | 3 |
-| `/Realistic-Farming/FS25_NPCFavor/blob/main/CHANGELOG.md` | 5 | 3 |
-| `/Realistic-Farming/FS25_NPCFavor/pulls` | 5 | 3 |
-| `/Realistic-Farming/FS25_NPCFavor/issues` | 4 | 4 |
+| `/Realistic-Farming/FS25_NPCFavor/issues` | 8 | 5 |
+| `/Realistic-Farming/FS25_NPCFavor/pulls` | 6 | 3 |
+| `/Realistic-Farming/FS25_NPCFavor/tree/development` | 6 | 2 |
+| `/Realistic-Farming/FS25_NPCFavor/issues/71` | 5 | 2 |
 | `/Realistic-Farming/FS25_NPCFavor/blob/main/docs/relationship-system.md` | 3 | 3 |
-| `/Realistic-Farming/FS25_NPCFavor/tree/main` | 3 | 3 |
 | `/Realistic-Farming/FS25_NPCFavor/actions` | 3 | 2 |
+| `/Realistic-Farming/FS25_NPCFavor/blob/main/CHANGELOG.md` | 3 | 2 |
 
 ---
 
