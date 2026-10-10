@@ -6947,23 +6947,23 @@
   "2026-10-10": [
     {
       "referrer": "Google",
-      "count": 45,
-      "uniques": 34
+      "count": 48,
+      "uniques": 35
     },
     {
       "referrer": "github.com",
-      "count": 34,
-      "uniques": 27
+      "count": 33,
+      "uniques": 26
     },
     {
       "referrer": "chatgpt.com",
-      "count": 5,
-      "uniques": 4
+      "count": 3,
+      "uniques": 2
     },
     {
       "referrer": "Bing",
-      "count": 3,
-      "uniques": 3
+      "count": 2,
+      "uniques": 2
     }
   ]
 }
