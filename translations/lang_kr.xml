@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="보류 중: 이 작업을 요청한 모드가 로드되지 않았습니다. 놓아주기로 비용 없이 종료합니다." />
 		<text name="npc_contrib_hold_companion_incompatible" text="보류 중: 이 작업을 요청한 모드가 작업을 변경했습니다. 놓아주기로 비용 없이 종료합니다." />
 		<text name="npc_contrib_let_go" text="놓아주기" />
+		<text name="rf_live_key_unbound" text="미할당"/>
+		<text name="rf_live_key_keyboard_unbound" text="키보드 미할당"/>
+		<text name="rf_live_key_unavailable" text="사용 불가"/>
 </texts>
 </l10n>

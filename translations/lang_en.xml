@@ -482,5 +482,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="On hold: the mod that asked for this work is not loaded. Let go closes it at no cost." />
 		<text name="npc_contrib_hold_companion_incompatible" text="On hold: the mod that asked for this work has changed it. Let go closes it at no cost." />
 		<text name="npc_contrib_let_go" text="Let go" />
+		<text name="rf_live_key_unbound" text="Unbound"/>
+		<text name="rf_live_key_keyboard_unbound" text="Keyboard unbound"/>
+		<text name="rf_live_key_unavailable" text="unavailable"/>
 </texts>
 </l10n>

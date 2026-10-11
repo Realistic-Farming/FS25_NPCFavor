@@ -482,5 +482,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Призупинено: мод, що запросив цю роботу, не завантажено. «Відпустити» закриває її без витрат." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Призупинено: мод, що запросив цю роботу, змінив її. «Відпустити» закриває її без витрат." />
 		<text name="npc_contrib_let_go" text="Відпустити" />
+		<text name="rf_live_key_unbound" text="Не призначено"/>
+		<text name="rf_live_key_keyboard_unbound" text="Клавіатура не призначена"/>
+		<text name="rf_live_key_unavailable" text="недоступно"/>
 </texts>
 </l10n>

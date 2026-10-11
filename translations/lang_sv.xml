@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="Pausat: modden som bad om arbetet är inte inläst. Släpp stänger det utan kostnad." />
 		<text name="npc_contrib_hold_companion_incompatible" text="Pausat: modden som bad om arbetet har ändrat det. Släpp stänger det utan kostnad." />
 		<text name="npc_contrib_let_go" text="Släpp" />
+		<text name="rf_live_key_unbound" text="Obunden"/>
+		<text name="rf_live_key_keyboard_unbound" text="Tangentbord obundet"/>
+		<text name="rf_live_key_unavailable" text="otillgänglig"/>
 </texts>
 </l10n>

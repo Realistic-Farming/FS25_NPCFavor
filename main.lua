@@ -73,6 +73,9 @@ print("[NPC Favor] Starting mod initialization...")
 --  Define base classes and utilities
 if modDirectory then
     print("[NPC Favor] Loading utility files...")
+    -- Live Controls chord for an InputAction, so hints show the real
+    -- binding rather than a factory default (KEYBINDS-R220-20261006).
+    source(modDirectory .. "src/utils/NpcLiveKeyLabel.lua")
     source(modDirectory .. "src/utils/VectorHelper.lua")
     source(modDirectory .. "src/utils/TimeHelper.lua")
     source(modDirectory .. "src/utils/NPCFarmIdentity.lua")

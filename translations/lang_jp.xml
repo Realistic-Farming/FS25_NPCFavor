@@ -484,5 +484,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="保留中：この作業を依頼したMODが読み込まれていません。手放すと無償で終了します。" />
 		<text name="npc_contrib_hold_companion_incompatible" text="保留中：この作業を依頼したMODが内容を変更しました。手放すと無償で終了します。" />
 		<text name="npc_contrib_let_go" text="手放す" />
+		<text name="rf_live_key_unbound" text="未割り当て"/>
+		<text name="rf_live_key_keyboard_unbound" text="キーボード未割当"/>
+		<text name="rf_live_key_unavailable" text="利用不可"/>
 </texts>
 </l10n>

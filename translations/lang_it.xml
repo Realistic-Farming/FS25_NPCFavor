@@ -482,5 +482,8 @@
 		<text name="npc_contrib_hold_companion_missing" text="In sospeso: la mod che ha chiesto questo lavoro non è caricata. Lascia andare lo chiude senza costi." />
 		<text name="npc_contrib_hold_companion_incompatible" text="In sospeso: la mod che ha chiesto questo lavoro lo ha modificato. Lascia andare lo chiude senza costi." />
 		<text name="npc_contrib_let_go" text="Lascia andare" />
+		<text name="rf_live_key_unbound" text="Non assegnato"/>
+		<text name="rf_live_key_keyboard_unbound" text="Tastiera non assegnata"/>
+		<text name="rf_live_key_unavailable" text="non disponibile"/>
 </texts>
 </l10n>
