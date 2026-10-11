@@ -347,6 +347,84 @@ end
 -- World-Space Interaction Hint (above NPC head)
 -- =========================================================
 
+--- Text for the on-foot interaction hint.
+---
+--- The authored sentence carries an imperative, "Press [E] to talk", so it may
+--- only be shown when a real key exists to press. That is resolver kind "live"
+--- and nothing else: an unbound, keyboard-unbound or unavailable action used to
+--- read "Press Unbound to talk", which tells the player to press a key that
+--- does not exist. Any other kind shows the action's own translated name and
+--- its status instead, with no imperative and no token. input_NPC_INTERACT is
+--- present and genuinely translated in all 26 locale files, so no new text is
+--- introduced and no locale is hardcoded.
+---
+--- Cost, from the PR review: resolve() rebuilds the whole action-to-bindings
+--- map, and this is called every frame the player stands at an NPC. The answer
+--- is cached and dropped on INPUT_BINDINGS_CHANGED. Without a message centre
+--- there is no cache, because one could then outlive a remap.
+--- The cache lives on the MODULE TABLE, not in file-scope locals. The test
+--- harness concatenates the prelude, every src module and the test into one
+--- Lua chunk, and Lua 5.1 allows at most 200 locals in a main function: three
+--- more file-scope locals here tipped NPC-204 over that limit and turned a
+--- passing suite into a load error. Table fields cost none.
+NPCInteractionUI._hintLabel = nil
+NPCInteractionUI._hintKind = nil
+NPCInteractionUI._hintUnsubscribe = nil
+
+local function npcResolveInteract()
+    if NpcLiveKeyLabel == nil or type(NpcLiveKeyLabel.resolve) ~= "function" then
+        return nil, nil
+    end
+    local label, kind = NpcLiveKeyLabel.resolve("NPC_INTERACT")
+    if type(label) ~= "string" or label == "" then
+        label = (type(NpcLiveKeyLabel.unavailableText) == "function")
+            and NpcLiveKeyLabel.unavailableText() or "unavailable"
+        kind = "unavailable"
+    end
+    return label, kind
+end
+
+function NPCInteractionUI.interactHintText()
+    local label, kind = NPCInteractionUI._hintLabel, NPCInteractionUI._hintKind
+    if label == nil then
+        label, kind = npcResolveInteract()
+        if NPCInteractionUI._hintUnsubscribe == nil
+            and NpcLiveKeyLabel ~= nil and type(NpcLiveKeyLabel.subscribe) == "function" then
+            NPCInteractionUI._hintUnsubscribe = NpcLiveKeyLabel.subscribe(
+                NPCInteractionUI, function()
+                    NPCInteractionUI._hintLabel = nil
+                    NPCInteractionUI._hintKind = nil
+                end)
+        end
+        if NPCInteractionUI._hintUnsubscribe ~= nil then
+            NPCInteractionUI._hintLabel, NPCInteractionUI._hintKind = label, kind
+        end
+    end
+
+    local sentence = g_i18n ~= nil and g_i18n:getText("npc_interact_hint") or nil
+    if kind == "live" and type(label) == "string" and label ~= ""
+        and type(sentence) == "string" then
+        return (string.gsub(sentence, "%[E%]", (string.gsub(label, "%%", "%%%%"))))
+    end
+
+    local action = (g_i18n ~= nil and g_i18n:getText("input_NPC_INTERACT")) or "Talk to Neighbor"
+    if type(label) == "string" and label ~= "" then
+        return action .. " - " .. label
+    end
+    return action
+end
+
+--- Drop the binding-change subscription, so a second mission in one session
+--- does not leave a closure over a dead UI behind.
+function NPCInteractionUI.releaseInteractHint()
+    if NPCInteractionUI._hintUnsubscribe ~= nil then
+        pcall(NPCInteractionUI._hintUnsubscribe)
+        NPCInteractionUI._hintUnsubscribe = nil
+    end
+    NPCInteractionUI._hintLabel = nil
+    NPCInteractionUI._hintKind = nil
+end
+
 function NPCInteractionUI:drawInteractionHint()
     if not self.interactionHintVisible or not self.interactionHintNPC then
         return
@@ -364,17 +442,7 @@ function NPCInteractionUI:drawInteractionHint()
         -- Right Shift + E, so the shipped "[E]" named a key that does nothing. Resolved
         -- per draw, so a remap shows immediately and an unbound action reads honestly
         -- rather than naming a factory key.
-        local text = g_i18n:getText("npc_interact_hint")
-        if NpcLiveKeyLabel ~= nil and type(NpcLiveKeyLabel.resolve) == "function" then
-            local label = NpcLiveKeyLabel.resolve("NPC_INTERACT")
-            if type(label) ~= "string" or label == "" then
-                label = (type(NpcLiveKeyLabel.unavailableText) == "function")
-                    and NpcLiveKeyLabel.unavailableText() or nil
-            end
-            if type(label) == "string" and label ~= "" and type(text) == "string" then
-                text = string.gsub(text, "%[E%]", (string.gsub(label, "%%", "%%%%")))
-            end
-        end
+        local text = NPCInteractionUI.interactHintText()
 
         setTextAlignment(RenderText.ALIGN_CENTER)
         setTextBold(true)

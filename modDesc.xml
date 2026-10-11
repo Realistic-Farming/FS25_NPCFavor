@@ -60,8 +60,14 @@
         <actionBinding action="NPC_TOGGLE_HUD">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_backquote" />
         </actionBinding>
+        <!-- [523] rctrl+n, not rshift+e. Bare KEY_e is the base game's ENTER and is
+             also WorkplaceTriggers' WT_INTERACT on development, so this action had
+             to leave it. rshift+e is RandomWorldEvents' RWE_TOGGLE_HUD on
+             development, which the 523 default policy restores, so the chord moved
+             again to one that is free across development, the wave heads, every
+             installed mod and the base game. -->
         <actionBinding action="NPC_INTERACT">
-            <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_e" />
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rctrl KEY_n" />
         </actionBinding>
         <actionBinding action="FAVOR_MENU">
             <binding device="KB_MOUSE_DEFAULT" input="KEY_rshift KEY_6" />
