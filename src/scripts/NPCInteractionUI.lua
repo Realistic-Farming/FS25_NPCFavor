@@ -52,11 +52,11 @@
 -- FS25 project() API: project(worldX, worldY, worldZ) → screenX, screenY, screenZ (0-1 normalized)
 -- =========================================================
 
-NPCInteractionUI = {}
+NPCInteractionUI = NPCInteractionUI or {}
 NPCInteractionUI_mt = Class(NPCInteractionUI)
 
 -- Mod-scoped i18n with Missing-reject (same class as MDMUtil.getModText / NPCDialog).
-local NPC_UI_MOD_NAME = g_currentModName
+local NPC_UI_MOD_NAME = (NPCFavorModName or g_currentModName)
 local function getModText(key, fallback)
     if key == nil or key == "" then
         return fallback
@@ -347,6 +347,84 @@ end
 -- World-Space Interaction Hint (above NPC head)
 -- =========================================================
 
+--- Text for the on-foot interaction hint.
+---
+--- The authored sentence carries an imperative, "Press [E] to talk", so it may
+--- only be shown when a real key exists to press. That is resolver kind "live"
+--- and nothing else: an unbound, keyboard-unbound or unavailable action used to
+--- read "Press Unbound to talk", which tells the player to press a key that
+--- does not exist. Any other kind shows the action's own translated name and
+--- its status instead, with no imperative and no token. input_NPC_INTERACT is
+--- present and genuinely translated in all 26 locale files, so no new text is
+--- introduced and no locale is hardcoded.
+---
+--- Cost, from the PR review: resolve() rebuilds the whole action-to-bindings
+--- map, and this is called every frame the player stands at an NPC. The answer
+--- is cached and dropped on INPUT_BINDINGS_CHANGED. Without a message centre
+--- there is no cache, because one could then outlive a remap.
+--- The cache lives on the MODULE TABLE, not in file-scope locals. The test
+--- harness concatenates the prelude, every src module and the test into one
+--- Lua chunk, and Lua 5.1 allows at most 200 locals in a main function: three
+--- more file-scope locals here tipped NPC-204 over that limit and turned a
+--- passing suite into a load error. Table fields cost none.
+NPCInteractionUI._hintLabel = nil
+NPCInteractionUI._hintKind = nil
+NPCInteractionUI._hintUnsubscribe = nil
+
+local function npcResolveInteract()
+    if NpcLiveKeyLabel == nil or type(NpcLiveKeyLabel.resolve) ~= "function" then
+        return nil, nil
+    end
+    local label, kind = NpcLiveKeyLabel.resolve("NPC_INTERACT")
+    if type(label) ~= "string" or label == "" then
+        label = (type(NpcLiveKeyLabel.unavailableText) == "function")
+            and NpcLiveKeyLabel.unavailableText() or "unavailable"
+        kind = "unavailable"
+    end
+    return label, kind
+end
+
+function NPCInteractionUI.interactHintText()
+    local label, kind = NPCInteractionUI._hintLabel, NPCInteractionUI._hintKind
+    if label == nil then
+        label, kind = npcResolveInteract()
+        if NPCInteractionUI._hintUnsubscribe == nil
+            and NpcLiveKeyLabel ~= nil and type(NpcLiveKeyLabel.subscribe) == "function" then
+            NPCInteractionUI._hintUnsubscribe = NpcLiveKeyLabel.subscribe(
+                NPCInteractionUI, function()
+                    NPCInteractionUI._hintLabel = nil
+                    NPCInteractionUI._hintKind = nil
+                end)
+        end
+        if NPCInteractionUI._hintUnsubscribe ~= nil then
+            NPCInteractionUI._hintLabel, NPCInteractionUI._hintKind = label, kind
+        end
+    end
+
+    local sentence = g_i18n ~= nil and g_i18n:getText("npc_interact_hint") or nil
+    if kind == "live" and type(label) == "string" and label ~= ""
+        and type(sentence) == "string" then
+        return (string.gsub(sentence, "%[E%]", (string.gsub(label, "%%", "%%%%"))))
+    end
+
+    local action = (g_i18n ~= nil and g_i18n:getText("input_NPC_INTERACT")) or "Talk to Neighbor"
+    if type(label) == "string" and label ~= "" then
+        return action .. " - " .. label
+    end
+    return action
+end
+
+--- Drop the binding-change subscription, so a second mission in one session
+--- does not leave a closure over a dead UI behind.
+function NPCInteractionUI.releaseInteractHint()
+    if NPCInteractionUI._hintUnsubscribe ~= nil then
+        pcall(NPCInteractionUI._hintUnsubscribe)
+        NPCInteractionUI._hintUnsubscribe = nil
+    end
+    NPCInteractionUI._hintLabel = nil
+    NPCInteractionUI._hintKind = nil
+end
+
 function NPCInteractionUI:drawInteractionHint()
     if not self.interactionHintVisible or not self.interactionHintNPC then
         return
@@ -359,7 +437,12 @@ function NPCInteractionUI:drawInteractionHint()
 
     if screenX and screenY then
         local pulse = 0.5 + 0.5 * math.sin(self.interactionHintTimer * 3)
-        local text = g_i18n:getText("npc_interact_hint") -- or "Press [E] to talk"
+        -- The authored sentence is kept in every language; only the "[E]" token is
+        -- replaced, with the live NPC_INTERACT chord. The approved default is
+        -- Right Shift + E, so the shipped "[E]" named a key that does nothing. Resolved
+        -- per draw, so a remap shows immediately and an unbound action reads honestly
+        -- rather than naming a factory key.
+        local text = NPCInteractionUI.interactHintText()
 
         setTextAlignment(RenderText.ALIGN_CENTER)
         setTextBold(true)
@@ -592,38 +675,38 @@ end
 --- Pick a random conversation topic based on relationship level and personality.
 -- @param npc  NPC data table
 -- @return string  Conversation line
-function NPCInteractionUI:getRandomConversationTopic(npc)
+--- RSF-F357: the topic as a KEY, chosen on the server, resolved by the reader
+--- in its own language (a remote client never sees the host's). A keyed topic
+--- carries its key and the English fallback; a context topic from a companion
+--- mod has no key and carries its text only.
+---@return table { key = string|nil, text = string }
+function NPCInteractionUI:getRandomConversationTopicKey(npc)
     local topics = {}
+    local function keyed(key, text) topics[#topics + 1] = { key = key, text = text } end
 
     -- Conversation depth scales with relationship (strangers get small talk)
     if npc.relationship < 25 then
-        topics = {
-            g_i18n:getText("npc_topic_weather") or "The weather has been nice lately, hasn't it?",
-            g_i18n:getText("npc_topic_farm") or "How's your farm doing?",
-            g_i18n:getText("npc_topic_crops") or "Seen any good crops this season?"
-        }
+        keyed("npc_topic_weather", "The weather has been nice lately, hasn't it?")
+        keyed("npc_topic_farm", "How's your farm doing?")
+        keyed("npc_topic_crops", "Seen any good crops this season?")
     elseif npc.relationship < 60 then
-        topics = {
-            g_i18n:getText("npc_topic_family") or "How's the family doing?",
-            g_i18n:getText("npc_topic_weekend") or "Got any plans for the weekend?",
-            g_i18n:getText("npc_topic_market") or "The market prices have been good this season."
-        }
+        keyed("npc_topic_family", "How's the family doing?")
+        keyed("npc_topic_weekend", "Got any plans for the weekend?")
+        keyed("npc_topic_market", "The market prices have been good this season.")
     else
-        topics = {
-            g_i18n:getText("npc_topic_friend") or "Good to see you, friend! How have you been?",
-            g_i18n:getText("npc_topic_harvest_memory") or "Remember that time we helped each other with harvest?",
-            g_i18n:getText("npc_topic_best_neighbor") or "You're one of the best neighbors I've had!"
-        }
+        keyed("npc_topic_friend", "Good to see you, friend! How have you been?")
+        keyed("npc_topic_harvest_memory", "Remember that time we helped each other with harvest?")
+        keyed("npc_topic_best_neighbor", "You're one of the best neighbors I've had!")
     end
 
     if npc.personality == "farmer" or npc.personality == "hardworking" then
-        table.insert(topics, g_i18n:getText("npc_topic_fields_good") or "The fields are looking good this year.")
-        table.insert(topics, g_i18n:getText("npc_topic_harvest_busy") or "Harvest season is always busy but rewarding.")
+        keyed("npc_topic_fields_good", "The fields are looking good this year.")
+        keyed("npc_topic_harvest_busy", "Harvest season is always busy but rewarding.")
     elseif npc.personality == "social" then
-        table.insert(topics, g_i18n:getText("npc_topic_other_neighbors") or "Have you talked to the other neighbors lately?")
-        table.insert(topics, g_i18n:getText("npc_topic_gathering") or "We should have a neighborhood gathering sometime!")
+        keyed("npc_topic_other_neighbors", "Have you talked to the other neighbors lately?")
+        keyed("npc_topic_gathering", "We should have a neighborhood gathering sometime!")
     elseif npc.personality == "loner" then
-        table.insert(topics, g_i18n:getText("npc_topic_quiet_day") or "Quiet day today. I like it that way.")
+        keyed("npc_topic_quiet_day", "Quiet day today. I like it that way.")
     end
 
     -- Inject context-aware topics from companion mods
@@ -653,8 +736,8 @@ function NPCInteractionUI:getRandomConversationTopic(npc)
         }
         local evTopic = rweTopics[ev]
         if evTopic then
-            table.insert(topics, evTopic)
-            table.insert(topics, evTopic)  -- double weight so event topic comes up often
+            table.insert(topics, { text = evTopic })
+            table.insert(topics, { text = evTopic })  -- double weight so event topic comes up often
         end
     end
 
@@ -670,16 +753,29 @@ function NPCInteractionUI:getRandomConversationTopic(npc)
             end
         end
         if hasGoodPrices then
-            table.insert(topics, "The commodity prices are looking really strong. Don't wait too long to sell!")
+            table.insert(topics, { text = "The commodity prices are looking really strong. Don't wait too long to sell!" })
         elseif hasBadPrices then
-            table.insert(topics, "I'd hold off selling anything major right now. Prices are below where I want them.")
+            table.insert(topics, { text = "I'd hold off selling anything major right now. Prices are below where I want them." })
         end
     end
 
     if #topics == 0 then
-        return "Nice to see you!"
+        return { text = "Nice to see you!" }
     end
     return topics[math.random(1, #topics)]
+end
+
+--- The resolved line for a local reader (the pre-F357 signature, kept for any
+--- local caller): the key through this side's i18n, else the text.
+function NPCInteractionUI:getRandomConversationTopic(npc)
+    local topic = self:getRandomConversationTopicKey(npc)
+    if topic.key ~= nil and g_i18n ~= nil then
+        local ok, text = pcall(g_i18n.getText, g_i18n, topic.key)
+        if ok and type(text) == "string" and text ~= "" and not text:lower():find("^missing") then
+            return text
+        end
+    end
+    return topic.text
 end
 
 --- Get a first-person description of the NPC's current activity.

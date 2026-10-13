@@ -73,7 +73,7 @@
 -- Movement recovery: x += sin(yaw) * speed, z += cos(yaw) * speed.
 -- =========================================================
 
-NPCAI = {}
+NPCAI = NPCAI or {}
 NPCAI_mt = Class(NPCAI)
 
 --- Create a new NPCAI instance.
@@ -508,8 +508,17 @@ function NPCAI:updateNPCState(npc, dt)
     end
 
     -- Update current action display from daily schedule
-    -- Don't overwrite gathering, greeting, or dodge actions while active
-    if npc.aiState ~= self.STATES.GATHERING
+    -- Don't overwrite gathering, greeting, or dodge actions while active, nor the
+    -- field-work labels while the NPC is actually on field work: an AI job
+    -- (activeAIJob), the combo fallback (usingComboFieldWork) or a pattern slot
+    -- (_fieldWorkFieldId). Those flags are the field-work code's own. aiState is not
+    -- the test: the AI job sets none, and WORKING and DRIVING are also ordinary
+    -- scheduled work and commuting. This is PLAYER-REPORTS row 93's second defect,
+    -- the roster showing the schedule's "working indoors" on a tractor; when the
+    -- flags clear, the next tick restores the schedule label on its own.
+    local onFieldWork = npc.activeAIJob ~= nil or npc.usingComboFieldWork == true or npc._fieldWorkFieldId ~= nil
+    if not onFieldWork
+       and npc.aiState ~= self.STATES.GATHERING
        and npc.currentAction ~= "greeting"
        and npc.currentAction ~= "stepping aside" then
         local minute = self.npcSystem.scheduler:getCurrentMinute()
@@ -1419,6 +1428,14 @@ end
 function NPCAI:initFieldWork(npc)
     if not npc.assignedField or not npc.assignedField.center then return end
 
+    -- RSF-F357: the person-actionability gate. A presence, a waiting person or
+    -- an unproven number does no field work, and there is no legacy fallback
+    -- once the gate refuses.
+    local sys = self.npcSystem
+    if sys ~= nil and sys.isPersonActionable ~= nil and not sys:isPersonActionable(npc) then
+        return
+    end
+
     -- Try new NPCFieldWork module first
     local fieldWork = self.npcSystem and self.npcSystem.fieldWork
     if fieldWork then
@@ -1453,7 +1470,16 @@ function NPCAI:initFieldWorkLegacy(npc)
     local cx = npc.assignedField.center.x
     local cz = npc.assignedField.center.z
     local fieldSize = math.max(20, math.sqrt(npc.assignedField.size or 400))
-    local halfSize = fieldSize * 0.4  -- stay within 80% of field
+    -- Stay within 80% of the field, clamped to the half-size the zigzag path at
+    -- :3080 allows (15 to 100 m) and to the field's own extent around its label
+    -- point when the record carries one: with a real area (PLAYER-REPORTS row 93)
+    -- the old arithmetic reached 219 m either way at 30 ha, well off the field.
+    local halfSize = math.max(15, math.min(100, fieldSize * 0.4))
+    local extent = npc.assignedField.extent
+    if type(extent) == "table" and extent.minX ~= nil then
+        local room = math.min(cx - extent.minX, extent.maxX - cx, cz - extent.minZ, extent.maxZ - cz)
+        if room > 0 then halfSize = math.min(halfSize, room) end
+    end
 
     npc.fieldWorkPath = {}
 
@@ -1640,8 +1666,8 @@ function NPCAI:updateWorkingState(npc, dt)
             -- Release worker slot so another NPC can take the field
             local fieldWork = self.npcSystem and self.npcSystem.fieldWork
             if fieldWork and npc._fieldWorkFieldId then
-                local npcId = npc.uniqueId or npc.id or npc.name
-                fieldWork:releaseWorker(npc._fieldWorkFieldId, npcId)
+                -- RSF-F357: her own durable number releases her own slot only.
+                fieldWork:releaseWorker(npc._fieldWorkFieldId, npc.id)
                 npc._fieldWorkFieldId = nil
             end
             npc.fieldWorkPath = nil
@@ -1665,11 +1691,20 @@ end
 function NPCAI:_releaseFieldWorkSlot(npc)
     local fieldWork = self.npcSystem and self.npcSystem.fieldWork
     if fieldWork and npc._fieldWorkFieldId then
-        local npcId = npc.uniqueId or npc.id or npc.name
-        fieldWork:releaseWorker(npc._fieldWorkFieldId, npcId)
+        -- RSF-F357: her own durable number releases her own slot only.
+        fieldWork:releaseWorker(npc._fieldWorkFieldId, npc.id)
         npc._fieldWorkFieldId = nil
         npc.fieldWorkWaypoints = nil
         npc.fieldWorkSlot = nil
+        -- [RSF-F206] the traversal path goes with the slot. Both callers of this helper
+        -- end the work (goHome and a terminal land refusal), and the work-timer break
+        -- that this pairing copies clears these two alongside the slot. Without them a
+        -- refused NPC reached IDLE still carrying a waypoint path for the ground it was
+        -- just refused. Benign today, because every entry to WORKING rebuilds the path
+        -- through initFieldWork, but the clear set now actually matches the recovery it
+        -- claims to match.
+        npc.fieldWorkPath = nil
+        npc.fieldWorkIndex = nil
     end
 end
 
@@ -2033,6 +2068,25 @@ function NPCAI:startWorking(npc)
     local targetZ = npc.assignedField.center.z
 
     if self:isAtPosition(npc, targetX, targetZ, 40) then
+        -- [RSF-F206] item 6. This is a live door and it was unguarded: it sets WORKING
+        -- and calls initFieldWork below, which TAKES THE RESERVATION and plants
+        -- fieldWorkPath, BEFORE any vehicle exists. A neighbour can be put to work on
+        -- foot here with no tractor at all, so a refusal that fired only inside
+        -- activateNPCTractor would never see this path.
+        local sys = self.npcSystem
+        if sys ~= nil and type(sys.admitFieldRecord) == "function" then
+            local status = sys:admitFieldRecord(npc.assignedField)
+            if status ~= NPCLandAdmission.ALLOW then
+                if type(sys.endAttemptOnLandRefusal) == "function" then
+                    sys:endAttemptOnLandRefusal(npc, "NPCAI:startWorking", status)
+                else
+                    self:_releaseFieldWorkSlot(npc)
+                    self:setState(npc, self.STATES.IDLE)
+                end
+                return
+            end
+        end
+
         -- At field, start working
         self:setState(npc, self.STATES.WORKING)
 
@@ -3569,7 +3623,7 @@ end
 -- (removes waypoints with < 30° direction change).
 -- =========================================================
 
-NPCPathfinder = {}
+NPCPathfinder = NPCPathfinder or {}
 NPCPathfinder_mt = Class(NPCPathfinder)
 
 --- Create a new NPCPathfinder.

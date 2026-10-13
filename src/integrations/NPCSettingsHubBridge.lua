@@ -29,7 +29,7 @@
 -- independent, at Mission00.loadMission00Finished.
 -- =========================================================
 
-NPCSettingsHubBridge = {}
+NPCSettingsHubBridge = NPCSettingsHubBridge or {}
 
 -- Exactly the settings the mod's own panel exposes (NPCSettingsPanel.SETTING_LABELS),
 -- with the same admin/player split (admin = not in NPCSettingsPanel.LOCAL_ONLY) and the

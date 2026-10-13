@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Lua 5.1 pre-commit gate. Excluded from the mod zip with the rest of tools/.",
+  "description": "Lua 5.1 pre-commit gate + offline contract tests. Excluded from the mod zip with the rest of tools/.",
   "devDependencies": {
+    "fengari": "^0.1.4",
     "luaparse": "^0.3.1"
+  },
+  "scripts": {
+    "test": "node run-tests.mjs"
   }
 }

@@ -33,7 +33,7 @@
 -- Manages favor requests, tracking, and completion
 -- =========================================================
 
-NPCFavorSystem = {}
+NPCFavorSystem = NPCFavorSystem or {}
 NPCFavorSystem_mt = Class(NPCFavorSystem)
 
 -- Per-personality category weight multipliers for favor type selection.
@@ -175,12 +175,21 @@ function NPCFavorSystem.new(npcSystem)
     }
     
     -- Active favors
-    self.activeFavors = {} -- Player's active favors
-    
+    self.activeFavors = {} -- Ordinary pending / active / in_progress jobs
+
     -- Player's favor history
     self.completedFavors = {}
     self.failedFavors = {}
     self.abandonedFavors = {}
+
+    -- RSF-F148: recoveryFavors (paused / inspect-only records), the load-once
+    -- seam, the favor id allocator and the recovery token index live in
+    -- NPCFavorRecovery.lua. A record belongs to exactly one collection.
+    if self.initRecoveryState ~= nil then
+        self:initRecoveryState()
+    else
+        self.recoveryFavors = {}
+    end
     
     -- Statistics
     self.stats = {
@@ -198,10 +207,52 @@ function NPCFavorSystem.new(npcSystem)
     return self
 end
 
+--- RSF-F357: the host's actionability predicate when the host has one; a
+--- plain host (the offline bench) falls back to the row's own active flag.
+function NPCFavorSystem:isPersonActionable(npc)
+    if type(npc) ~= "table" then return false end
+    local sys = self.npcSystem
+    if sys ~= nil and sys.isPersonActionable ~= nil then
+        return sys:isPersonActionable(npc)
+    end
+    return npc.isActive ~= false
+end
+
+--- RSF-F357: the unique live durable person a favour names, or nil.
+function NPCFavorSystem:resolveFavorPerson(favor)
+    if type(favor) ~= "table" then return nil end
+    local sys = self.npcSystem
+    if sys == nil then return nil end
+    local npc = nil
+    if sys.getNPCById ~= nil then
+        npc = sys:getNPCById(favor.npcId)
+    else
+        for _, candidate in ipairs(sys.activeNPCs or {}) do
+            if candidate.id == favor.npcId then npc = candidate break end
+        end
+    end
+    if npc ~= nil and self:isPersonActionable(npc) then return npc end
+    return nil
+end
+
 function NPCFavorSystem:update(dt)
+    -- RSF-F148: before the selected initial snapshot is installed, nothing
+    -- may tick, expire, progress or generate against an invented empty state.
+    if self.isFavorLoadReady ~= nil and not self:isFavorLoadReady() then
+        return
+    end
+
+    -- NPC-204 3.7: the companion work surface is read every tick; a change
+    -- withdraws or holds contributed work, or returns lock-held work.
+    if self.readCompanionSurface ~= nil then
+        self:readCompanionSurface()
+    end
+
     local currentGameTime = TimeHelper.getGameTimeMs()
 
-    -- Update active favors using in-game clock (scales with game speed)
+    -- Update active favors using in-game clock (scales with game speed).
+    -- recoveryFavors is deliberately not walked: a paused record keeps its
+    -- frozen timeRemaining and never expires, progresses or fails.
     for i = #self.activeFavors, 1, -1 do
         local favor = self.activeFavors[i]
 
@@ -209,11 +260,19 @@ function NPCFavorSystem:update(dt)
             favor.timeRemaining = favor.expirationGameTime - currentGameTime
         end
 
+        local contributed = NPCCompanion ~= nil and NPCCompanion.isContributed(favor)
         if favor.timeRemaining and favor.timeRemaining <= 0 then
-            self:failFavor(favor.id, "time_expired")
-            table.remove(self.activeFavors, i)
-        else
-            -- Check progress conditions
+            if contributed and favor.status == "pending" then
+                -- NPC-204 3.7: an unanswered companion offer lapses without fault.
+                self:closeContributionNoFault(favor, "lapsed")
+            else
+                -- failFavor owns the removal from activeFavors (RSF-F220). A second
+                -- table.remove here deleted whichever favor had shifted into slot i.
+                self:failFavor(favor.id, "time_expired")
+            end
+        elseif not contributed then
+            -- Check progress conditions. Contributed work has no auto-progress
+            -- and no loan debit; its REPORT comes from the companion.
             self:checkFavorProgress(favor, dt)
         end
     end
@@ -547,6 +606,7 @@ function NPCFavorSystem:generateFavorRequest()
     if favor then
         -- Add to player's active favors
         table.insert(self.activeFavors, favor)
+        if self.assignRecoveryToken ~= nil then self:assignRecoveryToken(favor) end
         
         -- Set NPC cooldown
         local cooldownDays = self.npcSystem.settings.favorFrequency
@@ -582,7 +642,11 @@ function NPCFavorSystem:canNPCRequestFavor(npc)
     if not npc.isActive then
         return false
     end
-    
+    -- RSF-F357: only a unique live durable person offers work.
+    if self.isPersonActionable ~= nil and not self:isPersonActionable(npc) then
+        return false
+    end
+
     -- Check cooldown
     if npc.favorCooldown > 0 then
         return false
@@ -604,7 +668,20 @@ function NPCFavorSystem:canNPCRequestFavor(npc)
     if recentFavorCount >= 2 then
         return false -- NPC already has 2 active favors with player
     end
-    
+
+    -- RSF-F148: a structurally resumable recovery record reserves this
+    -- neighbour against all new ordinary generation until explicit resume.
+    if self.isNPCReservedByRecovery ~= nil and self:isNPCReservedByRecovery(npc.id) then
+        return false
+    end
+
+    -- NPC-204: one open obligation per neighbour. An open companion job, active
+    -- or held in Recovery, closes the random roll, the contextual trigger and
+    -- npcForceFavor, which all pass through here.
+    if self.isPersonHeldByContribution ~= nil and self:isPersonHeldByContribution(npc.id) then
+        return false
+    end
+
     -- Personality-based checks
     if npc.personality == "grumpy" and npc.relationship < 40 then
         return false -- Grumpy NPCs need higher relationship
@@ -626,9 +703,15 @@ function NPCFavorSystem:createFavor(npc, favorTypeId)
         return nil
     end
     
-    -- Generate unique ID
-    local favorId = #self.activeFavors + #self.completedFavors + #self.failedFavors + 1
-    
+    -- Generate unique ID from the private monotonic allocator (RSF-F148). The
+    -- old list-count id collided with abandoned rows and reloaded rows.
+    local favorId
+    if self.allocateFavorId ~= nil then
+        favorId = self:allocateFavorId()
+    else
+        favorId = #self.activeFavors + #self.completedFavors + #self.failedFavors + 1
+    end
+
     local favor = {
         id = favorId,
         npcId = npc.id,
@@ -671,29 +754,54 @@ function NPCFavorSystem:createFavor(npc, favorTypeId)
         -- Player notes
         playerNotes = "",
         priority = 1, -- 1-5 priority level
-        
+
         -- Multi-step favors
         currentStep = 1,
         totalSteps = 1,
-        steps = self:generateFavorSteps(favorType, npc)
+        steps = self:generateFavorSteps(favorType, npc),
+
+        -- RSF-F148 record contract: payment facts are known from creation, and
+        -- their presence is explicit so a reload can tell false from unknown.
+        rewardPaid = false,
+        rewardPaidPresent = true,
+        repaymentCollected = false,
+        repaymentCollectedPresent = true,
+        loanAmountPresent = false,
+        loanAmountDeductedPresent = false,
+        ownerFarmIdPresent = false,
+        recordRevision = 0,
+        f148Schema = 1,
+
+        -- RSF-F357: a new favour names its person by durable number.
+        personRefKind = "durable",
     }
-    
+
+    if favor.taskData and favor.taskData.loanAmount ~= nil then
+        favor.loanAmountPresent = true
+        favor.loanAmountDeductedPresent = (type(favor.taskData.loanAmountDeducted) == "boolean")
+    end
+
     return favor
 end
 
-function NPCFavorSystem:checkFavorRequirements(npc, favorType)
+function NPCFavorSystem:checkFavorRequirements(npc, favorType, actingFarmId)
     -- Check relationship requirement
     if favorType.requirements.minRelationship and npc.relationship < favorType.requirements.minRelationship then
         return false
     end
-    
-    -- Check player money requirement
+
+    -- Check player money requirement. RSF-F357: a request names its verified
+    -- acting farm and its current balance is what counts, never
+    -- g_currentMission.player (nil on a dedicated server).
     if favorType.requirements.playerMoney then
-        if not g_currentMission or not g_currentMission.player then
-            return false
+        local money = nil
+        if actingFarmId ~= nil then
+            local farm = NPCFarmIdentity.getLiveFarm(actingFarmId)
+            money = farm and farm.money or nil
+        elseif g_currentMission and g_currentMission.player then
+            money = g_currentMission.player.money or 0
         end
-        local playerMoney = g_currentMission.player.money or 0
-        if playerMoney < favorType.requirements.playerMoney then
+        if money == nil or money < favorType.requirements.playerMoney then
             return false
         end
     end
@@ -847,6 +955,16 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
         return
     end
 
+    -- RSF-F148: paused / recovery records never progress.
+    if self.isFavorInRecovery ~= nil and self:isFavorInRecovery(favor) then
+        return
+    end
+
+    -- RSF-F357: no progress unless the same person is live and unique.
+    if self.resolveFavorPerson ~= nil and self:resolveFavorPerson(favor) == nil then
+        return
+    end
+
     -- Safety check for player position
     local playerPos = self.npcSystem.playerPosition
     if not playerPos or not self.npcSystem.playerPositionValid then
@@ -875,13 +993,22 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
                         -- already server-authoritative. Pay the owning farm (stamped at
                         -- accept), not the local player, which is nil on a dedicated
                         -- server. Guarded by loanAmountDeducted so it disburses once.
-                        local farmId = favor.ownerFarmId or self:resolveOwnerFarmId(favor)
-                        favor.ownerFarmId = farmId
-                        g_currentMission:addMoney(-loanAmount, farmId, MoneyType.OTHER, true)
-                        if favor.taskData then favor.taskData.loanAmountDeducted = true end
+                        -- RSF-F148: the owner must be an ordinary live farm. The invalid
+                        -- sentinel (15) is nobody, and no default farm is ever resolved
+                        -- or written back onto the record here.
+                        local farmId = favor.ownerFarmId
+                        if NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+                            g_currentMission:addMoney(-loanAmount, farmId, MoneyType.OTHER, true)
+                            if favor.taskData then favor.taskData.loanAmountDeducted = true end
+                        else
+                            print(string.format("[NPC Favor] Loan debit skipped: favor %s has no ordinary owner farm (%s)",
+                                tostring(favor.id), tostring(farmId)))
+                            return
+                        end
                     end
 
                     step.completed = true
+                    if self.bumpRecordRevision ~= nil then self:bumpRecordRevision(favor) end
 
                     -- Flash notification on HUD (queueNotification never existed;
                     -- all favor notifications route through favorHUD:flashFavor)
@@ -919,6 +1046,37 @@ function NPCFavorSystem:completeFavor(favorId)
         return false
     end
 
+    -- NPC-204: companion work completes and pays only through its TALK
+    -- adapter; no other caller of completeFavor can finish it.
+    if NPCCompanion ~= nil and NPCCompanion.isContributed(favor) then
+        return false
+    end
+
+    -- RSF-F148: a paused / recovery record cannot be completed by any caller,
+    -- and a job with no ordinary owner farm cannot complete either: refusing
+    -- here, before any status change, means a row is never marked complete
+    -- with its money unpaid.
+    if self.isFavorInRecovery ~= nil and self:isFavorInRecovery(favor) then
+        return false
+    end
+    if not NPCFarmIdentity.isOrdinaryFarmId(favor.ownerFarmId) then
+        -- Only the server holds authoritative owner facts; a client's local
+        -- copy refusing here is expected and not worth a log line.
+        if g_server ~= nil then
+            print(string.format("[NPC Favor] Complete refused: favor %s has no ordinary owner farm (%s)",
+                tostring(favor.id), tostring(favor.ownerFarmId)))
+        end
+        return false
+    end
+    -- RSF-F357: completion needs the same person, live and unique.
+    if self.resolveFavorPerson ~= nil and self:resolveFavorPerson(favor) == nil then
+        if g_server ~= nil then
+            print(string.format("[NPC Favor] Complete refused: favor %s names no live unique person (%s)",
+                tostring(favor.id), tostring(favor.npcId)))
+        end
+        return false
+    end
+
     -- Server-authoritative: the status flip and all money happen only on the
     -- server/host. Clients reach completion by sending intent through
     -- NPCInteractionEvent, never by flipping status or paying money locally. In
@@ -936,6 +1094,7 @@ function NPCFavorSystem:completeFavor(favorId)
     -- Update status
     favor.status = "completed"
     favor.progress = 100
+    if self.retireRecoveryToken ~= nil then self:retireRecoveryToken(favor) end
     
     -- Move to completed list
     table.insert(self.completedFavors, favor)
@@ -973,11 +1132,17 @@ function NPCFavorSystem:failFavor(favorId, reason)
     if not favor then
         return false
     end
-    
+
+    -- RSF-F148: a paused / recovery record never fails or takes a penalty.
+    if self.isFavorInRecovery ~= nil and self:isFavorInRecovery(favor) then
+        return false
+    end
+
     -- Update status
     favor.status = "failed"
     favor.failureTime = g_currentMission.time
     favor.failureReason = reason or "unknown"
+    if self.retireRecoveryToken ~= nil then self:retireRecoveryToken(favor) end
     
     -- Move to failed list
     table.insert(self.failedFavors, favor)
@@ -1005,7 +1170,7 @@ function NPCFavorSystem:failFavor(favorId, reason)
     end
     
     -- Flash notification on HUD
-    if self.npcSystem.favorHUD then
+    if self.npcSystem.favorHUD and (self.mayFlashFavor == nil or self:mayFlashFavor(favor)) then
         local msg = string.format(g_i18n:getText("npc_hud_failed") or "Failed: %s", favor.description or favor.npcName)
         self.npcSystem.favorHUD:flashFavor(msg, {1, 0.3, 0.3, 1})
     end
@@ -1018,10 +1183,20 @@ function NPCFavorSystem:abandonFavor(favorId)
     if not favor then
         return false
     end
-    
+
+    -- RSF-F148: a paused / recovery record cannot be abandoned by any caller.
+    if self.isFavorInRecovery ~= nil and self:isFavorInRecovery(favor) then
+        return false
+    end
+    -- RSF-F357: the same person must be live and unique.
+    if self.resolveFavorPerson ~= nil and self:resolveFavorPerson(favor) == nil then
+        return false
+    end
+
     -- Update status
     favor.status = "abandoned"
     favor.abandonTime = g_currentMission.time
+    if self.retireRecoveryToken ~= nil then self:retireRecoveryToken(favor) end
     
     -- Move to abandoned list
     table.insert(self.abandonedFavors, favor)
@@ -1058,7 +1233,7 @@ function NPCFavorSystem:abandonFavor(favorId)
     end
     
     -- Flash notification on HUD
-    if self.npcSystem.favorHUD then
+    if self.npcSystem.favorHUD and (self.mayFlashFavor == nil or self:mayFlashFavor(favor)) then
         local msg = string.format(g_i18n:getText("npc_hud_cancelled") or "Cancelled: %s", favor.description or favor.npcName)
         self.npcSystem.favorHUD:flashFavor(msg, {1, 0.5, 0.3, 1})
     end
@@ -1070,14 +1245,33 @@ function NPCFavorSystem:applyFavorRewards(favor)
     if not favor.reward then
         return
     end
-    
-    -- Find NPC
-    local npc = nil
-    for _, n in ipairs(self.npcSystem.activeNPCs) do
-        if n.id == favor.npcId then
-            npc = n
-            break
-        end
+
+    -- RSF-F148 function-level guards: no reward for a paused / recovery
+    -- record, and none without an ordinary owner farm, checked before the
+    -- relationship change so nothing is half-applied.
+    if self.isFavorInRecovery ~= nil and self:isFavorInRecovery(favor) then
+        return
+    end
+    if not NPCFarmIdentity.isOrdinaryFarmId(favor.ownerFarmId) then
+        print(string.format("[NPC Favor] Reward skipped: favor %s has no ordinary owner farm (%s)",
+            tostring(favor.id), tostring(favor.ownerFarmId)))
+        return
+    end
+
+    -- Find NPC. RSF-F357: only the same live unique person is rewarded.
+    local npc = self:resolveFavorPerson(favor)
+    if npc == nil then
+        print(string.format("[NPC Favor] Reward skipped: favor %s names no live unique person (%s)",
+            tostring(favor.id), tostring(favor.npcId)))
+        return
+    end
+
+    -- NPC-204 contributed mode: the declared reward is paid once, relationship
+    -- and money alike under rewardPaid, with no loan return and no perfect
+    -- bonus. It adds no money write of its own.
+    local contributed = NPCCompanion ~= nil and NPCCompanion.isContributed(favor)
+    if contributed and favor.rewardPaid ~= false then
+        return
     end
     
     if npc then
@@ -1091,16 +1285,17 @@ function NPCFavorSystem:applyFavorRewards(favor)
         end
         
         -- Every payout targets the owning farm (stamped at accept), never the local
-        -- player, so rewards land correctly on a dedicated server. Resolve+persist a
-        -- default for any legacy favor that predates farm-attribution.
-        local farmId = favor.ownerFarmId or self:resolveOwnerFarmId(favor)
-        favor.ownerFarmId = farmId
+        -- player, so rewards land correctly on a dedicated server. RSF-F148: the
+        -- owner was verified as an ordinary live farm at the top of this function
+        -- (the invalid sentinel 15 is nobody); no default farm is resolved and
+        -- nothing is written back onto the record.
+        local farmId = favor.ownerFarmId
         local payMoney = not favor.rewardPaid
 
         -- Return the loan principal to the owning farm when a loan favor completes
         -- (the NPC pays you back). Guarded by repaymentCollected so a reconnect or a
         -- double-complete cannot collect it twice. Replaces the old inline dialog payout.
-        if favor.type == "loan_money" and not favor.repaymentCollected then
+        if not contributed and favor.type == "loan_money" and not favor.repaymentCollected then
             local loanAmount = (favor.taskData and favor.taskData.loanAmount) or 5000
             g_currentMission:addMoney(loanAmount, farmId, MoneyType.OTHER, true)
             favor.repaymentCollected = true
@@ -1126,7 +1321,7 @@ function NPCFavorSystem:applyFavorRewards(favor)
         -- 4m: Bonus rewards for perfect completion
         -- Perfect = completed well before deadline (>50% time remaining)
         local isPerfect = false
-        if favor.completionDuration and favor.expirationTime and favor.createdTime then
+        if not contributed and favor.completionDuration and favor.expirationTime and favor.createdTime then
             local totalTime = favor.expirationTime - favor.createdTime
             local timeUsed = favor.completionDuration
             if totalTime > 0 and timeUsed < totalTime * 0.5 then
@@ -1165,6 +1360,7 @@ function NPCFavorSystem:applyFavorRewards(favor)
         if payMoney then
             favor.rewardPaid = true
         end
+        if self.bumpRecordRevision ~= nil then self:bumpRecordRevision(favor) end
 
         -- Log for debugging
         if self.npcSystem.settings.debugMode then
@@ -1179,16 +1375,15 @@ function NPCFavorSystem:applyFavorPenalties(favor)
     if not favor.penalty then
         return
     end
-    
-    -- Find NPC
-    local npc = nil
-    for _, n in ipairs(self.npcSystem.activeNPCs) do
-        if n.id == favor.npcId then
-            npc = n
-            break
-        end
+
+    -- RSF-F148: no penalty for a paused / recovery record.
+    if self.isFavorInRecovery ~= nil and self:isFavorInRecovery(favor) then
+        return
     end
-    
+
+    -- Find NPC. RSF-F357: only the same live unique person takes a penalty.
+    local npc = self:resolveFavorPerson(favor)
+
     if npc then
         -- Update relationship
         if favor.penalty.relationship then
@@ -1281,46 +1476,53 @@ function NPCFavorSystem:getActiveFavorForNPC(npcId)
     return nil
 end
 
---- Resolve the owning farm for a favor whose ownerFarmId is missing. Used to migrate
--- in-flight favors saved before farm-attribution existed, and as a defensive default.
--- Prefers the host / single-player local farm; on a dedicated server (no local player)
--- falls back to the first valid non-spectator farm, then to farm 1. Logs the default so
--- a migrated favor is traceable.
+--- Resolve the LOCAL acting farm as a claim (RSF-F148). The former version
+-- defaulted to the first farm and then to farm 1, which is how a reloaded
+-- record could quietly attach to whoever was around. It now answers only with
+-- the current local farm from g_currentMission:getFarmId() when that is an
+-- ordinary farm, and nil otherwise. Nil means unavailable, never farm 0 or 1.
+-- The server never trusts this value; NPCInteractionEvent:run re-resolves the
+-- acting farm from the requesting connection.
 function NPCFavorSystem:resolveOwnerFarmId(favor)
-    local farmId = nil
-    if g_currentMission and g_currentMission.player and g_currentMission.player.farmId
-        and g_currentMission.player.farmId ~= FarmManager.SPECTATOR_FARM_ID then
-        farmId = g_currentMission.player.farmId
-    elseif g_farmManager and g_farmManager.getFarms then
-        for _, farm in ipairs(g_farmManager:getFarms()) do
-            if farm.farmId and farm.farmId ~= FarmManager.SPECTATOR_FARM_ID then
-                farmId = farm.farmId
-                break
-            end
-        end
+    local farmId = NPCFarmIdentity.localClaimFarmId()
+    if farmId == nil then
+        print(string.format("[NPC Favor] Favor '%s' (npc %s): no ordinary local farm available; owner left unset",
+            tostring(favor and favor.type or "?"), tostring(favor and favor.npcId or "?")))
     end
-    farmId = farmId or 1
-    print(string.format("[NPC Favor] Favor '%s' (npc %s) had no owner farm; defaulted to farm %d",
-        tostring(favor and favor.type or "?"), tostring(favor and favor.npcId or "?"), farmId))
     return farmId
 end
 
 --- Transition the pending favor for npcId to active (player has accepted it).
 -- @param npcId  the NPC whose pending favor is being accepted
--- @param farmId (optional) the acting user's farm, validated server-side by
---        NPCInteractionEvent:run. Stamped as favor.ownerFarmId so every money site
---        pays the accepting farm, never the local player (nil on a dedicated server).
--- @return the favor table if found, nil otherwise
+-- @param farmId the acting farm. On the server this is the value already
+--        validated by NPCInteractionEvent:run; on a client it is a claim that the
+--        server re-resolves. It must be an ordinary live farm or the accept is
+--        refused; no default farm is ever stamped (RSF-F148).
+-- @return the favor table if accepted, nil otherwise
 function NPCFavorSystem:acceptFavorForNPC(npcId, farmId)
+    if self.isFavorLoadReady ~= nil and not self:isFavorLoadReady() then
+        return nil
+    end
+    -- A nil farm is refused outright: the server never falls back to the
+    -- host's local farm for a request that arrived without one.
+    if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+        print(string.format("[NPC Favor] Accept refused for npc %s: acting farm %s is not an ordinary farm",
+            tostring(npcId), tostring(farmId)))
+        return nil
+    end
+    -- RSF-F357: the offer's person must be the same live unique person.
+    if self.resolveFavorPerson ~= nil and self:resolveFavorPerson({ npcId = npcId }) == nil then
+        print(string.format("[NPC Favor] Accept refused for npc %s: no live unique person", tostring(npcId)))
+        return nil
+    end
     for _, favor in ipairs(self.activeFavors) do
-        if favor.npcId == npcId and favor.status == "pending" then
+        if favor.npcId == npcId and favor.status == "pending"
+            and not (NPCCompanion ~= nil and NPCCompanion.isContributed(favor)) then
             favor.status = "active"
             favor.startTime = TimeHelper.getGameTimeMs()
-            if farmId and farmId ~= FarmManager.SPECTATOR_FARM_ID then
-                favor.ownerFarmId = farmId
-            elseif not favor.ownerFarmId then
-                favor.ownerFarmId = self:resolveOwnerFarmId(favor)
-            end
+            favor.ownerFarmId = farmId
+            favor.ownerFarmIdPresent = true
+            if self.bumpRecordRevision ~= nil then self:bumpRecordRevision(favor) end
             if self.npcSystem.favorHUD then
                 local msg = string.format("Favor accepted: %s", favor.description or favor.name or "")
                 self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1.0, 0.3, 1})
@@ -1340,12 +1542,24 @@ end
 -- marks the favor, and adds a 15% reward bonus.
 -- Returns the created favor, or nil if the NPC already has one, has nothing eligible,
 -- or (when playerInitiated) the NPC declines.
-function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
+function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated, actingFarmId)
     if not npc or not npc.isActive then return nil end
+    if self.isFavorLoadReady ~= nil and not self:isFavorLoadReady() then return nil end
+    -- RSF-F357: only a unique live durable person can be offered help.
+    if self.isPersonActionable ~= nil and not self:isPersonActionable(npc) then return nil end
 
     -- If this NPC already has any favor (pending or active), don't create another
     for _, favor in ipairs(self.activeFavors) do
         if favor.npcId == npc.id then return nil end
+    end
+
+    -- RSF-F148: a structurally resumable recovery record holds this slot.
+    if self.isNPCReservedByRecovery ~= nil and self:isNPCReservedByRecovery(npc.id) then
+        return nil
+    end
+    -- NPC-204: so does an open companion job, active or held in Recovery.
+    if self.isPersonHeldByContribution ~= nil and self:isPersonHeldByContribution(npc.id) then
+        return nil
     end
 
     -- Personality-based decline when player proactively offers
@@ -1362,7 +1576,7 @@ function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
 
     local available = {}
     for _, favorType in ipairs(self.favorTypes) do
-        if self:checkFavorRequirements(npc, favorType) then
+        if self:checkFavorRequirements(npc, favorType, actingFarmId) then
             table.insert(available, favorType)
         end
     end
@@ -1402,236 +1616,17 @@ function NPCFavorSystem:generateFavorForNPC(npc, playerInitiated)
             end
         end
         table.insert(self.activeFavors, favor)
+        if self.assignRecoveryToken ~= nil then self:assignRecoveryToken(favor) end
         local cooldownDays = (self.npcSystem.settings and self.npcSystem.settings.favorFrequency) or 3
         npc.favorCooldown = cooldownDays * 300
     end
     return favor
 end
 
---- Restore an active favor from saved data (called during loadFromXMLFile).
--- Reconstructs the favor structure from minimal saved fields and re-inserts it
--- into the active favors list with recalculated expiration time.
--- @param savedFavor  Table with npcId, npcName, type, description, timeRemaining, progress, reward
-function NPCFavorSystem:restoreFavor(savedFavor)
-    if not savedFavor or not savedFavor.type or savedFavor.type == "" then
-        return
-    end
+--- restoreFavor(savedFavor, staging) lives in NPCFavorRecovery.lua (RSF-F148).
+-- It classifies a saved row into activeFavors or recoveryFavors, never forces a
+-- status, never resolves a default owner, and does its NPC/step work once.
 
-    -- Look up the favor type definition
-    local favorType = nil
-    for _, ft in ipairs(self.favorTypes) do
-        if ft.id == savedFavor.type then
-            favorType = ft
-            break
-        end
-    end
-
-    -- Resolve NPC (id first, then name) so generateFavorSteps can use homePosition.
-    -- Favors restore after NPCs on both XML and StateLedger load paths.
-    local npc = nil
-    if self.npcSystem and self.npcSystem.activeNPCs then
-        local npcId = savedFavor.npcId
-        if npcId ~= nil then
-            for _, candidate in ipairs(self.npcSystem.activeNPCs) do
-                if candidate.id == npcId then
-                    npc = candidate
-                    break
-                end
-            end
-        end
-        if not npc then
-            local npcName = savedFavor.npcName
-            if npcName and npcName ~= "" then
-                for _, candidate in ipairs(self.npcSystem.activeNPCs) do
-                    if candidate.name == npcName then
-                        npc = candidate
-                        break
-                    end
-                end
-            end
-        end
-    end
-
-    -- Regenerate steps (save does not persist the step list). Empty steps soft-locks
-    -- progress checks, HUD next-step arrow, and Complete dialog after reload.
-    local steps = {}
-    if favorType then
-        if not npc then
-            print(string.format(
-                "[NPC Favor] restoreFavor: NPC id=%s name=%s missing; regenerating steps with fallback",
-                tostring(savedFavor.npcId), tostring(savedFavor.npcName)))
-            npc = {
-                id = savedFavor.npcId or 0,
-                name = savedFavor.npcName or "",
-                homePosition = nil,
-                assignedField = nil,
-            }
-        end
-        steps = self:generateFavorSteps(favorType, npc)
-    else
-        print(string.format(
-            "[NPC Favor] restoreFavor: unknown favor type '%s'; using one-step fallback",
-            tostring(savedFavor.type)))
-        steps = {{id = 1, description = "Complete the task", completed = false, location = nil}}
-    end
-
-    -- Map saved progress percent onto completed step flags (same ratio as checkFavorProgress).
-    -- Do not call completeFavor here even at 100% — leave confirmation / dialog paths intact.
-    local n = #steps
-    local savedProgress = tonumber(savedFavor.progress) or 0
-    local done = 0
-    if n > 0 then
-        done = math.floor((savedProgress / 100) * n + 0.5)
-        if done < 0 then
-            done = 0
-        elseif done > n then
-            done = n
-        end
-        for i = 1, done do
-            steps[i].completed = true
-        end
-    end
-
-    local currentStep = 1
-    if n > 0 then
-        currentStep = steps[n].id or n
-        for i, step in ipairs(steps) do
-            if not step.completed then
-                currentStep = step.id or i
-                break
-            end
-        end
-    end
-
-    -- Resolve NPC (id first, then name) so generateFavorSteps can use homePosition.
-    -- Favors restore after NPCs on both XML and StateLedger load paths.
-    local npc = nil
-    if self.npcSystem and self.npcSystem.activeNPCs then
-        local npcId = savedFavor.npcId
-        if npcId ~= nil then
-            for _, candidate in ipairs(self.npcSystem.activeNPCs) do
-                if candidate.id == npcId then
-                    npc = candidate
-                    break
-                end
-            end
-        end
-        if not npc then
-            local npcName = savedFavor.npcName
-            if npcName and npcName ~= "" then
-                for _, candidate in ipairs(self.npcSystem.activeNPCs) do
-                    if candidate.name == npcName then
-                        npc = candidate
-                        break
-                    end
-                end
-            end
-        end
-    end
-
-    -- Regenerate steps (save does not persist the step list). Empty steps soft-locks
-    -- progress checks, HUD next-step arrow, and Complete dialog after reload.
-    local steps = {}
-    if favorType then
-        if not npc then
-            print(string.format(
-                "[NPC Favor] restoreFavor: NPC id=%s name=%s missing; regenerating steps with fallback",
-                tostring(savedFavor.npcId), tostring(savedFavor.npcName)))
-            npc = {
-                id = savedFavor.npcId or 0,
-                name = savedFavor.npcName or "",
-                homePosition = nil,
-                assignedField = nil,
-            }
-        end
-        steps = self:generateFavorSteps(favorType, npc)
-    else
-        print(string.format(
-            "[NPC Favor] restoreFavor: unknown favor type '%s'; using one-step fallback",
-            tostring(savedFavor.type)))
-        steps = {{id = 1, description = "Complete the task", completed = false, location = nil}}
-    end
-
-    -- Map saved progress percent onto completed step flags (same ratio as checkFavorProgress).
-    -- Do not call completeFavor here even at 100% — leave confirmation / dialog paths intact.
-    local n = #steps
-    local savedProgress = tonumber(savedFavor.progress) or 0
-    local done = 0
-    if n > 0 then
-        done = math.floor((savedProgress / 100) * n + 0.5)
-        if done < 0 then
-            done = 0
-        elseif done > n then
-            done = n
-        end
-        for i = 1, done do
-            steps[i].completed = true
-        end
-    end
-
-    local currentStep = 1
-    if n > 0 then
-        currentStep = steps[n].id or n
-        for i, step in ipairs(steps) do
-            if not step.completed then
-                currentStep = step.id or i
-                break
-            end
-        end
-    end
-
-    local currentGameTime = TimeHelper.getGameTimeMs()
-
-    local favor = {
-        id = #self.activeFavors + #self.completedFavors + #self.failedFavors + 1,
-        npcId = savedFavor.npcId or 0,
-        npcName = savedFavor.npcName or "",
-        type = savedFavor.type,
-        name = favorType and favorType.name or savedFavor.type,
-        description = savedFavor.description or (favorType and favorType.description or ""),
-        difficulty = favorType and favorType.difficulty or 1,
-        category = favorType and favorType.category or "misc",
-
-        status = "active",
-        progress = savedProgress,
-        progressDetails = {},
-
-        createdTime = currentGameTime,
-        expirationGameTime = currentGameTime + (savedFavor.timeRemaining or 0),
-        timeRemaining = savedFavor.timeRemaining or 0,
-        estimatedCompletionTime = nil,
-
-        requirements = favorType and favorType.requirements or {},
-        reward = favorType and favorType.reward or (type(savedFavor.reward) == "table" and savedFavor.reward or { relationship = 10, money = tonumber(savedFavor.reward) or 0, xp = 0 }),
-        penalty = favorType and favorType.penalty or { relationship = -5, reputation = -10 },
-
-        location = nil,
-        taskData = {
-            loanAmount          = savedFavor.loanAmount or nil,
-            loanAmountDeducted  = savedFavor.loanAmountDeducted or false,
-        },
-        ownerFarmId          = savedFavor.ownerFarmId,
-        rewardPaid           = savedFavor.rewardPaid or false,
-        repaymentCollected   = savedFavor.repaymentCollected or false,
-        awaitingConfirmation = savedFavor.awaitingConfirmation or false,
-        startTime = currentGameTime,
-        completionTime = nil,
-        completionDuration = nil,
-        playerNotes = "",
-        priority = 1,
-        currentStep = currentStep,
-        totalSteps = n > 0 and n or 1,
-        steps = steps
-    }
-
-    -- Migrate legacy in-flight favors saved before farm-attribution: give them an
-    -- owning farm once (logged in resolveOwnerFarmId) so their money lands correctly.
-    if not favor.ownerFarmId then
-        favor.ownerFarmId = self:resolveOwnerFarmId(favor)
-    end
-
-    table.insert(self.activeFavors, favor)
-end
 
 function NPCFavorSystem:getCompletedFavors()
     return self.completedFavors
@@ -1770,6 +1765,7 @@ end
 -- @return favor table or nil
 function NPCFavorSystem:triggerContextualFavor(npc, context)
     if not npc or not npc.isActive then return nil end
+    if self.isFavorLoadReady ~= nil and not self:isFavorLoadReady() then return nil end
     if not self:canNPCRequestFavor(npc) then return nil end
 
     -- Category bias by context

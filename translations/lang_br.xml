@@ -147,13 +147,14 @@
 		<text name="input_FAVOR_MENU" text="Menu de favores" />
 		<text name="input_NPC_LIST" text="Lista NPC" />
 			<text name="npc_schedule_plans" text="Meus planos:" />
-		<text name="input_HUD_EDIT_MODE" text="Alternar edição do HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Alternar edição do HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Arraste para mover | Cantos para redimensionar" />
 		<text name="npc_hud_locked_short" text="Bloquear HUD de favores" />
 		<text name="npc_hud_locked_long" text="Quando bloqueado, a lista de favores não pode ser movida ou redimensionada" />
 		<text name="npc_hud_scale_short" text="Tamanho do HUD" />
 		<text name="npc_panel_scale_short" text="[EN] Settings Panel Scale"/>
-		<text name="npc_panel_scale_long" text="[EN] Size of the F5 settings panel (independent of the favor HUD)"/>
+		<text name="npc_panel_scale_long" text="[EN] Size of the NPC Settings settings panel (independent of the favor HUD)"/>
 		<text name="npc_hud_scale_long" text="Tamanho da lista de favores ativos na tela" />
 		<text name="npc_admin_title" text="Painel Admin NPC" />
 		<text name="npc_admin_subtitle_fmt" text="%d NPCs ativos  |  Clique Editar para ajustar" />
@@ -209,7 +210,7 @@
 		<text name="npc_panel_hdr_admin_actions"    text="Admin Actions" />
 		<!-- UI strings -->
 		<text name="npc_panel_btn_back"             text="Back" />
-		<text name="npc_panel_btn_close_hint"       text="F5 to close" />
+		<text name="npc_panel_btn_close_hint"       text="NPC Settings to close" />
 		<text name="npc_panel_btn_open"             text="Open" />
 		<text name="npc_panel_btn_configure"        text="Configure" />
 		<text name="npc_panel_btn_reset"            text="Reset Category" />
@@ -310,7 +311,7 @@
 		<text name="npc_schedule_now_marker" text="&lt;- AGORA" />
 
 		<!-- Esc RF PDA NPC Favor densify 2026-08-05 -->
-		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. When a favor is waiting on you, the line above the table names who and how urgent it is. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
+		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. The groups under the table name what is available, what is current and how many are completed. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
 		<text name="npc_rf_pda_module_title" text="[EN] NPC Favor" />
 		<text name="npc_rf_pda_blurb" text="[EN] Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only." />
 		<text name="npc_rf_pda_col_who" text="[EN] Who" />
@@ -323,13 +324,166 @@
 		<text name="npc_rf_pda_active_none" text="[EN] Active favors: none" />
 		<text name="npc_rf_pda_active_one" text="[EN] Active: %s · %s · %s" />
 		<text name="npc_rf_pda_active_more" text="[EN] and %d more" />
+		<text name="npc_rf_pda_fav_col_group" text="[EN] Group" />
+		<text name="npc_rf_pda_fav_col_who" text="[EN] Who" />
+		<text name="npc_rf_pda_fav_col_what" text="[EN] What" />
+		<text name="npc_rf_pda_fav_col_urgency" text="[EN] Urgency" />
+		<text name="npc_rf_pda_urg_done" text="[EN] done" />
+		<text name="npc_rf_pda_fav_empty" text="[EN] no favors yet" />
 		<text name="npc_rf_pda_showing_of" text="[EN] showing %d of %d" />
 		<text name="npc_rf_pda_more" text="[EN] and %d more" />
 		<text name="npc_rf_pda_hint_sort" text="[EN] %d neighbors · sorted by standing (best first)" />
+		<text name="npc_rf_pda_avail_none" text="[EN] Available: none" />
+		<text name="npc_rf_pda_avail_one" text="[EN] Available: %s · %s" />
+		<text name="npc_rf_pda_current_none" text="[EN] Current: none" />
+		<text name="npc_rf_pda_current_one" text="[EN] Current: %s · %s · %s" />
+		<text name="npc_rf_pda_done_none" text="[EN] Completed: none" />
+		<text name="npc_rf_pda_done_fmt" text="[EN] Completed: %d" />
 		<text name="npc_rf_pda_trend_warming" text="[EN] warming" />
 		<text name="npc_rf_pda_trend_cooling" text="[EN] cooling" />
 		<text name="npc_rf_pda_urg_min" text="[EN] &lt;1h" />
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
+		<text name="npc_notice_loaded" text="NPC Favor v%s pronto. Seus vizinhos estão se instalando." />
+		<text name="npc_recovery_title" text="Recuperação de favores (%d)"/>
+		<text name="npc_recovery_subtitle" text="Favores em pausa e recuperados. Nada aqui avança ou paga até que o retomes."/>
+		<text name="npc_recovery_btn_recovery" text="Recuperação (%d)"/>
+		<text name="npc_recovery_btn_active" text="Favores ativos"/>
+		<text name="npc_recovery_btn_resume" text="Retomar"/>
+		<text name="npc_recovery_btn_assign" text="Atribuir"/>
+		<text name="npc_recovery_page" text="Página %d / %d"/>
+		<text name="npc_recovery_empty" text="Não há favores em pausa nem recuperados."/>
+		<text name="npc_recovery_footer" text="Retomar mantém o progresso e os pagamentos salvos. Atribuir é para o trabalho de uma fazenda excluída e exige uma fazenda de destino escolhida explicitamente."/>
+		<text name="npc_recovery_unavailable" text="A recuperação não está disponível até o jogo ser recarregado."/>
+		<text name="npc_recovery_tag_paused" text="Em pausa"/>
+		<text name="npc_recovery_tag_resumed" text="Retomado"/>
+		<text name="npc_recovery_tag_pending" text="Oferta"/>
+		<text name="npc_recovery_time" text="Restante: %s (%d%% feito)"/>
+		<text name="npc_recovery_time_unknown" text="Tempo restante indisponível"/>
+		<text name="npc_recovery_field_unknown" text="campo desconhecido, sem proteção do campo"/>
+		<text name="npc_recovery_owner" text="Proprietário: "/>
+		<text name="npc_recovery_owner_unknown" text="proprietário desconhecido"/>
+		<text name="npc_recovery_loan" text="Empréstimo %s, entregue: %s, devolvido: %s"/>
+		<text name="npc_recovery_reward_paid" text="Recompensa paga: %s"/>
+		<text name="npc_recovery_yes" text="sim"/>
+		<text name="npc_recovery_no" text="não"/>
+		<text name="npc_recovery_unknown" text="desconhecido"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Salvo antes de a aceitação ser registrada"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Não foi possível determinar a fazenda proprietária"/>
+		<text name="npc_recovery_reason_invalid_record" text="O registro salvo está incompleto ou inconsistente"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="A fazenda proprietária foi excluída"/>
+		<text name="npc_recovery_reason_unknown_token" text="Registro não reconhecido"/>
+		<text name="npc_recovery_unavail_type" text="O tipo de favor já não está disponível"/>
+		<text name="npc_recovery_unavail_facts" text="Dados de pagamento incompletos, apenas consulta"/>
+		<text name="npc_recovery_unavail_reason" text="Mantido apenas para consulta"/>
+		<text name="npc_recovery_unavail_owner" text="Nenhuma fazenda pode retomar este registro"/>
+		<text name="npc_recovery_picker_choose" text="Atribuir a: Escolha uma fazenda"/>
+		<text name="npc_recovery_picker_selected" text="Atribuir a: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Escolha primeiro uma fazenda de destino."/>
+		<text name="npc_recovery_confirm_title" text="Recuperação de favor"/>
+		<text name="npc_recovery_confirm_resume" text="Retomar este favor para a sua fazenda?"/>
+		<text name="npc_recovery_confirm_assign" text="Atribuir este favor a %s (#%d) e retomá-lo?"/>
+		<text name="npc_recovery_confirm_complete" text="Pedir ao vizinho para fechar este favor recuperado?"/>
+		<text name="npc_recovery_confirm_abandon" text="Cancelar este favor recuperado? Aplica-se a penalização por abandono."/>
+		<text name="npc_recovery_confirm_no_money" text="Retomar não move dinheiro por si só."/>
+		<text name="npc_recovery_ok_resumed" text="Favor retomado."/>
+		<text name="npc_recovery_ok_completed" text="Favor concluído."/>
+		<text name="npc_recovery_ok_abandoned" text="Favor cancelado."/>
+		<text name="npc_recovery_no_longer_paused" text="Esse favor já não está em pausa."/>
+		<text name="npc_recovery_refused_stale" text="Esse registro mudou. A lista foi atualizada."/>
+		<text name="npc_recovery_refused_operation" text="Essa ação não é permitida."/>
+		<text name="npc_recovery_refused_request_reuse" text="Esse pedido já foi usado."/>
+		<text name="npc_recovery_refused_not_resumable" text="Este registro não pode ser retomado pela sua fazenda."/>
+		<text name="npc_recovery_refused_not_owner" text="Só a fazenda que aceitou este favor pode agir sobre ele."/>
+		<text name="npc_recovery_refused_not_admin" text="Só o anfitrião ou um administrador pode atribuir um favor."/>
+		<text name="npc_recovery_refused_not_assignable" text="Este registro não pode ser atribuído."/>
+		<text name="npc_recovery_refused_owner_valid" text="Este favor ainda tem um proprietário válido."/>
+		<text name="npc_recovery_refused_target" text="Escolha uma fazenda existente como destino."/>
+		<text name="npc_recovery_refused_view" text="A lista de fazendas mudou. Escolha a fazenda novamente."/>
+		<text name="npc_recovery_refused_live_job" text="Esse vizinho já tem um favor em andamento. Termine-o primeiro."/>
+		<text name="npc_recovery_refused_not_live" text="Esse favor não é um favor recuperado em andamento."/>
+		<text name="npc_recovery_no_local_farm" text="Você precisa pertencer a uma fazenda para aceitar um favor."/>
+		<text name="npc_recovery_dialog_use_view" text="Este é um favor recuperado. Termine ou cancele pelo menu de favores."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Deixe-me conferir esse trabalho recuperado nas minhas anotações."/>
+		<text name="npc_recovery_unavail_time" text="Tempo restante desconhecido, apenas consulta"/>
+		<text name="npc_recovery_unavail_npc" text="Esse vizinho não está mais aqui, apenas consulta"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: os favores salvos não puderam ser lidos e ficaram intactos no disco. Os favores estão indisponíveis, e o progresso dos NPCs e os favores não são salvos nesta sessão."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: os favores salvos não puderam ser lidos e ficaram intactos no disco. Os favores estão indisponíveis e não são salvos nesta sessão. O progresso dos NPCs continua sendo salvo."/>
+		<text name="npc_mgmt_title_active" text="Favores ativos (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Gerencie seus favores ativos"/>
+		<text name="npc_mgmt_game_time" text="Hora do jogo: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Cancelar aplica a penalidade por abandono  |  Concluir pede ao vizinho para fechar o favor"/>
+		<text name="npc_mgmt_footer_paging" text="Mostrando %d de %d favores  |  Cancelar aplica a penalidade por abandono"/>
+		<text name="npc_mgmt_btn_view" text="Ver"/>
+		<text name="npc_mgmt_btn_goto" text="Ir"/>
+		<text name="npc_mgmt_btn_cancel" text="Cancelar"/>
+		<text name="npc_mgmt_btn_done" text="Concluir"/>
+		<text name="npc_person_loading" text="Seus vizinhos ainda estão carregando."/>
+		<text name="npc_person_failed" text="Não foi possível ler os vizinhos salvos; eles ficaram intactos no disco."/>
+		<text name="npc_person_waiting_count" text="Em espera: a cidade está cheia com o número atual de vizinhos."/>
+		<text name="npc_person_waiting_home" text="Esperando por uma casa."/>
+		<text name="npc_person_waiting_companion" text="Esperando pelo mod companheiro do consultor."/>
+		<text name="npc_person_kept_legacy" text="Mantido de antes da atualização; ainda não é um vizinho verificado."/>
+		<text name="npc_person_identity_conflict" text="Conflito de identidade: mais de um registro salvo reivindica esta pessoa."/>
+		<text name="npc_person_presence" text="Trabalhador contratado, apenas observado."/>
+		<text name="npc_person_presence_unavailable" text="Trabalhador contratado, visto aqui pela última vez; a lista de trabalhadores não pode ser lida agora."/>
+		<text name="npc_person_opaque" text="Um registro salvo mantido como evidência; ele não identifica nenhum vizinho."/>
+		<text name="npc_person_exhausted" text="Não é possível criar um novo vizinho: os números de identidade acabaram."/>
+		<text name="npc_person_snapshot_too_large" text="A lista de vizinhos é grande demais para ser enviada aos outros jogadores."/>
+		<text name="npc_person_snapshot_partial" text="A lista de vizinhos chegou incompleta; mostrando a última confirmada."/>
+		<text name="npc_person_names_exhausted" text="Não sobrou nenhum nome livre para um novo vizinho; um lugar fica vazio."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: não foi possível ler os vizinhos salvos; eles ficaram intactos no disco. A cidade está indisponível e nada é salvo nesta sessão."/>
+		<text name="npc_person_consultant_absent" text="Nenhum consultor está presente."/>
+		<text name="npc_recovery_unavail_person" text="Este trabalho não pode ser vinculado ao mesmo vizinho; mantido apenas para consulta."/>
+		<text name="npc_recovery_unavail_waiting" text="Esse vizinho está salvo, mas não está presente no momento; o trabalho espera."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Vizinho salvo, mas não presente"/>
+		<text name="npc_recovery_reason_person_unproven" text="Não pode ser vinculado ao mesmo vizinho"/>
+		<text name="npc_person_server_only" text="Apenas o anfitrião pode registrar um consultor."/>
+		<text name="npc_person_bad_claim" text="A solicitação do consultor foi recusada: o nome ou a posição não eram utilizáveis."/>
+		<text name="npc_dialog_pending" text="Perguntando ao vizinho..."/>
+		<text name="npc_dialog_unavailable" text="Indisponível no momento."/>
+		<text name="npc_dialog_refused_person" text="Esse vizinho não está aqui para conversar."/>
+		<text name="npc_dialog_refused_far" text="Você está longe demais para fazer isso."/>
+		<text name="npc_dialog_refused_farm" text="Você precisa estar em uma fazenda para fazer isso."/>
+		<text name="npc_dialog_refused_stale" text="Essa oferta mudou. Deixe-me olhar de novo."/>
+		<text name="npc_dialog_refused_request_reuse" text="Esse pedido já recebeu outra resposta."/>
+		<text name="npc_dialog_refused_relationship" text="Esse vizinho ainda não conhece você bem o bastante."/>
+		<text name="npc_dialog_refused_not_ready" text="Esse trabalho ainda não está pronto para ser fechado."/>
+		<text name="npc_dialog_refused_operation" text="Isso não pode ser feito aqui."/>
+		<text name="npc_dialog_talk_ok" text="Obrigado pela conversa."/>
+		<text name="npc_dialog_talk_limit" text="(Já conversamos hoje, sem mudança na relação)"/>
+		<text name="npc_dialog_tone_warm" text="É sempre bom ver você."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Você de novo."/>
+		<text name="npc_dialog_tone_cool" text="Ah. Oi."/>
+		<text name="npc_dialog_declined" text="Por enquanto estou bem, mas obrigado."/>
+		<text name="npc_dialog_no_work" text="Não preciso de nada agora, mas obrigado por perguntar!"/>
+		<text name="npc_dialog_offer" text="Tenho algo para você."/>
+		<text name="npc_dialog_offer_waiting" text="Tenho algo para você: %s"/>
+		<text name="npc_dialog_accepted" text="Obrigado! Preciso muito da sua ajuda."/>
+		<text name="npc_dialog_accepted_short" text="Obrigado! Preciso muito da sua ajuda."/>
+		<text name="npc_dialog_completed" text="Muito obrigado pela ajuda! Aqui está sua recompensa."/>
+		<text name="npc_dialog_abandoned" text="Tudo bem, esquece então."/>
+		<text name="npc_dialog_busy" text="Já estou ajudando outra fazenda com isso. Volte mais tarde!"/>
+		<text name="npc_dialog_come_find_me" text="Venha me encontrar em casa. Preciso ver você pessoalmente para fechar isso!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Ocupado com outra fazenda"/>
+		<text name="npc_dialog_gift_ok" text="Obrigado pelo presente!"/>
+		<text name="npc_dialog_gift_refused" text="Não foi possível entregar o presente."/>
+		<text name="npc_dialog_ok" text="Feito."/>
+		<text name="npc_work_view_unavailable" text="Sua lista de trabalhos não está disponível no momento."/>
+		<text name="npc_work_view_last_confirmed" text="Mostrando a última lista de trabalhos confirmada; o vizinho ainda não respondeu."/>
+		<text name="npc_work_view_last_confirmed_short" text="última confirmada"/>
+		<text name="npc_rf_pda_completed_count" text="%d concluídos para esta fazenda"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Indisponível aqui: só o anfitrião pode ajustar um vizinho."/>
+		<text name="npc_contrib_generic_title" text="Pedido de um vizinho" />
+		<text name="npc_contrib_generic_desc" text="Um vizinho pediu ajuda à sua fazenda" />
+		<text name="npc_contrib_step_report" text="Fazer o trabalho" />
+		<text name="npc_contrib_step_talk" text="Falar com o vizinho" />
+		<text name="npc_contrib_hold_work_off" text="Em espera: este tipo de trabalho está desativado. Liberar encerra sem custo." />
+		<text name="npc_contrib_hold_companion_missing" text="Em espera: o mod que pediu este trabalho não está carregado. Liberar encerra sem custo." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Em espera: o mod que pediu este trabalho o alterou. Liberar encerra sem custo." />
+		<text name="npc_contrib_let_go" text="Liberar" />
+		<text name="rf_live_key_unbound" text="Não atribuído"/>
+		<text name="rf_live_key_keyboard_unbound" text="Teclado não atribuído"/>
+		<text name="rf_live_key_unavailable" text="indisponível"/>
 </texts>
 </l10n>

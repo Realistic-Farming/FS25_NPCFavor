@@ -1,3 +1,12 @@
+-- 2026-08-22 (Wizard): with MasterHUD installed this mod's own HUD hide/move keys must not
+-- merely be inert, they must not REGISTER at all - that is what removes their rows from the
+-- F1 legend and the Controls list. Probed on TaxMod first: skipping registration does remove
+-- the row, so the pattern is used suite-wide. Only HUD hide/move actions are gated; every
+-- other action this mod registers is untouched.
+local function __rfMhOwnsHudKeys()
+    return ((g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD) ~= nil
+end
+
 -- =========================================================
 -- TODO / FUTURE VISION
 -- =========================================================
@@ -46,8 +55,15 @@
 -- =========================================================
 
 -- Add version tracking
-local modDirectory = g_currentModDirectory
-local modName = g_currentModName
+-- Hot-reload latch (FuelCosts reference): g_currentModDirectory and
+-- g_currentModName are nil on a live re-source, so they are latched into
+-- module globals on first load, with a g_modsDirectory loose-folder fallback.
+NPCFavorModDirectory = NPCFavorModDirectory
+    or g_currentModDirectory
+    or (g_modsDirectory ~= nil and (g_modsDirectory .. "FS25_NPCFavor/") or nil)
+NPCFavorModName = NPCFavorModName or g_currentModName or "FS25_NPCFavor"
+local modDirectory = NPCFavorModDirectory
+local modName = NPCFavorModName
 
 local modItem = g_modManager:getModByName(modName)
 local modVersion = modItem.version
@@ -57,8 +73,14 @@ print("[NPC Favor] Starting mod initialization...")
 --  Define base classes and utilities
 if modDirectory then
     print("[NPC Favor] Loading utility files...")
+    -- Live Controls chord for an InputAction, so hints show the real
+    -- binding rather than a factory default (KEYBINDS-R220-20261006).
+    source(modDirectory .. "src/utils/NpcLiveKeyLabel.lua")
     source(modDirectory .. "src/utils/VectorHelper.lua")
     source(modDirectory .. "src/utils/TimeHelper.lua")
+    source(modDirectory .. "src/utils/NPCFarmIdentity.lua")
+    source(modDirectory .. "src/utils/NPCLandAdmission.lua")
+    source(modDirectory .. "src/utils/NPCReleaseGate.lua")
 
     -- Configuration & settings
     source(modDirectory .. "src/settings/NPCConfig.lua")
@@ -70,11 +92,16 @@ if modDirectory then
     source(modDirectory .. "src/events/NPCStateSyncEvent.lua")
     source(modDirectory .. "src/events/NPCInteractionEvent.lua")
     source(modDirectory .. "src/events/NPCSettingsSyncEvent.lua")
+    source(modDirectory .. "src/events/NPCFavorRecoveryEvents.lua")
+    source(modDirectory .. "src/events/NPCPersonDialogEvents.lua")
 
     -- Core systems in dependency order
     print("[NPC Favor] Loading core systems...")
+    source(modDirectory .. "src/scripts/NPCPersonRoster.lua")
     source(modDirectory .. "src/scripts/NPCRelationshipManager.lua")
     source(modDirectory .. "src/scripts/NPCFavorSystem.lua")
+    source(modDirectory .. "src/scripts/NPCFavorRecovery.lua")
+    source(modDirectory .. "src/scripts/NPCCompanionContribution.lua")
     source(modDirectory .. "src/scripts/NPCEntity.lua")
     source(modDirectory .. "src/scripts/NPCAI.lua")
     source(modDirectory .. "src/scripts/NPCFieldWork.lua")
@@ -99,6 +126,8 @@ if modDirectory then
 
     -- Main coordinator
     source(modDirectory .. "src/NPCSystem.lua")
+    -- RSF-F357 section 9: the dialog dispatcher and the client adapters (methods on NPCSystem)
+    source(modDirectory .. "src/scripts/NPCPersonDialog.lua")
 
     -- Cross-mod integrations (load after the coordinator)
     source(modDirectory .. "src/scripts/NPCFieldSentry.lua")
@@ -110,11 +139,12 @@ if modDirectory then
     source(modDirectory .. "src/integrations/NPCSettingsHubBridge.lua")
 
 -- Esc RF PDA framework joiner (NO-HOST).
-source(g_currentModDirectory .. "src/gui/RfEscModules.lua")
-source(g_currentModDirectory .. "src/gui/RfPdaMenuPage.lua")
-source(g_currentModDirectory .. "src/gui/RfEscBootstrap.lua")
-source(g_currentModDirectory .. "src/gui/RfEscUiDebugger.lua")
-source(g_currentModDirectory .. "src/gui/NpcRfPdaGuest.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscModules.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfPdaMenuPage.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscBootstrap.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/RfEscUiDebugger.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/NpcGuideDialog.lua")
+source((NPCFavorModDirectory or g_currentModDirectory) .. "src/gui/NpcRfPdaGuest.lua")
 
     print("[NPC Favor] All files loaded successfully")
 else
@@ -363,6 +393,9 @@ local npcInteractOriginalFunc = nil
 local favorMenuActionEventId = nil
 local npcListActionEventId = nil
 local hudEditModeActionEventId = nil
+-- [BUILD 10:28] Sibling of the above for the show/hide key. Held so the event can
+-- be found again by the same code that manages hudEditModeActionEventId.
+local hudToggleActionEventId = nil
 local npcSettingsActionEventId = nil
 
 local function npcSettingsActionCallback(self, actionName, inputValue, callbackState, isAnalog)
@@ -463,7 +496,40 @@ local function npcListActionCallback(self, actionName, inputValue, callbackState
 end
 
 -- Toggle HUD Edit Mode via key binding (works on foot and in vehicle)
+--- [BUILD 10:28] Show/hide the favor HUD from the keyboard.
+---
+--- Flips settings.showFavorList, which is the favor HUD's own visibility truth:
+--- NPCFavorHUD:draw and NPCInteractionUI both already honour it, and the Control
+--- Center button flips the same field, so the key and the button cannot disagree.
+--- This deliberately does NOT touch edit mode: moving the panel is the sibling
+--- action's job, and conflating them is what made the two feel unpredictable.
+---
+--- The MasterHUD check repeats the one on the registration below on purpose. The
+--- registration is decided once at load, while MasterHUD presence is what the
+--- suite treats as authoritative at use time, so the callback refuses too rather
+--- than relying on an event that was correct when it was created.
+local function hudToggleActionCallback(self, actionName, inputValue, callbackState, isAnalog)
+    if ((g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD) ~= nil then
+        return
+    end
+    if inputValue <= 0 then return end
+    if npcSystem == nil or npcSystem.settings == nil then
+        print("[NPC Favor] HUD toggle blocked: npcSystem or settings is nil")
+        return
+    end
+    npcSystem.settings.showFavorList = not npcSystem.settings.showFavorList
+    print("[NPC Favor] Favors HUD " ..
+        (npcSystem.settings.showFavorList and "shown" or "hidden") .. " via key")
+end
+
 local function hudEditModeActionCallback(self, actionName, inputValue, callbackState, isAnalog)
+    -- 2026-08-22 (Wizard): MasterHUD takeover. When MasterHUD is installed it owns the
+    -- suite-wide hide/move binds, so this mod's own per-mod key is deliberately inert:
+    -- one surface, one way to reach it. Standalone (no MasterHUD) this runs normally.
+    -- Canonical presence check, the same expression the suite's MasterHUD bridges use.
+    if ((g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD) ~= nil then
+        return
+    end
     if inputValue <= 0 then return end
     print("[NPC Favor] HUD edit callback fired — action=" .. tostring(actionName) .. " inputValue=" .. tostring(inputValue))
     if not npcSystem or not npcSystem.favorHUD then
@@ -572,7 +638,8 @@ local function hookNPCInteractInput()
             end
 
             -- Register Right-click: HUD Edit Mode
-            local hudEditActionId = InputAction.HUD_EDIT_MODE
+            local hudEditActionId = InputAction.NPC_HUD_EDIT
+            if __rfMhOwnsHudKeys() then hudEditActionId = nil end
             if hudEditActionId ~= nil then
                 local success, eventId = g_inputBinding:registerActionEvent(
                     hudEditActionId,
@@ -584,7 +651,28 @@ local function hookNPCInteractInput()
                     hudEditModeActionEventId = eventId
                     g_inputBinding:setActionEventActive(eventId, true)
                     g_inputBinding:setActionEventTextPriority(eventId, GS_PRIO_NORMAL)
-                    g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_HUD_EDIT_MODE") or "Toggle HUD Edit")
+                    g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_NPC_HUD_EDIT") or "Toggle HUD Edit")
+                end
+            end
+
+            -- [BUILD 10:28] Register the show/hide key (default Right Shift and
+            -- backtick). Same MasterHUD gate as the edit key above: with
+            -- MasterHUD installed the suite owns hide and move, so this mod's
+            -- own key stands down and there is still one way to reach it.
+            local hudToggleActionId = InputAction.NPC_TOGGLE_HUD
+            if __rfMhOwnsHudKeys() then hudToggleActionId = nil end
+            if hudToggleActionId ~= nil then
+                local success, eventId = g_inputBinding:registerActionEvent(
+                    hudToggleActionId,
+                    NPCSystem,
+                    hudToggleActionCallback,
+                    false, true, false, false, nil, true
+                )
+                if success and eventId ~= nil then
+                    hudToggleActionEventId = eventId
+                    g_inputBinding:setActionEventActive(eventId, true)
+                    g_inputBinding:setActionEventTextPriority(eventId, GS_PRIO_NORMAL)
+                    g_inputBinding:setActionEventText(eventId, g_i18n:getText("input_NPC_TOGGLE_HUD") or "Toggle Favors HUD")
                 end
             end
 
@@ -634,12 +722,10 @@ if FSBaseMission and FSBaseMission.update then
             end
         end
 
-        -- Auto-exit HUD edit mode if player enters a vehicle
-        if npcSystem.favorHUD and npcSystem.favorHUD.editMode then
-            if g_localPlayer and g_localPlayer.getIsInVehicle and g_localPlayer:getIsInVehicle() then
-                npcSystem.favorHUD:exitEditMode()
-            end
-        end
+        -- 2026-08-22 (Wizard): the old "auto-exit HUD edit when the player is in a
+        -- vehicle" rule is GONE. HUD edit must work in and out of a cab, and with
+        -- MasterHUD suite edit it killed the favor HUD's edit one frame after the
+        -- suite entered it (log: enabled 18:45:07.588, disabled .599).
     end)
 end
 
@@ -719,15 +805,14 @@ if Mission00 and Mission00.onStartMission then
     Mission00.onStartMission = Utils.appendedFunction(
         Mission00.onStartMission,
         function(mission)
-            -- Skip the XML fallback load when StateLedger delivered a state block; the
-            -- ledger applyState (in the first-frame init) owns the load and re-loading the
-            -- XML here would double-restore favors.
-            if npcSystem and npcSystem.isInitialized
-                and not (NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.hasLedgerState()) then
-                local missionInfo = discoverMissionInfo()
-                if missionInfo then
-                    npcSystem:loadFromXMLFile(missionInfo)
-                end
+            -- RSF-F357: the second startup path. The selected person load
+            -- decides the source itself (a registered ledger that has not
+            -- answered keeps WAITING; a delivered block owns the load; a nil
+            -- block permits XML) and does nothing after the first selection,
+            -- so this can never double-restore or choose XML because the
+            -- provider is late.
+            if npcSystem and npcSystem.onStartMissionLoad then
+                npcSystem:onStartMissionLoad(discoverMissionInfo())
             end
         end
     )
@@ -779,7 +864,7 @@ addModEventListener({
         local isGuiOpen = g_gui and (g_gui:getIsGuiVisible() or g_gui:getIsDialogVisible())
 
         -- RMB: exit edit mode only. Edit mode is entered exclusively via the
-        -- HUD_EDIT_MODE key binding — never via right-click — so RMB is never
+        -- NPC_HUD_EDIT key binding — never via right-click — so RMB is never
         -- consumed during normal play, preserving CoursePlay, AutoDrive, etc.
         -- FS25 mouseEvent button numbers: 1=left, 3=right, 2=middle
         if isDown and button == 3 then
@@ -830,3 +915,70 @@ if FSBaseMission ~= nil then
         end
     end)
 end
+
+-- ---------------------------------------------------------
+-- Realistic Farming Control Center: publish runnable delegates.
+--
+-- The delegates repeat the work the key callbacks do rather than calling those
+-- callbacks. Each one starts with "if inputValue <= 0 then return end", so
+-- invoking them with no arguments would compare nil and error. npcSettings also
+-- refuses outright while any GUI or dialog is visible, which is why every entry
+-- here closes the Control Center first.
+--
+-- NPC_INTERACT is deliberately absent: it acts on whichever NPC the player is
+-- standing in front of and has no meaning from a menu. NPC_HUD_EDIT stays
+-- button-less (moving the panel needs the in-world drag). NPC_TOGGLE_HUD gets a
+-- hide/show button below: it flips settings.showFavorList, the favor HUD's own
+-- visibility truth (NPCFavorHUD:draw honours it). All keep their directory row.
+-- ---------------------------------------------------------
+local function registerControlCenterActions()
+    local registry = g_currentMission ~= nil and g_currentMission.rfActionRegistry or nil
+    if registry == nil then return end
+
+    registry.registerAction({
+        action = "FAVOR_MENU", button = "Open", order = 1, closeFirst = true,
+        run = function()
+            if npcSystem ~= nil and npcSystem.isInitialized
+                and DialogLoader ~= nil and DialogLoader.show ~= nil then
+                DialogLoader.show("NPCFavorManagementDialog", "setNPCSystem", npcSystem)
+            end
+        end,
+    })
+
+    registry.registerAction({
+        action = "NPC_LIST", button = "Open", order = 2, closeFirst = true,
+        run = function()
+            if npcSystem ~= nil and npcSystem.isInitialized
+                and DialogLoader ~= nil and DialogLoader.show ~= nil then
+                DialogLoader.show("NPCListDialog", "setNPCSystem", npcSystem)
+            end
+        end,
+    })
+
+    registry.registerAction({
+        action = "NPC_SETTINGS", button = "Open", order = 3, closeFirst = true,
+        run = function()
+            if npcSystem ~= nil and npcSystem.settingsPanel ~= nil then
+                npcSystem.settingsPanel:toggle()
+            end
+        end,
+    })
+
+    -- Per-mod favor HUD hide/show. Flips settings.showFavorList, the visibility
+    -- truth NPCFavorHUD:draw already honours. Live "Hide"/"Show" caption.
+    registry.registerAction({
+        action = "NPC_TOGGLE_HUD", order = 4,
+        button = function()
+            local s = npcSystem ~= nil and npcSystem.settings or nil
+            return (s ~= nil and s.showFavorList) and "Hide" or "Show"
+        end,
+        run = function()
+            if npcSystem == nil or npcSystem.settings == nil then return end
+            npcSystem.settings.showFavorList = not npcSystem.settings.showFavorList
+            return npcSystem.settings.showFavorList and "Favors HUD shown" or "Favors HUD hidden"
+        end,
+    })
+end
+
+Mission00.loadMission00Finished = Utils.appendedFunction(
+    Mission00.loadMission00Finished, registerControlCenterActions)

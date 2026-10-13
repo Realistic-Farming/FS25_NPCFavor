@@ -147,13 +147,14 @@
 		<text name="input_FAVOR_MENU" text="Меню услуг" />
 		<text name="input_NPC_LIST" text="Список NPC" />
 			<text name="npc_schedule_plans" text="Мои планы:" />
-		<text name="input_HUD_EDIT_MODE" text="Переключить редактирование HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Переключить редактирование HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Перетащите для перемещения | Углы для масштабирования" />
 		<text name="npc_hud_locked_short" text="Заблокировать HUD услуг" />
 		<text name="npc_hud_locked_long" text="Когда заблокировано, список услуг нельзя перемещать или масштабировать" />
 		<text name="npc_hud_scale_short" text="Размер HUD услуг" />
 		<text name="npc_panel_scale_short" text="[EN] Settings Panel Scale"/>
-		<text name="npc_panel_scale_long" text="[EN] Size of the F5 settings panel (independent of the favor HUD)"/>
+		<text name="npc_panel_scale_long" text="[EN] Size of the NPC Settings settings panel (independent of the favor HUD)"/>
 		<text name="npc_hud_scale_long" text="Размер списка активных услуг на экране" />
 		<text name="npc_admin_title" text="Админ-панель NPC" />
 		<text name="npc_admin_subtitle_fmt" text="%d активных NPC  |  Нажмите Редактировать для настройки" />
@@ -209,7 +210,7 @@
 		<text name="npc_panel_hdr_admin_actions"    text="Admin Actions" />
 		<!-- UI strings -->
 		<text name="npc_panel_btn_back"             text="Back" />
-		<text name="npc_panel_btn_close_hint"       text="F5 to close" />
+		<text name="npc_panel_btn_close_hint"       text="NPC Settings to close" />
 		<text name="npc_panel_btn_open"             text="Open" />
 		<text name="npc_panel_btn_configure"        text="Configure" />
 		<text name="npc_panel_btn_reset"            text="Reset Category" />
@@ -310,7 +311,7 @@
 		<text name="npc_schedule_now_marker" text="&lt;- СЕЙЧАС" />
 
 		<!-- Esc RF PDA NPC Favor densify 2026-08-05 -->
-		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. When a favor is waiting on you, the line above the table names who and how urgent it is. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
+		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. The groups under the table name what is available, what is current and how many are completed. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
 		<text name="npc_rf_pda_module_title" text="[EN] NPC Favor" />
 		<text name="npc_rf_pda_blurb" text="[EN] Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only." />
 		<text name="npc_rf_pda_col_who" text="[EN] Who" />
@@ -323,13 +324,166 @@
 		<text name="npc_rf_pda_active_none" text="[EN] Active favors: none" />
 		<text name="npc_rf_pda_active_one" text="[EN] Active: %s · %s · %s" />
 		<text name="npc_rf_pda_active_more" text="[EN] and %d more" />
+		<text name="npc_rf_pda_fav_col_group" text="[EN] Group" />
+		<text name="npc_rf_pda_fav_col_who" text="[EN] Who" />
+		<text name="npc_rf_pda_fav_col_what" text="[EN] What" />
+		<text name="npc_rf_pda_fav_col_urgency" text="[EN] Urgency" />
+		<text name="npc_rf_pda_urg_done" text="[EN] done" />
+		<text name="npc_rf_pda_fav_empty" text="[EN] no favors yet" />
 		<text name="npc_rf_pda_showing_of" text="[EN] showing %d of %d" />
 		<text name="npc_rf_pda_more" text="[EN] and %d more" />
 		<text name="npc_rf_pda_hint_sort" text="[EN] %d neighbors · sorted by standing (best first)" />
+		<text name="npc_rf_pda_avail_none" text="[EN] Available: none" />
+		<text name="npc_rf_pda_avail_one" text="[EN] Available: %s · %s" />
+		<text name="npc_rf_pda_current_none" text="[EN] Current: none" />
+		<text name="npc_rf_pda_current_one" text="[EN] Current: %s · %s · %s" />
+		<text name="npc_rf_pda_done_none" text="[EN] Completed: none" />
+		<text name="npc_rf_pda_done_fmt" text="[EN] Completed: %d" />
 		<text name="npc_rf_pda_trend_warming" text="[EN] warming" />
 		<text name="npc_rf_pda_trend_cooling" text="[EN] cooling" />
 		<text name="npc_rf_pda_urg_min" text="[EN] &lt;1h" />
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
+		<text name="npc_notice_loaded" text="NPC Favor v%s готов. Ваши соседи обживаются." />
+		<text name="npc_recovery_title" text="Восстановление услуг (%d)"/>
+		<text name="npc_recovery_subtitle" text="Приостановленные и восстановленные услуги. Здесь ничего не идёт и не оплачивается, пока вы не возобновите."/>
+		<text name="npc_recovery_btn_recovery" text="Восстановление (%d)"/>
+		<text name="npc_recovery_btn_active" text="Активные услуги"/>
+		<text name="npc_recovery_btn_resume" text="Возобновить"/>
+		<text name="npc_recovery_btn_assign" text="Назначить"/>
+		<text name="npc_recovery_page" text="Страница %d / %d"/>
+		<text name="npc_recovery_empty" text="Нет приостановленных или восстановленных услуг."/>
+		<text name="npc_recovery_footer" text="Возобновление сохраняет прогресс и платежи. Назначение предназначено для задания удалённой фермы и требует явно выбранной целевой фермы."/>
+		<text name="npc_recovery_unavailable" text="Восстановление недоступно до перезагрузки игры."/>
+		<text name="npc_recovery_tag_paused" text="Приостановлена"/>
+		<text name="npc_recovery_tag_resumed" text="Возобновлена"/>
+		<text name="npc_recovery_tag_pending" text="Предложение"/>
+		<text name="npc_recovery_time" text="Осталось: %s (%d%% выполнено)"/>
+		<text name="npc_recovery_time_unknown" text="Оставшееся время недоступно"/>
+		<text name="npc_recovery_field_unknown" text="поле неизвестно, защита поля отсутствует"/>
+		<text name="npc_recovery_owner" text="Владелец: "/>
+		<text name="npc_recovery_owner_unknown" text="владелец неизвестен"/>
+		<text name="npc_recovery_loan" text="Заём %s, выдан: %s, возвращён: %s"/>
+		<text name="npc_recovery_reward_paid" text="Награда выплачена: %s"/>
+		<text name="npc_recovery_yes" text="да"/>
+		<text name="npc_recovery_no" text="нет"/>
+		<text name="npc_recovery_unknown" text="неизвестно"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Сохранено до того, как было записано принятие"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Не удалось определить ферму владельца"/>
+		<text name="npc_recovery_reason_invalid_record" text="Сохранённая запись неполная или противоречивая"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="Ферма владельца была удалена"/>
+		<text name="npc_recovery_reason_unknown_token" text="Нераспознанная запись"/>
+		<text name="npc_recovery_unavail_type" text="Этот тип услуги больше недоступен"/>
+		<text name="npc_recovery_unavail_facts" text="Данные об оплате неполные, только просмотр"/>
+		<text name="npc_recovery_unavail_reason" text="Сохранено только для просмотра"/>
+		<text name="npc_recovery_unavail_owner" text="Ни одна ферма не может возобновить эту запись"/>
+		<text name="npc_recovery_picker_choose" text="Назначить: Выберите ферму"/>
+		<text name="npc_recovery_picker_selected" text="Назначить: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Сначала выберите целевую ферму."/>
+		<text name="npc_recovery_confirm_title" text="Восстановление услуги"/>
+		<text name="npc_recovery_confirm_resume" text="Возобновить эту услугу для вашей фермы?"/>
+		<text name="npc_recovery_confirm_assign" text="Назначить эту услугу ферме %s (#%d) и возобновить?"/>
+		<text name="npc_recovery_confirm_complete" text="Попросить соседа закрыть эту восстановленную услугу?"/>
+		<text name="npc_recovery_confirm_abandon" text="Отменить эту восстановленную услугу? Будет применён штраф за отказ."/>
+		<text name="npc_recovery_confirm_no_money" text="Само возобновление не перемещает деньги."/>
+		<text name="npc_recovery_ok_resumed" text="Услуга возобновлена."/>
+		<text name="npc_recovery_ok_completed" text="Услуга завершена."/>
+		<text name="npc_recovery_ok_abandoned" text="Услуга отменена."/>
+		<text name="npc_recovery_no_longer_paused" text="Эта услуга больше не приостановлена."/>
+		<text name="npc_recovery_refused_stale" text="Эта запись изменилась. Список обновлён."/>
+		<text name="npc_recovery_refused_operation" text="Это действие не разрешено."/>
+		<text name="npc_recovery_refused_request_reuse" text="Этот запрос уже был использован."/>
+		<text name="npc_recovery_refused_not_resumable" text="Эту запись не может возобновить её ферма."/>
+		<text name="npc_recovery_refused_not_owner" text="Только ферма, принявшая эту услугу, может с ней работать."/>
+		<text name="npc_recovery_refused_not_admin" text="Назначить услугу может только хост или администратор."/>
+		<text name="npc_recovery_refused_not_assignable" text="Эту запись нельзя назначить."/>
+		<text name="npc_recovery_refused_owner_valid" text="У этой услуги всё ещё есть действующий владелец."/>
+		<text name="npc_recovery_refused_target" text="Выберите существующую ферму в качестве цели."/>
+		<text name="npc_recovery_refused_view" text="Список ферм изменился. Выберите ферму заново."/>
+		<text name="npc_recovery_refused_live_job" text="У этого соседа уже есть текущая услуга. Сначала завершите её."/>
+		<text name="npc_recovery_refused_not_live" text="Эта услуга не является текущей восстановленной услугой."/>
+		<text name="npc_recovery_no_local_farm" text="Чтобы принять услугу, нужно состоять в ферме."/>
+		<text name="npc_recovery_dialog_use_view" text="Это восстановленная услуга. Завершите или отмените её в меню услуг."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Дайте мне сверить это восстановленное задание с моими записями."/>
+		<text name="npc_recovery_unavail_time" text="Оставшееся время неизвестно, только просмотр"/>
+		<text name="npc_recovery_unavail_npc" text="Этого соседа больше нет, только просмотр"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: сохранённые услуги не удалось прочитать, они оставлены на диске без изменений. Услуги недоступны, а прогресс NPC и услуги в этой сессии не сохраняются."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: сохранённые услуги не удалось прочитать, они оставлены на диске без изменений. Услуги недоступны и в этой сессии не сохраняются. Прогресс NPC по-прежнему сохраняется."/>
+		<text name="npc_mgmt_title_active" text="Активные услуги (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Управляйте активными услугами"/>
+		<text name="npc_mgmt_game_time" text="Игровое время: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Отмена применяет штраф за отказ  |  Готово просит соседа закрыть услугу"/>
+		<text name="npc_mgmt_footer_paging" text="Показано %d из %d услуг  |  Отмена применяет штраф за отказ"/>
+		<text name="npc_mgmt_btn_view" text="Показать"/>
+		<text name="npc_mgmt_btn_goto" text="Перейти"/>
+		<text name="npc_mgmt_btn_cancel" text="Отмена"/>
+		<text name="npc_mgmt_btn_done" text="Готово"/>
+		<text name="npc_person_loading" text="Ваши соседи ещё загружаются."/>
+		<text name="npc_person_failed" text="Сохранённых соседей не удалось прочитать; они оставлены на диске без изменений."/>
+		<text name="npc_person_waiting_count" text="Ожидание: посёлок заполнен при текущем числе соседей."/>
+		<text name="npc_person_waiting_home" text="Ожидает жилья."/>
+		<text name="npc_person_waiting_companion" text="Ожидает мод-компаньон консультанта."/>
+		<text name="npc_person_kept_legacy" text="Сохранён до обновления; ещё не подтверждённый сосед."/>
+		<text name="npc_person_identity_conflict" text="Конфликт личности: на этого человека претендует более одной сохранённой записи."/>
+		<text name="npc_person_presence" text="Нанятый работник, только наблюдение."/>
+		<text name="npc_person_presence_unavailable" text="Нанятый работник, в последний раз был здесь; список работников сейчас недоступен для чтения."/>
+		<text name="npc_person_opaque" text="Сохранённая запись, оставленная как свидетельство; она не называет соседа."/>
+		<text name="npc_person_exhausted" text="Нельзя создать нового соседа: номера личностей исчерпаны."/>
+		<text name="npc_person_snapshot_too_large" text="Список соседей слишком велик для отправки другим игрокам."/>
+		<text name="npc_person_snapshot_partial" text="Список соседей пришёл неполным; показан последний подтверждённый."/>
+		<text name="npc_person_names_exhausted" text="Для нового соседа не осталось свободного имени; место остаётся пустым."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: сохранённых соседей не удалось прочитать; они оставлены на диске без изменений. Посёлок недоступен, и в этой сессии ничего не сохраняется."/>
+		<text name="npc_person_consultant_absent" text="Консультант отсутствует."/>
+		<text name="npc_recovery_unavail_person" text="Эту работу нельзя связать с тем же соседом; сохранена только для просмотра."/>
+		<text name="npc_recovery_unavail_waiting" text="Этот сосед сохранён, но сейчас отсутствует; работа ждёт."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Сосед сохранён, но отсутствует"/>
+		<text name="npc_recovery_reason_person_unproven" text="Нельзя связать с тем же соседом"/>
+		<text name="npc_person_server_only" text="Только хост может зарегистрировать консультанта."/>
+		<text name="npc_person_bad_claim" text="Запрос консультанта отклонён: имя или позиция были непригодны."/>
+		<text name="npc_dialog_pending" text="Спрашиваем соседа..."/>
+		<text name="npc_dialog_unavailable" text="Сейчас недоступно."/>
+		<text name="npc_dialog_refused_person" text="Этого соседа здесь нет, поговорить не с кем."/>
+		<text name="npc_dialog_refused_far" text="Вы слишком далеко для этого."/>
+		<text name="npc_dialog_refused_farm" text="Для этого нужно быть на ферме."/>
+		<text name="npc_dialog_refused_stale" text="Это предложение изменилось. Дайте взглянуть ещё раз."/>
+		<text name="npc_dialog_refused_request_reuse" text="На этот запрос уже был дан другой ответ."/>
+		<text name="npc_dialog_refused_relationship" text="Этот сосед пока недостаточно хорошо вас знает."/>
+		<text name="npc_dialog_refused_not_ready" text="Эту работу пока нельзя завершить."/>
+		<text name="npc_dialog_refused_operation" text="Здесь это сделать нельзя."/>
+		<text name="npc_dialog_talk_ok" text="Спасибо за разговор."/>
+		<text name="npc_dialog_talk_limit" text="(Сегодня уже разговаривали, отношения без изменений)"/>
+		<text name="npc_dialog_tone_warm" text="Всегда рад вас видеть."/>
+		<text name="npc_dialog_tone_cold" text="Хм. Опять вы."/>
+		<text name="npc_dialog_tone_cool" text="О. Привет."/>
+		<text name="npc_dialog_declined" text="Пока справляюсь сам, но спасибо."/>
+		<text name="npc_dialog_no_work" text="Мне сейчас ничего не нужно, но спасибо, что спросили!"/>
+		<text name="npc_dialog_offer" text="У меня есть кое-что для вас."/>
+		<text name="npc_dialog_offer_waiting" text="У меня есть кое-что для вас: %s"/>
+		<text name="npc_dialog_accepted" text="Спасибо! Мне очень нужна ваша помощь."/>
+		<text name="npc_dialog_accepted_short" text="Спасибо! Мне очень нужна ваша помощь."/>
+		<text name="npc_dialog_completed" text="Большое спасибо за помощь! Вот ваша награда."/>
+		<text name="npc_dialog_abandoned" text="Ладно, тогда забудем."/>
+		<text name="npc_dialog_busy" text="Я уже помогаю с этим другой ферме. Заходите позже!"/>
+		<text name="npc_dialog_come_find_me" text="Приходите ко мне домой. Мне нужно увидеть вас лично, чтобы закрыть это дело!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Занят с другой фермой"/>
+		<text name="npc_dialog_gift_ok" text="Спасибо за подарок!"/>
+		<text name="npc_dialog_gift_refused" text="Подарок не удалось вручить."/>
+		<text name="npc_dialog_ok" text="Готово."/>
+		<text name="npc_work_view_unavailable" text="Ваш список работ сейчас недоступен."/>
+		<text name="npc_work_view_last_confirmed" text="Показан последний подтверждённый список работ; сосед ещё не ответил."/>
+		<text name="npc_work_view_last_confirmed_short" text="последний подтверждённый"/>
+		<text name="npc_rf_pda_completed_count" text="%d выполнено для этой фермы"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Здесь недоступно: изменить соседа может только хост."/>
+		<text name="npc_contrib_generic_title" text="Просьба соседа" />
+		<text name="npc_contrib_generic_desc" text="Сосед попросил вашу ферму о помощи" />
+		<text name="npc_contrib_step_report" text="Выполнить работу" />
+		<text name="npc_contrib_step_talk" text="Поговорить с соседом" />
+		<text name="npc_contrib_hold_work_off" text="Приостановлено: этот вид работы выключен. «Отпустить» закрывает её без затрат." />
+		<text name="npc_contrib_hold_companion_missing" text="Приостановлено: мод, запросивший эту работу, не загружен. «Отпустить» закрывает её без затрат." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Приостановлено: мод, запросивший эту работу, изменил её. «Отпустить» закрывает её без затрат." />
+		<text name="npc_contrib_let_go" text="Отпустить" />
+		<text name="rf_live_key_unbound" text="Не назначено"/>
+		<text name="rf_live_key_keyboard_unbound" text="Клавиатура не назначена"/>
+		<text name="rf_live_key_unavailable" text="недоступно"/>
 </texts>
 </l10n>

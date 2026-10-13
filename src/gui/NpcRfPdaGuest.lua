@@ -4,14 +4,29 @@
 -- Active favors → rfFwMore bridge. Read-only glance; spoiler ban held.
 -- =========================================================
 
-NpcRfPdaGuest = {}
+NpcRfPdaGuest = NpcRfPdaGuest or {}
 
-local MOD_DIR = g_currentModDirectory
-local MOD_NAME = g_currentModName
+local MOD_DIR = (NPCFavorModDirectory or g_currentModDirectory)
+local MOD_NAME = (NPCFavorModName or g_currentModName)
 local PANEL_ID = "npcFavor"
 local PANEL_ORDER = 80
 local MAX_ROWS = 8
 local _registered = false
+
+-- BUILD 00:06 (George CLOSED DESIGN 23:12): the roster and the favors are two SmoothLists inside
+-- rfFwTableBlock (a GuiElement host, so the standing hang fence, SmoothList under a Map-style
+-- Bitmap, does not apply; the suite already runs mdCommodityList the same way). The eight-row
+-- window and its pager (BUILD 09:19 .. 22:42) are gone: the lists scroll. These are the rows
+-- behind the last FULL paint; the data source below reads them, the light tick never rebuilds.
+local _rosterRows = {}
+local _favorRows = {}
+-- The shared static sheet (rfFwRow*, rules, rfFwMore) is hidden while this page shows the lists
+-- and handed back on the registry change listener, the Dairy chrome pattern (no host calls onHide).
+local _sheetHidden = false
+local _sheetListenerHost = nil
+-- BUILD 12:05 (George CLOSED DESIGN 09:45): the container of the last show, so the list selection
+-- callback (which only gets the list) can find the detail cards.
+local _lastContainer = nil
 
 local TIER_KEYS = {
     ["Hostile"] = "npc_rel_hostile",
@@ -119,6 +134,8 @@ local function showTableMode(container)
     setVis(findDescendant(container, "rfFwTableBlock"), true)
     refreshFwAbs(container)
 end
+
+local _watchingWork = false
 
 local function getSys()
     if g_currentMission ~= nil and g_currentMission.npcFavorSystem ~= nil then
@@ -262,66 +279,53 @@ local function formatHistory(sys, npcId, info)
     return cell
 end
 
+--- RSF-F357: the roster is the host's copied roster view. A live durable
+--- person shows her public trust; a waiting, presence or opaque row shows its
+--- reason and no score (never a zero, never a fabricated history).
 local function buildRoster(sys)
     local roster = {}
-    if sys == nil or type(sys.activeNPCs) ~= "table" then
+    if sys == nil or type(sys.getNeighbourRosterView) ~= "function" then
         return roster
     end
-    for _, npc in ipairs(sys.activeNPCs) do
-        if npc ~= nil and npc.isActive ~= false then
-            local npcId = npc.id
-            local info = nil
-            if sys.relationshipManager ~= nil and type(sys.relationshipManager.getRelationshipInfo) == "function" then
-                local ok, got = pcall(function() return sys.relationshipManager:getRelationshipInfo(npcId) end)
-                if ok then info = got end
+    local ok, view = pcall(function() return sys:getNeighbourRosterView() end)
+    if not ok or type(view) ~= "table" then return roster end
+    for _, r in ipairs(view.rows or {}) do
+        local who = r.name
+        if who == nil or who == "" then who = tostring(r.personId or "?") end
+        local score, standing, benefits, history = nil, "--", "--", "--"
+        if r.kind == "LIVE" and r.trust ~= nil then
+            score = math.floor(r.trust + 0.5)
+            local level = nil
+            if sys.relationshipManager ~= nil and type(sys.relationshipManager.getRelationshipLevel) == "function" then
+                local ok2, got = pcall(function() return sys.relationshipManager:getRelationshipLevel(score) end)
+                if ok2 then level = got end
             end
-            local score = nil
-            if info ~= nil and info.value ~= nil then
-                score = tonumber(info.value)
-            end
-            if score == nil and type(sys.getRelationshipValue) == "function" then
-                local ok, v = pcall(function() return sys:getRelationshipValue(npcId) end)
-                if ok then score = tonumber(v) end
-            end
-            if score == nil then
-                score = tonumber(npc.relationship) or 0
-            end
-            score = math.floor(score + 0.5)
-
-            local level = info and info.level
-            if level == nil and sys.relationshipManager ~= nil
-                and type(sys.relationshipManager.getRelationshipLevel) == "function" then
-                local ok, got = pcall(function() return sys.relationshipManager:getRelationshipLevel(score) end)
-                if ok then level = got end
-            end
-
-            local benefits = nil
-            if level ~= nil and level.benefits ~= nil then
-                benefits = level.benefits
-            elseif info ~= nil and info.benefits ~= nil then
-                benefits = info.benefits
-            end
-
-            local who = npc.name
-            if who == nil or who == "" then
-                who = tostring(npcId or "?")
-            end
-
-            local standing
             if level ~= nil and level.name ~= nil then
                 standing = string.format("%s · %d", tierLabel(level.name), score)
             else
-                standing = "--"
+                standing = tostring(score)
             end
-
-            roster[#roster + 1] = {
-                who = tostring(who),
-                score = score,
-                standing = standing,
-                benefits = formatBenefits(benefits),
-                history = formatHistory(sys, npcId, info),
-            }
+            if level ~= nil and level.benefits ~= nil then
+                benefits = formatBenefits(level.benefits)
+            end
+            local info = nil
+            if sys.relationshipManager ~= nil and type(sys.relationshipManager.getRelationshipInfo) == "function" then
+                local ok3, got = pcall(function() return sys.relationshipManager:getRelationshipInfo(r.personId) end)
+                if ok3 then info = got end
+            end
+            if info ~= nil then history = formatHistory(sys, r.personId, info) end
+        elseif r.reasonKey ~= nil and r.reasonKey ~= "" then
+            standing = tr(r.reasonKey, r.reasonKey)
         end
+        roster[#roster + 1] = {
+            who = tostring(who),
+            score = score or -1,
+            standing = standing,
+            benefits = benefits,
+            history = history,
+            kind = r.kind,
+            personId = r.personId,
+        }
     end
 
     table.sort(roster, function(a, b)
@@ -333,45 +337,15 @@ local function buildRoster(sys)
     return roster
 end
 
-local function collectActiveFavors(sys)
-    local favors = {}
-    if sys == nil or sys.favorSystem == nil or type(sys.favorSystem.getActiveFavors) ~= "function" then
-        return favors
-    end
-    local ok, list = pcall(function() return sys.favorSystem:getActiveFavors() end)
-    if not ok or type(list) ~= "table" then
-        return favors
-    end
-    local farmId = getLocalFarmId()
-    local farmFiltered = {}
-    for _, favor in ipairs(list) do
-        if favor ~= nil then
-            if farmId ~= nil and favor.ownerFarmId ~= nil then
-                if favor.ownerFarmId == farmId then
-                    farmFiltered[#farmFiltered + 1] = favor
-                end
-            else
-                favors[#favors + 1] = favor
-            end
-        end
-    end
-    if #farmFiltered > 0 then
-        return farmFiltered
-    end
-    return favors
-end
-
-local function hottestFavor(favors)
-    local best, bestMs = nil, nil
-    for _, favor in ipairs(favors) do
-        local ms = tonumber(favor.timeRemaining)
-        if ms == nil then ms = math.huge end
-        if best == nil or ms < bestMs then
-            best = favor
-            bestMs = ms
-        end
-    end
-    return best
+--- RSF-F357 section 9b: the favours are the owner's copied work page (this
+--- farm's accepted work and the public offers), never the raw collections.
+--- An unavailable page is an honest empty block, not a claimed zero.
+local function workPage(sys)
+    if sys == nil or type(sys.getPersonalWorkView) ~= "function" then return nil end
+    local ok, view = pcall(function() return sys:getPersonalWorkView() end)
+    if not ok or type(view) ~= "table" then return nil end
+    if view.state ~= "CURRENT" and view.state ~= "LAST_CONFIRMED" then return nil end
+    return view
 end
 
 local function favorWho(favor, sys)
@@ -379,44 +353,233 @@ local function favorWho(favor, sys)
     if favor.npcName ~= nil and favor.npcName ~= "" then
         return tostring(favor.npcName)
     end
-    if sys ~= nil and type(sys.activeNPCs) == "table" and favor.npcId ~= nil then
-        for _, npc in ipairs(sys.activeNPCs) do
-            if npc ~= nil and npc.id == favor.npcId then
-                return tostring(npc.name or favor.npcId)
-            end
-        end
-    end
-    return tostring(favor.npcId or "?")
+    return tostring(favor.personId or "?")
 end
 
-local function paintActiveBridge(moreEl, sys, rosterN)
-    local favors = collectActiveFavors(sys)
-    local parts = {}
-    if #favors == 0 then
-        parts[#parts + 1] = tr("npc_rf_pda_active_none", "Active favors: none")
-    else
-        local hot = hottestFavor(favors)
-        local who = favorWho(hot, sys)
-        local what = favorWhat(hot)
-        local urg = urgencyLabel(hot)
-        parts[#parts + 1] = string.format(
-            tr("npc_rf_pda_active_one", "Active: %s · %s · %s"),
-            who, what, urg
-        )
-        if #favors > 1 then
-            parts[#parts + 1] = string.format(
-                tr("npc_rf_pda_active_more", "and %d more"),
-                #favors - 1
-            )
+--- The three groups: Available = public offers, Current = this farm's active
+--- and in-progress work, Completed = the count the owner supplied (a summary,
+--- not history; unknown reads unavailable).
+local function splitFavorGroups(sys)
+    local pending, current = {}, {}
+    local view = workPage(sys)
+    if view == nil then return pending, current, nil, nil end
+    for _, r in ipairs(view.rows or {}) do
+        local st = r.status
+        if st == "pending" then
+            pending[#pending + 1] = r
+        elseif st == "active" or st == "in_progress" then
+            current[#current + 1] = r
         end
     end
-    if rosterN > MAX_ROWS then
-        parts[#parts + 1] = string.format(
-            tr("npc_rf_pda_showing_of", "showing %d of %d"),
-            MAX_ROWS, rosterN
-        )
+    local completedCount = view.completedKnown and view.completedCount or nil
+    return pending, current, completedCount, view
+end
+
+local function byUrgency(a, b)
+    local ma = tonumber(a and a.timeRemaining) or math.huge
+    local mb = tonumber(b and b.timeRemaining) or math.huge
+    if ma ~= mb then return ma < mb end
+    return tostring(a and a.npcId or "") < tostring(b and b.npcId or "")
+end
+
+--- BUILD 00:06 (George CLOSED DESIGN 23:12): the favors table rows. Current (active / in_progress)
+--- by urgency ascending, then Available (pending) by urgency ascending, then Completed; every row
+--- tagged with its group; urgency = urgencyLabel for Current / Available, "done" for Completed.
+local function buildFavorRows(sys)
+    local pending, current, completedCount, view = splitFavorGroups(sys)
+    table.sort(current, byUrgency)
+    table.sort(pending, byUrgency)
+    local rows = {}
+    local function add(list, groupText)
+        for _, favor in ipairs(list) do
+            local whoFull = favorWho(favor, sys)
+            local whatFull = favorWhat(favor)
+            rows[#rows + 1] = {
+                group = groupText,
+                who = clipCell(whoFull, 12),
+                what = clipCell(whatFull, 50),
+                urgency = urgencyLabel({ timeRemaining = favor.timeRemainingMs }),
+                whoFull = whoFull,
+                whatFull = whatFull,
+            }
+        end
     end
-    setText(moreEl, table.concat(parts, " · "))
+    add(current, tr("npc_rf_pda_group_current", "Current"))
+    add(pending, tr("npc_rf_pda_group_available", "Available"))
+    if completedCount ~= nil then
+        local whatFull = string.format(tr("npc_rf_pda_completed_count", "%d completed for this farm"), completedCount)
+        rows[#rows + 1] = {
+            group = tr("npc_rf_pda_group_completed", "Completed"),
+            who = "-", what = clipCell(whatFull, 50),
+            urgency = tr("npc_rf_pda_urg_done", "done"),
+            whoFull = "-", whatFull = whatFull,
+        }
+    end
+    if view ~= nil and view.state == "LAST_CONFIRMED" and #rows > 0 then
+        rows[#rows].urgency = tr("npc_work_view_last_confirmed_short", "last confirmed")
+    end
+    return rows
+end
+
+--- The one data source for both SmoothLists (engine contract, SmoothListElement.lua: one section by
+--- default, getNumberOfItemsInSection, populateCellForItemInSection; the single ListItem template is
+--- the singular cell). The list is told apart by its id. Cells are the engine's clones of the XML
+--- template: nothing is created here, only text set by name.
+local npcListSource = {}
+
+function npcListSource:getNumberOfItemsInSection(list, section)
+    if list ~= nil and list.id == "rfFwFavorList" then
+        return #_favorRows
+    end
+    return #_rosterRows
+end
+
+function npcListSource:populateCellForItemInSection(list, section, index, cell)
+    if cell == nil or type(cell.getDescendantByName) ~= "function" then return end
+    if list ~= nil and list.id == "rfFwFavorList" then
+        local r = _favorRows[index]
+        if r == nil then return end
+        setText(cell:getDescendantByName("rfFwFavorGroup"), r.group)
+        setText(cell:getDescendantByName("rfFwFavorWho"), r.who)
+        setText(cell:getDescendantByName("rfFwFavorWhat"), r.what)
+        setText(cell:getDescendantByName("rfFwFavorUrgency"), r.urgency)
+        return
+    end
+    local r = _rosterRows[index]
+    if r == nil then return end
+    setText(cell:getDescendantByName("rfFwRosterWho"), clipCell(r.who, 28))
+    setText(cell:getDescendantByName("rfFwRosterStanding"), r.standing)
+    setText(cell:getDescendantByName("rfFwRosterBenefits"), clipCell(r.benefits, 40))
+    setText(cell:getDescendantByName("rfFwRosterHistory"), clipCell(r.history, 46))
+end
+
+--- BUILD 12:05 (George CLOSED DESIGN 09:45): the detail cards. rfFwRosterDetailCard (300x420 at
+--- 820,-68) shows the picked neighbour unclipped: name, tier + score, the whole benefits list,
+--- the history line. rfFwFavorDetailCard (300x224 at 820,-528) shows the picked favor: group,
+--- who, the whole what, urgency. Nothing is created; every id is in the ten-door XML.
+local function hideDetailCards(root)
+    setVis(findDescendant(root, "rfFwRosterDetailCard"), false)
+    setVis(findDescendant(root, "rfFwFavorDetailCard"), false)
+end
+
+local function paintRosterCard(root, r)
+    local card = findDescendant(root, "rfFwRosterDetailCard")
+    if card == nil or r == nil then return end
+    setText(findDescendant(card, "rfFwCardWho"), r.who)
+    setText(findDescendant(card, "rfFwCardStanding"), r.standing)
+    setText(findDescendant(card, "rfFwCardBenefitsHead"), tr("npc_rf_pda_col_benefits", "Benefits"))
+    setText(findDescendant(card, "rfFwCardBenefits"), (r.benefits or ""):gsub(" %· ", "\n"))
+    setText(findDescendant(card, "rfFwCardHistoryHead"), tr("npc_rf_pda_col_history", "History"))
+    setText(findDescendant(card, "rfFwCardHistory"), r.history)
+    setVis(card, true)
+end
+
+local function paintFavorCard(root, r)
+    local card = findDescendant(root, "rfFwFavorDetailCard")
+    if card == nil or r == nil then return end
+    setText(findDescendant(card, "rfFwFavCardGroup"), r.group)
+    setText(findDescendant(card, "rfFwFavCardWho"), r.whoFull or r.who)
+    setText(findDescendant(card, "rfFwFavCardWhat"), r.whatFull or r.what)
+    setText(findDescendant(card, "rfFwFavCardUrgency"), r.urgency)
+    setVis(card, true)
+end
+
+--- Engine contract (SmoothListElement.lua setSelectedItem): a click on a row calls
+--- delegate:onListSelectionChanged(list, section, index) once the list is loaded. The data source
+--- is registered as the delegate too (syncList), so this is where a pick lands. An index past the
+--- rows (a shrunk roster after reload) hides the card instead of painting a stale row.
+function npcListSource:onListSelectionChanged(list, section, index)
+    local root = _lastContainer or getHostPage()
+    if root == nil or list == nil then return end
+    local i = tonumber(index) or 0
+    if list.id == "rfFwFavorList" then
+        local r = _favorRows[i]
+        if r == nil then
+            setVis(findDescendant(root, "rfFwFavorDetailCard"), false)
+        else
+            paintFavorCard(root, r)
+        end
+        return
+    end
+    local r = _rosterRows[i]
+    if r == nil then
+        setVis(findDescendant(root, "rfFwRosterDetailCard"), false)
+    else
+        paintRosterCard(root, r)
+    end
+end
+
+--- setDataSource once per list element (guard flag on the element), reloadData only when asked
+--- (a full show) and only once the engine has finished loading the list (list.isLoaded). The
+--- light tick never reloads: George's thrash fence.
+local function syncList(container, id, reload)
+    local list = findDescendant(container, id)
+    if list == nil then return nil end
+    if not list._rfNpcSourced and type(list.setDataSource) == "function" then
+        list:setDataSource(npcListSource)
+        -- BUILD 12:05: the XML loader already made the host page the delegate, so setDataSource
+        -- alone would leave the selection callback on the host; name the delegate explicitly.
+        if type(list.setDelegate) == "function" then
+            list:setDelegate(npcListSource)
+        end
+        list._rfNpcSourced = true
+    end
+    if reload and list.isLoaded and type(list.reloadData) == "function" then
+        pcall(list.reloadData, list)
+    end
+    return list
+end
+
+local SHEET_RULES = {
+    "rfFwRuleHead", "rfFwRuleRow1", "rfFwRuleRow2", "rfFwRuleRow3", "rfFwRuleRow4",
+    "rfFwRuleRow5", "rfFwRuleRow6", "rfFwRuleRow7", "rfFwRuleCol1", "rfFwRuleCol2", "rfFwRuleCol3",
+}
+local NPC_LIST_IDS = {
+    "rfFwRosterBox", "rfFwFavorBox", "rfFwFavEmpty",
+    "rfFwFavColGroup", "rfFwFavColWho", "rfFwFavColWhat", "rfFwFavColUrgency",
+    "rfFwRosterDetailCard", "rfFwFavorDetailCard",
+}
+
+--- The static sheet goes dark for the lists: the eight rows, the hairlines and rfFwMore. The
+--- column headers rfFwColA-D stay (they head the roster list). rfFwHintTable is host-hidden.
+local function hideStaticSheet(container)
+    -- BUILD 17:21: the shared table's rows now live in rfFwSheetBox (Income / Depot own it), so it
+    -- goes dark with the static sheet. Nil-safe: an older door copy has no such id.
+    setVis(findDescendant(container, "rfFwSheetBox"), false)
+    for i = 1, MAX_ROWS do
+        for _, c in ipairs({ "A", "B", "C", "D" }) do
+            setVis(findDescendant(container, "rfFwRow" .. i .. c), false)
+        end
+    end
+    for _, id in ipairs(SHEET_RULES) do
+        setVis(findDescendant(container, id), false)
+    end
+    setText(findDescendant(container, "rfFwMore"), "")
+    setVis(findDescendant(container, "rfFwMore"), false)
+    _sheetHidden = true
+end
+
+--- Hands the hairlines and rfFwMore back and hides the lists. The rows are left to the guest
+--- that owns the next show (Income / Depot set their own row visibility every show).
+local function restoreStaticSheet(root)
+    if root == nil then return end
+    for _, id in ipairs(SHEET_RULES) do
+        setVis(findDescendant(root, id), true)
+    end
+    setVis(findDescendant(root, "rfFwMore"), true)
+    for _, id in ipairs(NPC_LIST_IDS) do
+        setVis(findDescendant(root, id), false)
+    end
+    _sheetHidden = false
+end
+
+--- Registry change listener (tryRegister) and availability-poll belt: the moment another module
+--- is active the sheet is handed back. No host calls onHide, so this is the only way out.
+local function restoreSheetIfLeft()
+    if not _sheetHidden then return end
+    local host = getHost()
+    if host ~= nil and host.activeModuleId == PANEL_ID then return end
+    pcall(restoreStaticSheet, getHostPage())
 end
 
 local _rfFwTitleBaselineWarned = false
@@ -456,13 +619,16 @@ end
 --
 -- Positions and sizes are NORMALISED in FS25, so everything goes through GuiUtils. A raw
 -- pixel integer here would throw the row off the screen.
+-- BUILD 20:36 / 00:06: the four column headers span the full 1120 (10..1130) and head the roster
+-- list (its cells sit at the same X). The static rows under them are hidden on this page now
+-- (hideStaticSheet), so only the headers and the column rules take these X values.
 local FW_GRID_COLS = {
-    { "A", "10px", "280px" },
-    { "B", "310px", "280px" },
-    { "C", "610px", "220px" },
+    { "A", "10px", "290px" },
+    { "B", "320px", "250px" },
+    { "C", "590px", "240px" },
     { "D", "850px", "280px" },
 }
-local FW_GRID_RULES = { "300px", "600px", "840px" }
+local FW_GRID_RULES = { "310px", "580px", "840px" }
 local _fwGridWarned = false
 
 local function applyFwGrid(container)
@@ -558,7 +724,7 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
     showTableMode(container)
     paintSide(container, "rf_pda_side_info_npc_favor",
         "Neighbor standing roster: who, standing, benefits, history.\n"
-        .. "Favor waits show above the table. Esc does not finish favors - use world NPC tools.")
+        .. "The favors table under it lists every current, available and completed favor. Both tables scroll (mouse wheel or the slider); click a row and its details open on the card to the right. Esc does not finish favors - use world NPC tools.")
     setText(findDescendant(container, "rfFwTableTitle"), "")
     setVis(findDescendant(container, "rfFwTableTitle"), false)
     setText(findDescendant(container, "rfFwColA"), tr("npc_rf_pda_col_who", "Who"))
@@ -566,60 +732,106 @@ function NpcRfPdaGuest.onShow(container, lightOnly)
     setText(findDescendant(container, "rfFwColC"), tr("npc_rf_pda_col_benefits", "Benefits"))
     setText(findDescendant(container, "rfFwColD"), tr("npc_rf_pda_col_history", "History"))
 
+    -- BUILD 00:06 (George CLOSED DESIGN 23:12): the static sheet goes dark, the two lists show.
+    -- The host hides the list boxes, the favors header and the favors empty hint on every
+    -- refresh (thin-door safe), so this show is the only thing that turns them on.
+    hideStaticSheet(container)
+    setText(findDescendant(container, "rfFwFavColGroup"), tr("npc_rf_pda_fav_col_group", "Group"))
+    setText(findDescendant(container, "rfFwFavColWho"), tr("npc_rf_pda_fav_col_who", "Who"))
+    setText(findDescendant(container, "rfFwFavColWhat"), tr("npc_rf_pda_fav_col_what", "What"))
+    setText(findDescendant(container, "rfFwFavColUrgency"), tr("npc_rf_pda_fav_col_urgency", "Urgency"))
+    for _, id in ipairs({ "rfFwFavColGroup", "rfFwFavColWho", "rfFwFavColWhat", "rfFwFavColUrgency" }) do
+        setVis(findDescendant(container, id), true)
+    end
+
+    -- A full show rebuilds the rows and reloads both lists; the 500ms light tick only re-shows
+    -- what the host just hid (no reloadData: the thrash fence). Favor urgency is hour-granular,
+    -- so staying put until the next full show is honest enough.
+    local full = not lightOnly
     local sys = getSys()
-    local roster = buildRoster(sys)
+    _lastContainer = container
+    -- RSF-F357: watch the shared work page while shown; a full show asks for it.
+    if sys ~= nil and type(sys.watchPersonalWork) == "function" and not _watchingWork then
+        _watchingWork = true
+        pcall(function() sys:watchPersonalWork(true) end)
+    end
+    if full and sys ~= nil and type(sys.requestPersonalWorkView) == "function" then
+        pcall(function() sys:requestPersonalWorkView("") end)
+    end
+    if full then
+        _rosterRows = buildRoster(sys)
+        _favorRows = buildFavorRows(sys)
+        -- BUILD 12:05: the cards start hidden on every full show; a row pick paints them.
+        hideDetailCards(container)
+    end
+    local rosterN = #_rosterRows
+    local favorN = #_favorRows
+
     local emptyEl = findDescendant(container, "rfFwEmptyHint")
-    local moreEl = findDescendant(container, "rfFwMore")
-    local hintEl = findDescendant(container, "rfFwHintTable")
-
-    paintActiveBridge(moreEl, sys, #roster)
-
-    if #roster == 0 then
+    local rosterBox = findDescendant(container, "rfFwRosterBox")
+    if rosterN == 0 then
+        setVis(rosterBox, false)
         setVis(emptyEl, true)
         setText(emptyEl, tr("npc_rf_pda_empty", "no neighbors yet"))
-        for i = 1, MAX_ROWS do
-            for _, c in ipairs({"A", "B", "C", "D"}) do
-                setVis(findDescendant(container, "rfFwRow" .. i .. c), false)
-            end
-        end
-        setText(hintEl, "")
-        return
-    end
-
-    setVis(emptyEl, false)
-    setText(emptyEl, "")
-    local show = math.min(#roster, MAX_ROWS)
-    for i = 1, MAX_ROWS do
-        local a = findDescendant(container, "rfFwRow" .. i .. "A")
-        local b = findDescendant(container, "rfFwRow" .. i .. "B")
-        local c = findDescendant(container, "rfFwRow" .. i .. "C")
-        local d = findDescendant(container, "rfFwRow" .. i .. "D")
-        if i <= show then
-            local row = roster[i]
-            setVis(a, true); setVis(b, true); setVis(c, true); setVis(d, true)
-            setText(a, row.who)
-            setText(b, row.standing)
-            setText(c, clipCell(row.benefits, 34))
-            setText(d, clipCell(row.history, 34))
-        else
-            setVis(a, false); setVis(b, false); setVis(c, false); setVis(d, false)
-        end
-    end
-
-    -- Hint only when More is not already dense (no overflow clause).
-    if #roster > MAX_ROWS then
-        setText(hintEl, "")
     else
-        setText(hintEl, string.format(
-            tr("npc_rf_pda_hint_sort", "%d neighbors · sorted by standing (best first)"),
-            #roster
-        ))
+        setVis(emptyEl, false)
+        setText(emptyEl, "")
+        setVis(rosterBox, true)
+        syncList(container, "rfFwRosterList", full)
+    end
+
+    local favEmpty = findDescendant(container, "rfFwFavEmpty")
+    local favorBox = findDescendant(container, "rfFwFavorBox")
+    if favorN == 0 then
+        setVis(favorBox, false)
+        setText(favEmpty, tr("npc_rf_pda_fav_empty", "no favors yet"))
+        setVis(favEmpty, true)
+    else
+        setText(favEmpty, "")
+        setVis(favEmpty, false)
+        setVis(favorBox, true)
+        syncList(container, "rfFwFavorList", full)
     end
 end
 
-function NpcRfPdaGuest.onHide() end
+function NpcRfPdaGuest.onHide()
+    -- BUILD 00:06: the lists reload on the next full show and the static sheet
+    -- is handed back by the registry change listener (restoreSheetIfLeft).
+    -- RSF-F357: stop watching the shared work page.
+    local sys = getSys()
+    if _watchingWork and sys ~= nil and type(sys.watchPersonalWork) == "function" then
+        _watchingWork = false
+        pcall(function() sys:watchPersonalWork(false) end)
+    end
+end
+
+--- BUILD 14:04: publish the guest handle the same way MdRfPdaGuest publishes its classes
+--- (mdPublishHandles, BUILD 11:43/12:59) - sandbox root plus mission handle, re-published
+--- on every register attempt so a reload cannot leave it stale. Vera's live gates have
+--- shown the mission handle is the one cross-env channel that actually resolves on the
+--- live engine (via=mission). BUILD 00:06: the page-step handler is gone with the pager (the lists scroll);
+--- the handle stays published for the same reason every other guest publishes one.
+local function npcPublishHandles()
+    local okEnv, root = pcall(getfenv, 0)
+    if okEnv and type(root) == "table" then
+        root.NpcRfPdaGuest = NpcRfPdaGuest
+    end
+    if g_currentMission ~= nil then
+        g_currentMission.NpcRfPdaGuest = NpcRfPdaGuest
+    end
+end
+
+--- BUILD 19:15: the Esc Help footer asks whichever module is showing to open its own guide, so
+--- every companion ships and owns its own help instead of borrowing Soil's.
+---@param container table|nil
+function NpcRfPdaGuest.onOpenHelp(container)
+    if NpcGuideDialog ~= nil and type(NpcGuideDialog.show) == "function" then
+        NpcGuideDialog.show()
+    end
+end
 
 function NpcRfPdaGuest.tryRegister()
+    npcPublishHandles()
     if RfEscBootstrap ~= nil then
         if MOD_DIR == nil then
             print("[NPCFavor] NpcRfPdaGuest: WARNING MOD_DIR nil - cannot ensureDoor")
@@ -628,6 +840,12 @@ function NpcRfPdaGuest.tryRegister()
                 profilesXml = MOD_DIR .. "xml/gui/rfEscProfiles.xml",
                 iconPath = "textures/ui/menuIcon.dds",
             })
+            -- BUILD 19:15 (George CLOSED DESIGN 18:55 item 5): load this mod's Field Guide at the
+            -- same moment the door itself loads. A GUI loaded from a mod directory later, once the
+            -- mod's own file system context has closed, fails to open.
+            if NpcGuideDialog ~= nil and type(NpcGuideDialog.register) == "function" then
+                pcall(NpcGuideDialog.register, MOD_DIR)
+            end
             if not doorOk then print("[NPCFavor] NpcRfPdaGuest: WARNING ensureDoor failed (will retry)") end
         end
     end
@@ -640,9 +858,13 @@ function NpcRfPdaGuest.tryRegister()
             title = tr("npc_rf_pda_module_title", "NPC Favor"),
             blurb = tr("npc_rf_pda_blurb", "Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only."),
             order = PANEL_ORDER,
-            isAvailable = function() return getSys() ~= nil end,
+            isAvailable = function()
+                if _sheetHidden then pcall(restoreSheetIfLeft) end
+                return getSys() ~= nil
+            end,
             onShow = NpcRfPdaGuest.onShow,
             onHide = NpcRfPdaGuest.onHide,
+            onOpenHelp = NpcRfPdaGuest.onOpenHelp,
         })
         if ok then
             _registered = true
@@ -651,8 +873,23 @@ function NpcRfPdaGuest.tryRegister()
             return false
         end
     end
+    -- BUILD 00:06: the static sheet is handed back on the registry change listener (see
+    -- restoreSheetIfLeft); registered once per host, the same way DairyRfPdaGuest does it.
+    if _sheetListenerHost ~= host and type(host.addChangeListener) == "function" then
+        host:addChangeListener(restoreSheetIfLeft)
+        _sheetListenerHost = host
+    end
     return _registered and g_inGameMenu ~= nil and g_inGameMenu.menuRealisticFarming ~= nil
 end
 
 function NpcRfPdaGuest.isRegistered() return _registered end
-function NpcRfPdaGuest.reset() _registered = false end
+function NpcRfPdaGuest.reset()
+    _registered = false
+    _sheetListenerHost = nil
+    _sheetHidden = false
+    -- A reset is a re-register, i.e. a new session or a re-entered save. The rows behind the
+    -- last paint belong to the roster that is going away with it.
+    _rosterRows = {}
+    _favorRows = {}
+    _lastContainer = nil
+end

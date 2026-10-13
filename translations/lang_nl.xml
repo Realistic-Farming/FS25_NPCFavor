@@ -154,13 +154,14 @@
 		<text name="input_FAVOR_MENU" text="Favor Menu" />
 		<text name="input_NPC_LIST" text="NPC List" />
 			<text name="npc_schedule_plans" text="My plans:" />
-		<text name="input_HUD_EDIT_MODE" text="Toggle HUD Edit" />
+		<text name="input_NPC_HUD_EDIT" text="Toggle HUD Edit" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Drag to move | Corners to resize" />
 		<text name="npc_hud_locked_short" text="Lock Favor HUD" />
 		<text name="npc_hud_locked_long" text="When locked, the favor list cannot be moved or resized" />
 		<text name="npc_hud_scale_short" text="Favor HUD Scale" />
 		<text name="npc_panel_scale_short" text="Settings Panel Scale" />
-		<text name="npc_panel_scale_long" text="Size of the F5 settings panel (independent of the favor HUD)" />
+		<text name="npc_panel_scale_long" text="Size of the NPC Settings settings panel (independent of the favor HUD)" />
 		<text name="npc_hud_scale_long" text="Size of the active favors list on screen" />
 		<text name="npc_admin_title" text="NPC Admin Panel" />
 		<text name="npc_admin_subtitle_fmt" text="%d active NPCs  |  Click Edit to adjust relationship" />
@@ -209,7 +210,7 @@
 		<text name="npc_panel_hdr_admin_actions"    text="Admin Actions" />
 		<!-- UI strings -->
 		<text name="npc_panel_btn_back"             text="Back" />
-		<text name="npc_panel_btn_close_hint"       text="F5 to close" />
+		<text name="npc_panel_btn_close_hint"       text="NPC Settings to close" />
 		<text name="npc_panel_btn_open"             text="Open" />
 		<text name="npc_panel_btn_configure"        text="Configure" />
 		<text name="npc_panel_btn_reset"            text="Reset Category" />
@@ -312,7 +313,7 @@
 		<!-- Esc RF PDA NPC Favor densify 2026-08-05 -->
 
 		<!-- Esc RF PDA NPC Favor densify 2026-08-05 -->
-		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. When a favor is waiting on you, the line above the table names who and how urgent it is. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
+		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. The groups under the table name what is available, what is current and how many are completed. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
 		<text name="npc_rf_pda_module_title" text="[EN] NPC Favor" />
 		<text name="npc_rf_pda_blurb" text="[EN] Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only." />
 		<text name="npc_rf_pda_col_who" text="[EN] Who" />
@@ -325,13 +326,166 @@
 		<text name="npc_rf_pda_active_none" text="[EN] Active favors: none" />
 		<text name="npc_rf_pda_active_one" text="[EN] Active: %s · %s · %s" />
 		<text name="npc_rf_pda_active_more" text="[EN] and %d more" />
+		<text name="npc_rf_pda_fav_col_group" text="[EN] Group" />
+		<text name="npc_rf_pda_fav_col_who" text="[EN] Who" />
+		<text name="npc_rf_pda_fav_col_what" text="[EN] What" />
+		<text name="npc_rf_pda_fav_col_urgency" text="[EN] Urgency" />
+		<text name="npc_rf_pda_urg_done" text="[EN] done" />
+		<text name="npc_rf_pda_fav_empty" text="[EN] no favors yet" />
 		<text name="npc_rf_pda_showing_of" text="[EN] showing %d of %d" />
 		<text name="npc_rf_pda_more" text="[EN] and %d more" />
 		<text name="npc_rf_pda_hint_sort" text="[EN] %d neighbors · sorted by standing (best first)" />
+		<text name="npc_rf_pda_avail_none" text="[EN] Available: none" />
+		<text name="npc_rf_pda_avail_one" text="[EN] Available: %s · %s" />
+		<text name="npc_rf_pda_current_none" text="[EN] Current: none" />
+		<text name="npc_rf_pda_current_one" text="[EN] Current: %s · %s · %s" />
+		<text name="npc_rf_pda_done_none" text="[EN] Completed: none" />
+		<text name="npc_rf_pda_done_fmt" text="[EN] Completed: %d" />
 		<text name="npc_rf_pda_trend_warming" text="[EN] warming" />
 		<text name="npc_rf_pda_trend_cooling" text="[EN] cooling" />
 		<text name="npc_rf_pda_urg_min" text="[EN] &lt;1h" />
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
+		<text name="npc_notice_loaded" text="NPC Favor v%s is klaar. Je buren richten zich in." />
+		<text name="npc_recovery_title" text="Herstel van gunsten (%d)"/>
+		<text name="npc_recovery_subtitle" text="Gepauzeerde en herstelde gunsten. Niets hier loopt of betaalt totdat je het hervat."/>
+		<text name="npc_recovery_btn_recovery" text="Herstel (%d)"/>
+		<text name="npc_recovery_btn_active" text="Actieve gunsten"/>
+		<text name="npc_recovery_btn_resume" text="Hervatten"/>
+		<text name="npc_recovery_btn_assign" text="Toewijzen"/>
+		<text name="npc_recovery_page" text="Pagina %d / %d"/>
+		<text name="npc_recovery_empty" text="Geen gepauzeerde of herstelde gunsten."/>
+		<text name="npc_recovery_footer" text="Hervatten behoudt de opgeslagen voortgang en betalingen. Toewijzen is voor de klus van een verwijderde boerderij en vereist een uitdrukkelijk gekozen doelboerderij."/>
+		<text name="npc_recovery_unavailable" text="Herstel is niet beschikbaar totdat het spel opnieuw is geladen."/>
+		<text name="npc_recovery_tag_paused" text="Gepauzeerd"/>
+		<text name="npc_recovery_tag_resumed" text="Hervat"/>
+		<text name="npc_recovery_tag_pending" text="Aanbod"/>
+		<text name="npc_recovery_time" text="Resterend: %s (%d%% klaar)"/>
+		<text name="npc_recovery_time_unknown" text="Resterende tijd niet beschikbaar"/>
+		<text name="npc_recovery_field_unknown" text="veld onbekend, geen veldbescherming"/>
+		<text name="npc_recovery_owner" text="Eigenaar: "/>
+		<text name="npc_recovery_owner_unknown" text="eigenaar onbekend"/>
+		<text name="npc_recovery_loan" text="Lening %s, uitgeleend: %s, terugbetaald: %s"/>
+		<text name="npc_recovery_reward_paid" text="Beloning betaald: %s"/>
+		<text name="npc_recovery_yes" text="ja"/>
+		<text name="npc_recovery_no" text="nee"/>
+		<text name="npc_recovery_unknown" text="onbekend"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Opgeslagen voordat de aanvaarding werd vastgelegd"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Eigenaarsboerderij kon niet worden bepaald"/>
+		<text name="npc_recovery_reason_invalid_record" text="Opgeslagen record is onvolledig of tegenstrijdig"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="Eigenaarsboerderij is verwijderd"/>
+		<text name="npc_recovery_reason_unknown_token" text="Onbekend record"/>
+		<text name="npc_recovery_unavail_type" text="Dit gunsttype is niet meer beschikbaar"/>
+		<text name="npc_recovery_unavail_facts" text="Betalingsgegevens onvolledig, alleen inzien"/>
+		<text name="npc_recovery_unavail_reason" text="Alleen bewaard om in te zien"/>
+		<text name="npc_recovery_unavail_owner" text="Geen enkele boerderij kan dit record hervatten"/>
+		<text name="npc_recovery_picker_choose" text="Toewijzen aan: Kies een boerderij"/>
+		<text name="npc_recovery_picker_selected" text="Toewijzen aan: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Kies eerst een doelboerderij."/>
+		<text name="npc_recovery_confirm_title" text="Herstel van gunst"/>
+		<text name="npc_recovery_confirm_resume" text="Deze gunst hervatten voor jouw boerderij?"/>
+		<text name="npc_recovery_confirm_assign" text="Deze gunst toewijzen aan %s (#%d) en hervatten?"/>
+		<text name="npc_recovery_confirm_complete" text="De buur vragen deze herstelde gunst af te sluiten?"/>
+		<text name="npc_recovery_confirm_abandon" text="Deze herstelde gunst annuleren? De afbreekstraf geldt."/>
+		<text name="npc_recovery_confirm_no_money" text="Hervatten verplaatst op zichzelf geen geld."/>
+		<text name="npc_recovery_ok_resumed" text="Gunst hervat."/>
+		<text name="npc_recovery_ok_completed" text="Gunst voltooid."/>
+		<text name="npc_recovery_ok_abandoned" text="Gunst geannuleerd."/>
+		<text name="npc_recovery_no_longer_paused" text="Die gunst is niet meer gepauzeerd."/>
+		<text name="npc_recovery_refused_stale" text="Dat record is gewijzigd. De lijst is vernieuwd."/>
+		<text name="npc_recovery_refused_operation" text="Die actie is niet toegestaan."/>
+		<text name="npc_recovery_refused_request_reuse" text="Dat verzoek is al gebruikt."/>
+		<text name="npc_recovery_refused_not_resumable" text="Dit record kan niet door zijn boerderij worden hervat."/>
+		<text name="npc_recovery_refused_not_owner" text="Alleen de boerderij die deze gunst aanvaardde, kan erop handelen."/>
+		<text name="npc_recovery_refused_not_admin" text="Alleen de host of een beheerder kan een gunst toewijzen."/>
+		<text name="npc_recovery_refused_not_assignable" text="Dit record kan niet worden toegewezen."/>
+		<text name="npc_recovery_refused_owner_valid" text="Deze gunst heeft nog een geldige eigenaar."/>
+		<text name="npc_recovery_refused_target" text="Kies een bestaande boerderij als doel."/>
+		<text name="npc_recovery_refused_view" text="De boerderijenlijst is gewijzigd. Kies de boerderij opnieuw."/>
+		<text name="npc_recovery_refused_live_job" text="Die buur heeft al een lopende gunst. Rond die eerst af."/>
+		<text name="npc_recovery_refused_not_live" text="Die gunst is geen lopende herstelde gunst."/>
+		<text name="npc_recovery_no_local_farm" text="Je moet bij een boerderij horen om een gunst te aanvaarden."/>
+		<text name="npc_recovery_dialog_use_view" text="Dit is een herstelde gunst. Rond hem af of annuleer hem via het gunstenmenu."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Laat me die herstelde klus even nakijken in mijn aantekeningen."/>
+		<text name="npc_recovery_unavail_time" text="Resterende tijd onbekend, alleen inzien"/>
+		<text name="npc_recovery_unavail_npc" text="Die buur is er niet meer, alleen inzien"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: opgeslagen gunsten konden niet worden gelezen en zijn op schijf onaangeroerd gelaten. Gunsten zijn niet beschikbaar, en NPC-voortgang en gunsten worden deze sessie niet opgeslagen."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: opgeslagen gunsten konden niet worden gelezen en zijn op schijf onaangeroerd gelaten. Gunsten zijn niet beschikbaar en worden deze sessie niet opgeslagen. NPC-voortgang wordt nog wel opgeslagen."/>
+		<text name="npc_mgmt_title_active" text="Actieve gunsten (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Beheer je actieve gunsten"/>
+		<text name="npc_mgmt_game_time" text="Speeltijd: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Annuleren past de afbreekstraf toe  |  Klaar vraagt de buur de gunst af te sluiten"/>
+		<text name="npc_mgmt_footer_paging" text="Toont %d van %d gunsten  |  Annuleren past de afbreekstraf toe"/>
+		<text name="npc_mgmt_btn_view" text="Bekijk"/>
+		<text name="npc_mgmt_btn_goto" text="Ga heen"/>
+		<text name="npc_mgmt_btn_cancel" text="Annuleren"/>
+		<text name="npc_mgmt_btn_done" text="Klaar"/>
+		<text name="npc_person_loading" text="Je buren worden nog geladen."/>
+		<text name="npc_person_failed" text="Opgeslagen buren konden niet worden gelezen en zijn ongewijzigd op schijf gelaten."/>
+		<text name="npc_person_waiting_count" text="Wacht: het dorp is vol bij het huidige aantal buren."/>
+		<text name="npc_person_waiting_home" text="Wacht op een woning."/>
+		<text name="npc_person_waiting_companion" text="Wacht op de begeleidende mod van de adviseur."/>
+		<text name="npc_person_kept_legacy" text="Bewaard van voor de update; nog geen bevestigde buur."/>
+		<text name="npc_person_identity_conflict" text="Identiteitsconflict: meer dan een opgeslagen record claimt deze persoon."/>
+		<text name="npc_person_presence" text="Ingehuurde werker, alleen waargenomen."/>
+		<text name="npc_person_presence_unavailable" text="Ingehuurde werker, hier het laatst gezien; de werkerslijst kan nu niet worden gelezen."/>
+		<text name="npc_person_opaque" text="Een opgeslagen record dat als bewijs is bewaard; het benoemt geen buur."/>
+		<text name="npc_person_exhausted" text="Er kan geen nieuwe buur worden aangemaakt: de identiteitsnummers zijn op."/>
+		<text name="npc_person_snapshot_too_large" text="De burenlijst is te groot om naar andere spelers te sturen."/>
+		<text name="npc_person_snapshot_partial" text="De burenlijst kwam onvolledig aan; de laatst bevestigde wordt getoond."/>
+		<text name="npc_person_names_exhausted" text="Er is geen ongebruikte naam meer voor een nieuwe buur; een plek blijft leeg."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: opgeslagen buren konden niet worden gelezen en zijn ongewijzigd op schijf gelaten. Het dorp is niet beschikbaar en er wordt deze sessie niets opgeslagen."/>
+		<text name="npc_person_consultant_absent" text="Er is geen adviseur aanwezig."/>
+		<text name="npc_recovery_unavail_person" text="Dit werk kan niet aan dezelfde buur worden gekoppeld; alleen ter inzage bewaard."/>
+		<text name="npc_recovery_unavail_waiting" text="Die buur is opgeslagen maar op dit moment niet aanwezig; het werk wacht."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Buur opgeslagen maar niet aanwezig"/>
+		<text name="npc_recovery_reason_person_unproven" text="Kan niet aan dezelfde buur worden gekoppeld"/>
+		<text name="npc_person_server_only" text="Alleen de host kan een adviseur registreren."/>
+		<text name="npc_person_bad_claim" text="De adviseursaanvraag is geweigerd: de naam of positie was niet bruikbaar."/>
+		<text name="npc_dialog_pending" text="De buur wordt gevraagd..."/>
+		<text name="npc_dialog_unavailable" text="Nu niet beschikbaar."/>
+		<text name="npc_dialog_refused_person" text="Die buur is er niet om mee te praten."/>
+		<text name="npc_dialog_refused_far" text="Je bent te ver weg om dat te doen."/>
+		<text name="npc_dialog_refused_farm" text="Je moet op een boerderij zijn om dat te doen."/>
+		<text name="npc_dialog_refused_stale" text="Dat aanbod is veranderd. Laat me nog eens kijken."/>
+		<text name="npc_dialog_refused_request_reuse" text="Dat verzoek is al anders beantwoord."/>
+		<text name="npc_dialog_refused_relationship" text="Deze buur kent je nog niet goed genoeg."/>
+		<text name="npc_dialog_refused_not_ready" text="Die klus kan nog niet worden afgerond."/>
+		<text name="npc_dialog_refused_operation" text="Dat kan hier niet."/>
+		<text name="npc_dialog_talk_ok" text="Bedankt voor het praatje."/>
+		<text name="npc_dialog_talk_limit" text="(Vandaag al gepraat, geen verandering in de relatie)"/>
+		<text name="npc_dialog_tone_warm" text="Het is altijd fijn je te zien."/>
+		<text name="npc_dialog_tone_cold" text="Hmm. Jij weer."/>
+		<text name="npc_dialog_tone_cool" text="O. Hoi."/>
+		<text name="npc_dialog_declined" text="Ik red me voorlopig wel, maar bedankt."/>
+		<text name="npc_dialog_no_work" text="Ik heb nu niets nodig, maar bedankt voor het vragen!"/>
+		<text name="npc_dialog_offer" text="Ik heb iets voor je."/>
+		<text name="npc_dialog_offer_waiting" text="Ik heb iets voor je: %s"/>
+		<text name="npc_dialog_accepted" text="Bedankt! Ik heb je hulp echt nodig."/>
+		<text name="npc_dialog_accepted_short" text="Bedankt! Ik heb je hulp echt nodig."/>
+		<text name="npc_dialog_completed" text="Heel erg bedankt voor je hulp! Hier is je beloning."/>
+		<text name="npc_dialog_abandoned" text="Goed, laat dan maar."/>
+		<text name="npc_dialog_busy" text="Daar help ik al een andere boerderij mee. Kom later terug!"/>
+		<text name="npc_dialog_come_find_me" text="Kom naar mijn huis. Ik moet je persoonlijk zien om dit af te ronden!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Bezig met een andere boerderij"/>
+		<text name="npc_dialog_gift_ok" text="Bedankt voor het cadeau!"/>
+		<text name="npc_dialog_gift_refused" text="Het cadeau kon niet worden gegeven."/>
+		<text name="npc_dialog_ok" text="Klaar."/>
+		<text name="npc_work_view_unavailable" text="Je werklijst is nu niet beschikbaar."/>
+		<text name="npc_work_view_last_confirmed" text="Toont de laatst bevestigde werklijst; de buur heeft nog niet geantwoord."/>
+		<text name="npc_work_view_last_confirmed_short" text="laatst bevestigd"/>
+		<text name="npc_rf_pda_completed_count" text="%d voltooid voor deze boerderij"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Hier niet beschikbaar: alleen de host kan een buur aanpassen."/>
+		<text name="npc_contrib_generic_title" text="Verzoek van een buur" />
+		<text name="npc_contrib_generic_desc" text="Een buur heeft jouw boerderij om hulp gevraagd" />
+		<text name="npc_contrib_step_report" text="Doe het werk" />
+		<text name="npc_contrib_step_talk" text="Praat met de buur" />
+		<text name="npc_contrib_hold_work_off" text="In de wacht: dit soort werk staat uit. Loslaten sluit het zonder kosten." />
+		<text name="npc_contrib_hold_companion_missing" text="In de wacht: de mod die om dit werk vroeg, is niet geladen. Loslaten sluit het zonder kosten." />
+		<text name="npc_contrib_hold_companion_incompatible" text="In de wacht: de mod die om dit werk vroeg, heeft het gewijzigd. Loslaten sluit het zonder kosten." />
+		<text name="npc_contrib_let_go" text="Loslaten" />
+		<text name="rf_live_key_unbound" text="Niet toegewezen"/>
+		<text name="rf_live_key_keyboard_unbound" text="Toetsenbord niet toegewezen"/>
+		<text name="rf_live_key_unavailable" text="niet beschikbaar"/>
 </texts>
 </l10n>

@@ -2,15 +2,15 @@
 -- FS25 NPC Favor — Settings Panel
 -- =========================================================
 -- Fully custom-drawn settings panel. No XML — pure overlay.
--- Open/close: F5
+-- Open/close: NPC_SETTINGS action (player-assigned key)
 -- Landing page → category card → settings list.
 -- =========================================================
 
 ---@class NPCSettingsPanel
-NPCSettingsPanel = {}
+NPCSettingsPanel = NPCSettingsPanel or {}
 local NPCSettingsPanel_mt = Class(NPCSettingsPanel)
 
-local NPC_MOD_NAME = g_currentModName
+local NPC_MOD_NAME = (NPCFavorModName or g_currentModName)
 
 -- ── i18n helper ───────────────────────────────────────────
 local function tr(key, fallback)
@@ -581,7 +581,7 @@ function NPCSettingsPanel:drawInfoBar()
         self:registerClick("back", bbX, bbY, bbW, bbH)
     else
         self:drawText(PX + PW - PAD, textY, TS_SMALL,
-            tr("npc_panel_btn_close_hint", "F5 to close"), C.hint, RenderText.ALIGN_RIGHT, false)
+            tr("npc_panel_btn_close_hint", "Settings key to close"), C.hint, RenderText.ALIGN_RIGHT, false)
     end
 end
 

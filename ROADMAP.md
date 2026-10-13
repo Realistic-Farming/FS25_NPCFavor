@@ -1,7 +1,7 @@
 # NPC Favor Roadmap
 
-**Current version:** 1.2.7.66
-**Last updated:** 2026-08-15
+**Current version:** 1.2.7.102
+**Last updated:** 2026-09-15
 
 > *"These NPCs notice me. They remember what I do. I'm part of this world, not just passing through it."*
 
@@ -178,3 +178,17 @@ These will not be built:
 ## Guiding principle
 
 Every item here should make NPCs feel **noticed**, **persistent**, and **socially meaningful**, without overwhelming the farming experience.
+
+## 2026-10-04 (Fred): the shared RF Esc door at the suite's STOCK page set (Wizard, #127)
+
+- [x] The four shared Esc door files (`xml/gui/RfPdaMenuPage.xml`, `src/gui/RfPdaMenuPage.lua`, `src/gui/RfEscModules.lua`, `xml/gui/rfEscProfiles.xml`) are at the set every door mod carries, byte-same in all ten (Wizard's STOCK page chain build, #127, merged at c0df15ae): wider sheet cells, the explanation band at up to four lines, the ids and callbacks StockGuard's STOCK page uses (inert without StockGuard), the hidden ids and profiles of DairyCore's herd-advisory panel, ProStaff in the closed-module list, and Soil Fertilizer's AUTO target card kept.
+- The door's in-game check is TESTING row 416. Docs by Fred's catch-up, on Tyson's word of 2026-10-04.
+
+## 2026-10-05 (Fred): the Esc side panel's info box clear of the selected tab (Wizard, #129)
+
+- [x] The shared Esc door file `xml/gui/RfPdaMenuPage.xml`, byte-same in all ten door mods (Wizard, #129, merged at b9da4ab7): the side info boxes (`rfSideInfoShell`, `wcSideInfoShell`, `mdSideInfoShell`, `csSideInfoShell`) take an explicit position and size, 16 px further right and 16 px narrower (384 to 368 px), so the dark box starts clear of the selected tab's lime edge and its right edge stays where it was. The side text bodies narrow by the same 16 px, to 352 px (the main side text, from 368) and 348 px (the Worker Costs and Market Dynamics side help, from 364), so the text starts 16 px further right and each line ends where it did.
+- The change's in-game check is TESTING row 445. Docs by Fred's catch-up, on Tyson's word of 2026-10-05.
+
+## 2026-10-06 (Fred): the mod's title and description readable again in every language (MAINTENANCE row 224)
+
+- [x] `modDesc.xml`: 14 title and description lines (Czech, Portuguese, Ukrainian, Russian, German, French, Polish, Spanish, Danish) had been saved through two wrong code pages, so the mod manager showed garbled text such as "Przys├àÔÇÜuga". Each is decoded back (the DOS cp850 layer, then the Windows cp1252 one) to the exact text the file held before the damage (it matches the file at the parent of b965982, 2026-08-10, line for line). No other line changes.

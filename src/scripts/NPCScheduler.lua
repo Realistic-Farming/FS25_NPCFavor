@@ -70,7 +70,7 @@
 --   Overnight ranges (start > end, e.g., 22→6) are handled correctly.
 -- =========================================================
 
-NPCScheduler = {}
+NPCScheduler = NPCScheduler or {}
 NPCScheduler_mt = Class(NPCScheduler)
 
 --- Create a new NPCScheduler.
@@ -1122,7 +1122,7 @@ function NPCScheduler:getScheduleSummary(npc)
     local title = "My plans today:"
     local nowMarker = " ← NOW"
     -- Prefer modEnv; reject Giants Missing banners (truthy on miss).
-    local modEnv = g_modEnvironments and g_modEnvironments[g_currentModName]
+    local modEnv = g_modEnvironments and g_modEnvironments[(NPCFavorModName or g_currentModName)]
     local i18n = (modEnv and modEnv.i18n) or g_i18n
     if i18n ~= nil then
         local okT, t = pcall(function() return i18n:getText("npc_schedule_title") end)

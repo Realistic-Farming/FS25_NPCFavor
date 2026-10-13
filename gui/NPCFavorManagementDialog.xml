@@ -19,6 +19,18 @@
             <Text profile="fmTitle" id="titleText" position="0px -12px" text="Active Favors"/>
             <Text profile="fmSubtitle" id="subtitleText" position="0px -36px" text=""/>
 
+            <!-- ===== HEADER CONTROLS (RSF-F148): mode toggle + pager ===== -->
+            <Bitmap profile="fmWideBlueBg"   id="modetogglebg"  position="-340px -14px" visible="false"/>
+            <Button profile="fmWideBlueHit"  id="modetoggle"    position="-340px -14px" onClick="onClickModeToggle" onFocus="onFocusModeToggle" onLeave="onLeaveModeToggle" visible="false"/>
+            <Text   profile="fmWideBlueText" id="modetoggletxt" position="-340px -15px" text="Recovery (0)" visible="false"/>
+            <Text   profile="fmPage"         id="pageText"      position="215px -15px" text="" visible="false"/>
+            <Bitmap profile="fmBlueBg"   id="pageprevbg"  position="300px -14px" visible="false"/>
+            <Button profile="fmBlueHit"  id="pageprev"    position="300px -14px" onClick="onClickPagePrev" onFocus="onFocusPagePrev" onLeave="onLeavePagePrev" visible="false"/>
+            <Text   profile="fmBlueText" id="pageprevtxt" position="300px -15px" text="&lt; Prev" visible="false"/>
+            <Bitmap profile="fmBlueBg"   id="pagenextbg"  position="385px -14px" visible="false"/>
+            <Button profile="fmBlueHit"  id="pagenext"    position="385px -14px" onClick="onClickPageNext" onFocus="onFocusPageNext" onLeave="onLeavePageNext" visible="false"/>
+            <Text   profile="fmBlueText" id="pagenexttxt" position="385px -15px" text="Next &gt;" visible="false"/>
+
             <!-- ===== HEADER DIVIDER ===== -->
             <Bitmap profile="fmDivider" position="0px -54px"/>
 
@@ -145,8 +157,17 @@
             <!-- ===== FOOTER DIVIDER ===== -->
             <Bitmap profile="fmDivider" position="0px -495px"/>
 
+            <!-- ===== TARGET FARM PICKER (RSF-F148, host/admin assignment) ===== -->
+            <Text   profile="fmPicker"   id="farmPickerLabel" position="-120px -508px" text="" visible="false"/>
+            <Bitmap profile="fmBlueBg"   id="farmprevbg"  position="300px -507px" visible="false"/>
+            <Button profile="fmBlueHit"  id="farmprev"    position="300px -507px" onClick="onClickFarmPrev" onFocus="onFocusFarmPrev" onLeave="onLeaveFarmPrev" visible="false"/>
+            <Text   profile="fmBlueText" id="farmprevtxt" position="300px -508px" text="&lt; Farm" visible="false"/>
+            <Bitmap profile="fmBlueBg"   id="farmnextbg"  position="385px -507px" visible="false"/>
+            <Button profile="fmBlueHit"  id="farmnext"    position="385px -507px" onClick="onClickFarmNext" onFocus="onFocusFarmNext" onLeave="onLeaveFarmNext" visible="false"/>
+            <Text   profile="fmBlueText" id="farmnexttxt" position="385px -508px" text="Farm &gt;" visible="false"/>
+
             <!-- ===== FOOTER AREA ===== -->
-            <Text profile="fmFooter" id="footerText" position="0px -510px" text="Cancel reduces relationship by 10"/>
+            <Text profile="fmFooter" id="footerText" position="0px -534px" text="Cancel applies the abandon penalty"/>
 
         </GuiElement>
 
@@ -237,6 +258,36 @@
             <textBold value="true"/>
             <textColor value="0.7 0.85 1 1"/>
             <textAlignment value="center"/>
+        </Profile>
+
+        <!-- ===== RSF-F148 HEADER / PICKER PROFILES ===== -->
+        <Profile name="fmWideBlueBg" extends="baseReference" with="anchorTopCenter">
+            <size value="160px 22px"/>
+            <imageColor value="0.12 0.2 0.35 0.95"/>
+        </Profile>
+        <Profile name="fmWideBlueHit" extends="emptyPanel" with="anchorTopCenter">
+            <size value="160px 22px"/>
+            <isFocusable value="true"/>
+        </Profile>
+        <Profile name="fmWideBlueText" extends="fs25_textDefault" with="anchorTopCenter">
+            <size value="160px 20px"/>
+            <textSize value="10px"/>
+            <textBold value="true"/>
+            <textColor value="0.7 0.85 1 1"/>
+            <textAlignment value="center"/>
+        </Profile>
+        <Profile name="fmPage" extends="fs25_textDefault" with="anchorTopCenter">
+            <size value="90px 20px"/>
+            <textSize value="10px"/>
+            <textColor value="0.7 0.7 0.7 1"/>
+            <textAlignment value="center"/>
+        </Profile>
+        <Profile name="fmPicker" extends="fs25_textDefault" with="anchorTopCenter">
+            <size value="500px 20px"/>
+            <textSize value="11px"/>
+            <textBold value="true"/>
+            <textColor value="0.85 0.9 1 1"/>
+            <textAlignment value="left"/>
         </Profile>
 
         <!-- ===== 3-LAYER BUTTON PROFILES: RED (Cancel) ===== -->

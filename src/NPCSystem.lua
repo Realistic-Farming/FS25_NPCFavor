@@ -20,7 +20,7 @@
 -- PERSISTENCE & SAVE SYSTEM:
 -- [x] NPC persistence across save/load (saveToXMLFile/loadFromXMLFile)
 -- [x] Save NPC state to savegame XML (positions, relationships, active favors, personality modifiers)
--- [x] Load NPC state from savegame XML (restore NPCs at saved positions via uniqueId/name matching)
+-- [x] Load NPC state from savegame XML (RSF-F357: saved people restored by durable number before any town is created)
 -- [x] Preserve favor progress across sessions (via NPCFavorSystem:restoreFavor)
 -- [x] Preserve relationship levels across sessions
 -- [ ] Auto-save NPC data every 30 seconds (currently only saves on manual save)
@@ -145,8 +145,11 @@
 --   converts to seconds (dt = dt / 1000) before passing to subsystems.
 -- =========================================================
 
-NPCSystem = {}
+NPCSystem = NPCSystem or {}
 NPCSystem_mt = Class(NPCSystem)
+
+-- RSF-F357: the saved-neighbour identity contract this host offers companions.
+NPCSystem.savedNeighbourIdentityVersion = 1
 
 --- Create a new NPCSystem coordinator.
 -- @param mission       g_currentMission reference
@@ -164,7 +167,10 @@ function NPCSystem.new(mission, modDirectory, modName)
     -- Initialize subsystems FIRST with safe defaults
     print("[NPCSystem] Initializing subsystems...")
     self.settings = NPCSettings.new()
-    
+
+    -- RSF-F357: the host-owned people, their durable numbers and the load state.
+    self.people = NPCPersonRoster.new(self)
+
     -- NPC name/personality lists with index counter for unique assignment
     self.npcNameIndex = 0
     self.npcPersonalityIndex = 0
@@ -183,15 +189,29 @@ function NPCSystem.new(mission, modDirectory, modName)
     self.maleNameIndex = 0
     self.femaleNameIndex = 0
 
+    -- RSF-F357: a name held by any retained person (live or waiting) is skipped,
+    -- the other pool is tried when one is exhausted, and nil is returned when
+    -- both are, so a new town fill never creates a namesake of a saved person.
+    -- It does not rename or merge two genuine saved people who share a name.
+    local function nextUnretainedName(pool, indexField)
+        for _ = 1, #pool do
+            self[indexField] = self[indexField] + 1
+            local name = pool[((self[indexField] - 1) % #pool) + 1]
+            if not (self.people ~= nil and self.people:isNameRetained(name)) then
+                return name
+            end
+        end
+        return nil
+    end
     self.config = {
         getNPCName = function(isFemale)
+            local first, second = self.maleNames, self.femaleNames
+            local firstIndex, secondIndex = "maleNameIndex", "femaleNameIndex"
             if isFemale then
-                self.femaleNameIndex = self.femaleNameIndex + 1
-                return self.femaleNames[((self.femaleNameIndex - 1) % #self.femaleNames) + 1]
-            else
-                self.maleNameIndex = self.maleNameIndex + 1
-                return self.maleNames[((self.maleNameIndex - 1) % #self.maleNames) + 1]
+                first, second = self.femaleNames, self.maleNames
+                firstIndex, secondIndex = "femaleNameIndex", "maleNameIndex"
             end
+            return nextUnretainedName(first, firstIndex) or nextUnretainedName(second, secondIndex)
         end,
         getRandomNPCName = function(isFemale)
             return self.config.getNPCName(isFemale)
@@ -330,37 +350,65 @@ function NPCSystem:onMissionLoaded()
                     print("[NPC Favor] All checks passed, initializing NPCs...")
                 end
                 
-                -- Initialize NPCs (fresh spawn)
-                self:initializeNPCs()
-
-                -- Bridge ContractorMod workers into the favor system.
-                -- Must run AFTER initializeNPCs() and BEFORE loadFromXMLFile()
-                -- so that contractor uniqueIds exist when save data is matched.
-                self.contractorBridge:initialize()
-
-                -- Restore saved state (relationships, positions, favor history)
+                -- RSF-F357: restore the saved people BEFORE creating a town. The
+                -- server selects one saved source once (a registered StateLedger
+                -- that has not delivered keeps the people WAITING; a delivered
+                -- block owns the load; a nil block or no ledger permits the own
+                -- XML), reserves and stages it, fills town places with retained
+                -- people first, then exposes person READY. The contractor
+                -- presences and the favour restore follow READY (see
+                -- _onPersonReady). A pure client never selects, mints or spawns:
+                -- it starts WAITING and becomes READY only from a complete,
+                -- validated server snapshot.
                 local missionInfo = nil
                 if g_currentMission and g_currentMission.missionInfo then
                     missionInfo = g_currentMission.missionInfo
                 elseif g_currentMission and g_currentMission.savegameDirectory then
                     missionInfo = { savegameDirectory = g_currentMission.savegameDirectory }
                 end
-                -- Prefer StateLedger when installed and it delivered a state block;
-                -- otherwise import our own npc_favor.xml (the standalone fallback).
-                if NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.hasLedgerState() then
-                    NPCStateLedgerBridge.applyState()
-                elseif missionInfo then
-                    self:loadFromXMLFile(missionInfo)
+                if self.isServer then
+                    self:runPersonLoad(missionInfo)
+                else
+                    self:bootstrapClient()
                 end
 
-                -- Show notification
+                -- BUILD 15:39 (PB-14). This used to be a red blinking warning
+                -- that advertised the `npcHelp` developer console command. Two
+                -- things wrong with that: the blinking warning is the alarm
+                -- channel, not the "a mod finished loading" channel, and a
+                -- console command is not player language. It also competed with
+                -- the Soil changelog for the same first-load attention because
+                -- every mod was shouting at the HUD directly.
+                --
+                -- It now goes through MasterHUD's shared notice queue, which
+                -- paces and folds the whole suite's first-load lines. When
+                -- MasterHUD is absent NPC Favor still ships standalone, so it
+                -- falls back to the game's own non-blocking notification list -
+                -- never back to the blinking warning.
                 if self.settings.showNotifications then
-                    if g_currentMission and g_currentMission.hud then
-                        local ver = (g_NPCFavorMod and g_NPCFavorMod.version) or "?"
-                        g_currentMission.hud:showBlinkingWarning(
-                            "NPC Favor v" .. ver .. " loaded - Type 'npcHelp' for commands",
-                            8000
-                        )
+                    local ver  = (g_NPCFavorMod and g_NPCFavorMod.version) or "?"
+                    local text = string.format(
+                        g_i18n:hasText("npc_notice_loaded")
+                            and g_i18n:getText("npc_notice_loaded")
+                            or "NPC Favor v%s ready. Your neighbours are settling in.",
+                        ver)
+
+                    local hud = (g_currentMission and g_currentMission.masterHUD) or g_masterHUD
+                    local posted = false
+                    if hud ~= nil and type(hud.postNotice) == "function" then
+                        local ok, r = pcall(hud.postNotice, hud, {
+                            topic = "npcfavor_loaded",
+                            text  = text,
+                        })
+                        posted = ok and r == true
+                    end
+
+                    if not posted and g_currentMission ~= nil
+                        and g_currentMission.addIngameNotification ~= nil then
+                        local typ = (FSBaseMission and FSBaseMission.INGAME_NOTIFICATION_INFO) or 1
+                        pcall(function()
+                            g_currentMission:addIngameNotification(typ, text)
+                        end)
                     end
                 end
                 
@@ -376,6 +424,20 @@ function NPCSystem:onMissionLoaded()
                 if not self._aiJobMsgSubscribed and g_messageCenter and MessageType and MessageType.AI_JOB_STOPPED then
                     g_messageCenter:subscribe(MessageType.AI_JOB_STOPPED, self.onAIJobStopped, self)
                     self._aiJobMsgSubscribed = true
+                end
+
+                -- RSF-F148: farm lifecycle. Established on the mod's own server
+                -- test (self.isServer), not copied from the unguarded shape above,
+                -- because FARM_CREATED also fires on clients for every farm that
+                -- replicates at join.
+                if self.isServer and not self._farmMsgSubscribed and g_messageCenter and MessageType
+                    and MessageType.FARM_DELETED and MessageType.FARM_CREATED then
+                    g_messageCenter:subscribe(MessageType.FARM_DELETED, self.onFarmDeletedMessage, self)
+                    g_messageCenter:subscribe(MessageType.FARM_CREATED, self.onFarmCreatedMessage, self)
+                    if MessageType.USER_REMOVED then
+                        g_messageCenter:subscribe(MessageType.USER_REMOVED, self.onUserRemovedMessage, self)
+                    end
+                    self._farmMsgSubscribed = true
                 end
 
                 print("[NPC Favor] Initialized with " .. tostring(self.npcCount) .. " NPCs")
@@ -636,42 +698,30 @@ end
 
 
 function NPCSystem:initializeNPCs()
-    -- Classify all world buildings before spawning NPCs
+    -- RSF-F357: this is the server town fill, run once the selected saved
+    -- population is committed (see applySelectedSnapshot). It creates no person
+    -- of its own accord: retained people return to their places first, in
+    -- ascending-number order, and newcomers only fill what is still empty
+    -- under the host count. A pure client never reaches it.
+    if not self.isServer then
+        return
+    end
+
+    -- Classify all world buildings before placing anyone
     self:classifyBuildings()
 
     -- Initialize the event scheduler for dynamic emergent events
     self:initEventScheduler()
 
-    -- Clear existing NPCs if any
+    -- The live set is rebuilt from the roster; nothing survives from before.
     self:clearAllNPCs()
-    
-    -- Find suitable spawn locations
-    local spawnLocations = self:findNPCSpawnLocations()
-    
-    -- Create NPCs
-    for i = 1, math.min(#spawnLocations, self.settings.maxNPCs) do
-        local location = spawnLocations[i]
-        local npc = self:createNPCAtLocation(location)
-        
-        if npc then
-            -- Initialize NPC with proper data
-            self:initializeNPCData(npc, location, i)
-            
-            table.insert(self.activeNPCs, npc)
-            self.npcCount = self.npcCount + 1
-            
-            if i <= 3 then
-                print(string.format("NPC %d created: %s", i, npc.name))
-            end
-        end
-    end
 
-    if self.npcCount > 3 then
-        print(string.format("... and %d more NPCs created", self.npcCount - 3))
-    end
-    print(string.format("NPC Favor: Generated %d total NPCs", self.npcCount))
+    self:applyLiveCount()
 
-    -- Assign farmlands and fields to farmer NPCs (after all NPCs are created)
+    print(string.format("NPC Favor: %d neighbours live, %d waiting (%d retained)",
+        self.npcCount, self.people:count() - self.npcCount, self.people:count()))
+
+    -- Assign farmlands and fields to farmer NPCs (after all NPCs are placed)
     self:assignFarmlands()
 
     -- Phase B: Spawn real NPC vehicles. Player entry is blocked by lockNPCVehicle
@@ -681,11 +731,321 @@ function NPCSystem:initializeNPCs()
     self:initializeNPCVehicles()
 end
 
+--- The native unique id of a placeable, or nil. A house identity only.
+function NPCSystem:placeableUniqueId(placeable)
+    if type(placeable) ~= "table" or type(placeable.getUniqueId) ~= "function" then return nil end
+    local ok, uid = pcall(placeable.getUniqueId, placeable)
+    if ok and type(uid) == "string" and uid ~= "" then return uid end
+    return nil
+end
+
+--- RSF-F357: resolve a retained person's saved house against the current
+--- eligible buildings. Keeps the saved home spot when the house is still there;
+--- otherwise hands out the next unused spawn place; otherwise she waits for a
+--- home. Never used to choose a person.
+--- @return location table or nil
+function NPCSystem:resolvePersonHome(person, freeLocations)
+    if person.homeUniqueId ~= nil and self.classifiedBuildings ~= nil then
+        local playerFarmId = 1
+        if g_currentMission and g_currentMission.getFarmId then
+            playerFarmId = g_currentMission:getFarmId()
+        end
+        for _, entries in pairs(self.classifiedBuildings) do
+            for _, entry in ipairs(entries) do
+                if entry.ownerFarmId ~= playerFarmId
+                    and self:placeableUniqueId(entry.placeable) == person.homeUniqueId then
+                    local home = person.homePosition or { x = entry.x, y = entry.y, z = entry.z }
+                    return {
+                        x = home.x, y = home.y, z = home.z,
+                        building = entry, buildingName = entry.name,
+                        ownerFarmId = entry.ownerFarmId or 0,
+                        isPredefined = true,
+                        isResidential = entry.category == "residential",
+                        category = entry.category or "other",
+                        keptHome = true,
+                    }
+                end
+            end
+        end
+    end
+    if person.homeUniqueId == nil and person.homePosition ~= nil
+        and NPCPersonRoster.isFiniteNumber(person.homePosition.x) and NPCPersonRoster.isFiniteNumber(person.homePosition.z) then
+        -- No house was recorded (a save from before this repair, or a spot with
+        -- no placeable behind it): the saved spot is kept as it always was.
+        -- Only a recorded house that no longer resolves is re-placed.
+        local home = person.homePosition
+        return {
+            x = home.x, y = home.y or 0, z = home.z,
+            building = nil, buildingName = person.homeBuildingName or "",
+            ownerFarmId = person.ownerFarmId or 0,
+            isPredefined = true, isResidential = false, category = "other",
+            keptHome = true,
+        }
+    end
+    if freeLocations ~= nil and #freeLocations > 0 then
+        return table.remove(freeLocations, 1)
+    end
+    return nil
+end
+
+--- RSF-F357: the live selection. Town people above the chosen count wait in
+--- ascending-number order; raising the count returns them before any newcomer
+--- is created. Supported provider people wait for their companion claim and do
+--- not count against the town. Waiting people have no body, AI work or offers.
+function NPCSystem:applyLiveCount()
+    local people = self.people
+    local cap = tonumber(self.settings.maxNPCs) or 0
+    local liveCount = 0
+
+    local candidates = {}
+    for _, person in ipairs(people.roster) do
+        if person.origin == NPCPersonRoster.ORIGIN_CONSULTANT or person.origin == NPCPersonRoster.ORIGIN_PROVIDER then
+            if not person.live then
+                self:setPersonLive(person, false, NPCPersonRoster.REASON_WAITING_COMPANION)
+            else
+                self:setPersonLive(person, true)
+            end
+        elseif person.townCandidate then
+            candidates[#candidates + 1] = person
+        else
+            self:setPersonLive(person, false, NPCPersonRoster.REASON_KEPT_LEGACY)
+        end
+    end
+    table.sort(candidates, function(a, b) return a.id < b.id end)
+
+    local freeLocations = self:findNPCSpawnLocations()
+    -- Places already held by retained people are not handed out twice.
+    local heldSpots = {}
+    for _, person in ipairs(candidates) do
+        if person.homeUniqueId ~= nil then
+            heldSpots[person.homeUniqueId] = true
+        elseif person.homePosition ~= nil and self.classifiedBuildings ~= nil then
+            -- A kept spot with no recorded house (a pre-F357 row) holds the
+            -- building it stands at, so a newcomer is not placed in it.
+            local hx, hz = person.homePosition.x, person.homePosition.z
+            if NPCPersonRoster.isFiniteNumber(hx) and NPCPersonRoster.isFiniteNumber(hz) then
+                for _, entries in pairs(self.classifiedBuildings) do
+                    for _, entry in ipairs(entries) do
+                        local dx, dz = entry.x - hx, entry.z - hz
+                        if dx * dx + dz * dz <= 15 * 15 then
+                            local uid = self:placeableUniqueId(entry.placeable)
+                            if uid ~= nil then heldSpots[uid] = true end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local unheld = {}
+    for _, loc in ipairs(freeLocations) do
+        local uid = loc.building and self:placeableUniqueId(loc.building.placeable) or nil
+        if uid == nil or not heldSpots[uid] then unheld[#unheld + 1] = loc end
+    end
+    freeLocations = unheld
+
+    for _, person in ipairs(candidates) do
+        if liveCount >= cap then
+            self:setPersonLive(person, false, NPCPersonRoster.REASON_WAITING_COUNT)
+        else
+            local location = self:resolvePersonHome(person, freeLocations)
+            if location == nil then
+                self:setPersonLive(person, false, NPCPersonRoster.REASON_WAITING_HOME)
+            else
+                self:assignPersonPlaces(person, location, true)
+                self:setPersonLive(person, true)
+                liveCount = liveCount + 1
+            end
+        end
+    end
+
+    -- Newcomers fill only what is still empty under the count.
+    while liveCount < cap and #freeLocations > 0 do
+        local location = table.remove(freeLocations, 1)
+        local npc = self:createPersonAtLocation(location, NPCPersonRoster.ORIGIN_TOWN)
+        if npc == nil then
+            break
+        end
+        liveCount = liveCount + 1
+        if liveCount <= 3 then
+            print(string.format("NPC %d created: %s", npc.id, npc.name))
+        end
+    end
+end
+
+--- RSF-F357: create a durable person through the one host path: the allocator
+--- issues the number, the retained roster owns the row, and the person is live
+--- with a body. Returns nil (with a reason) when the allocator or the name pool
+--- refuses; a place is then left empty rather than filled with a namesake.
+function NPCSystem:createPersonAtLocation(location, origin)
+    local npc, why = self:createNPCAtLocation(location)
+    if npc == nil then
+        return nil, why
+    end
+    npc.origin = origin or NPCPersonRoster.ORIGIN_TOWN
+    npc.townCandidate = (npc.origin == NPCPersonRoster.ORIGIN_TOWN)
+    self:initializeNPCData(npc, location, npc.id)
+    self.people:addPerson(npc)
+    self:setPersonLive(npc, true)
+    return npc
+end
+
+--- RSF-F357: the live/waiting transition. Going live adds the person to the
+--- activeNPCs compatibility view and gives her a body. Going waiting releases
+--- her own field reservation, ends her work and vehicles, removes her body,
+--- drops her from activeNPCs and pauses her durable accepted work; she stays in
+--- the roster with her reason. Never used for a presence.
+function NPCSystem:setPersonLive(person, live, reason)
+    if type(person) ~= "table" or person.personKind ~= NPCPersonRoster.PERSON_DURABLE then return false end
+    local wasLive = person.live == true
+    if live then
+        person.live = true
+        person.waitingReason = nil
+        person.isActive = true
+        local present = false
+        for _, npc in ipairs(self.activeNPCs) do
+            if npc == person then present = true break end
+        end
+        if not present then
+            table.insert(self.activeNPCs, person)
+            self.npcCount = self.npcCount + 1
+        end
+        if self.entityManager ~= nil and self.entityManager.createNPCEntity ~= nil
+            and person.position ~= nil and not (self.entityManager.npcEntities and self.entityManager.npcEntities[person.id]) then
+            pcall(self.entityManager.createNPCEntity, self.entityManager, person)
+        end
+    else
+        if wasLive then
+            -- Release her own reservation first, then end her work and vehicles.
+            if self.fieldWork ~= nil and person._fieldWorkFieldId ~= nil then
+                pcall(self.fieldWork.releaseWorker, self.fieldWork, person._fieldWorkFieldId, person.id)
+                person._fieldWorkFieldId = nil
+            end
+            person.fieldWorkPath, person.fieldWorkWaypoints, person.fieldWorkIndex, person.fieldWorkSlot = nil, nil, nil, nil
+            pcall(function() self:stopNPCFieldWork(person) end)
+            if person.realTractor then pcall(function() self:removeNPCTractor(person) end) end
+            if person.realCar then pcall(function() self:removeNPCCar(person) end) end
+            if self.entityManager ~= nil and self.entityManager.removeNPCEntity ~= nil then
+                pcall(self.entityManager.removeNPCEntity, self.entityManager, person)
+            end
+            for i, npc in ipairs(self.activeNPCs) do
+                if npc == person then
+                    table.remove(self.activeNPCs, i)
+                    self.npcCount = self.npcCount - 1
+                    break
+                end
+            end
+            if self.favorSystem ~= nil and self.favorSystem.pauseWorkForPerson ~= nil then
+                pcall(self.favorSystem.pauseWorkForPerson, self.favorSystem, person.id)
+            end
+        end
+        person.live = false
+        person.waitingReason = reason or NPCPersonRoster.REASON_WAITING_COUNT
+    end
+    if self.people ~= nil then self.people:touch() end
+    return true
+end
+
+--- RSF-F357: the one host-owned actionability predicate for the shared
+--- mutation, AI and event boundaries: host enabled, person READY, a unique
+--- validated retained durable person (the roster's own table, by number), live,
+--- and never a presence. F148's separate work and owner guards still apply.
+function NPCSystem:isPersonActionable(npc)
+    if type(npc) ~= "table" then return false end
+    if self.settings == nil or not self.settings.enabled then return false end
+    local people = self.people
+    if people == nil or not people:isReady() then return false end
+    if npc.personKind ~= NPCPersonRoster.PERSON_DURABLE then return false end
+    if not NPCPersonRoster.validId(npc.id) then return false end
+    if self.isServer then
+        if people:getPerson(npc.id) ~= npc then return false end
+    else
+        -- A client acts only on a CURRENT snapshot: while a newer one is
+        -- incomplete, what is displayed is last-confirmed, not a target.
+        if people:getClientSnapshotState() ~= NPCPersonRoster.SNAPSHOT_CURRENT then return false end
+        if people.clientById[npc.id] == nil or people.clientById[npc.id].kind ~= NPCPersonRoster.KIND_LIVE then
+            return false
+        end
+    end
+    if not npc.live or npc.isActive == false then return false end
+    return true
+end
+
+--- RSF-F357: the persistence/recovery owner's retained-person lookup, live or
+--- waiting, by number only. nil plus "unproven" for a number two saved rows
+--- carried; nil plus "absent" when no retained person has it.
+function NPCSystem:resolveRetainedPerson(id)
+    if self.people == nil then return nil, "absent" end
+    return self.people:getPerson(id)
+end
+
+--- RSF-F357: a controlled teardown of the town. Releases every transient
+--- reservation and scheduled person reference, clears the relationship
+--- manager's session maps, removes bodies and empties the live view. The
+--- high-water mark is kept for a reset (never lowered for the same saved
+--- population) and dropped only when the mission ends.
+function NPCSystem:teardownTown(keepHighWater)
+    if self.fieldWork ~= nil then self.fieldWork.activeWorkers = {} end
+    if self.scheduledNPCInteractions ~= nil then self.scheduledNPCInteractions = {} end
+    if self.scheduler ~= nil and self.scheduler.scheduledNPCInteractions ~= nil then
+        self.scheduler.scheduledNPCInteractions = {}
+    end
+    local rm = self.relationshipManager
+    if rm ~= nil then
+        rm.npcMoods = {}
+        rm.grudges = {}
+        rm.relationshipHistory = {}
+        rm.dailyInteractionTracker = {}
+        rm.giftTracker = {}
+        rm.npcRelationships = {}
+    end
+    pcall(function() self:restoreAllOwnershipFlips() end)
+    -- Durable accepted work pauses as neighbour_unavailable before its person
+    -- leaves the town: work of a person who comes back is resumable by its
+    -- owner, work of one who does not stays paused. It is never left active
+    -- against nobody, to expire as failed.
+    if self.favorSystem ~= nil and self.favorSystem.pauseWorkForPerson ~= nil then
+        for _, npc in ipairs(self.activeNPCs) do
+            if npc.personKind == NPCPersonRoster.PERSON_DURABLE then
+                pcall(self.favorSystem.pauseWorkForPerson, self.favorSystem, npc.id)
+            end
+        end
+    end
+    self:clearAllNPCs()
+    if self.contractorBridge ~= nil and self.contractorBridge.delete ~= nil then
+        self.contractorBridge:delete()
+    end
+    if self.people ~= nil then
+        if keepHighWater then
+            self.people:reset(true)
+        else
+            self.people:teardownMission()
+        end
+    end
+end
+
 --- Set up an NPC's home position, field assignment, vehicles, AI state, and entity.
 -- @param npc       NPC data table (from createNPCAtLocation)
 -- @param location  Spawn location table {x, y, z, building, buildingName}
 -- @param npcId     Sequential NPC index
 function NPCSystem:initializeNPCData(npc, location, npcId)
+    self:assignPersonPlaces(npc, location, false)
+
+    -- Initialize relationship: random 5-35 (Hostile to Neutral range).
+    -- New neighbors aren't enemies, but you haven't earned their trust yet either.
+    npc.relationship = math.random(5, 35)
+
+    -- RSF-F357: no uniqueId is minted any more. The durable number (npc.id,
+    -- from the allocator) is the only identity; the old text key is migration
+    -- evidence on restored rows and never a lookup key.
+    npc.uniqueId = nil
+end
+
+--- RSF-F357: the places part of a person's set-up, shared by newcomers and by
+--- retained people returning to the town: home spot and house (with its native
+--- unique id kept as an attribute), workplace and role, nearest field, vehicles
+--- and a fresh AI state. Identity and trust are not touched here.
+--- @param keepRole  true for a restored person whose saved role stays
+function NPCSystem:assignPersonPlaces(npc, location, keepRole)
     -- Assign properties with validation
     if location then
         npc.homePosition = {
@@ -701,9 +1061,13 @@ function NPCSystem:initializeNPCData(npc, location, npcId)
     npc.homeBuilding = (location and location.building) or nil
     npc.homeBuildingName = (location and location.buildingName) or "Unknown"
     npc.ownerFarmId = (location and location.ownerFarmId) or (FarmManager.SPECTATOR_FARM_ID or 15)
+    local placeable = location and location.building and location.building.placeable or nil
+    npc.homeUniqueId = self:placeableUniqueId(placeable)
 
     -- Assign workplace and role based on nearest classified building
-    npc.role = "farmer"  -- default role
+    if not (keepRole and npc.role ~= nil) then
+        npc.role = "farmer"  -- default role
+    end
     npc.workplaceBuilding = nil
 
     if self.classifiedBuildings and location then
@@ -731,21 +1095,23 @@ function NPCSystem:initializeNPCData(npc, location, npcId)
         if bestEntry then
             npc.workplaceBuilding = bestEntry
 
-            -- Assign role based on workplace category
-            if bestCategory == "shop" then
-                npc.role = "shopkeeper"
-            elseif bestCategory == "production" then
-                npc.role = "worker"
-            elseif bestCategory == "farm_storage" or bestCategory == "animal" then
-                npc.role = "farmhand"
-            elseif bestCategory == "workshop" then
-                npc.role = "worker"
-            elseif bestCategory == "greenhouse" then
-                npc.role = "farmhand"
-            elseif bestCategory == "utility" then
-                npc.role = "worker"
-            else
-                npc.role = "farmer"
+            if not (keepRole and npc.role ~= nil) then
+                -- Assign role based on workplace category
+                if bestCategory == "shop" then
+                    npc.role = "shopkeeper"
+                elseif bestCategory == "production" then
+                    npc.role = "worker"
+                elseif bestCategory == "farm_storage" or bestCategory == "animal" then
+                    npc.role = "farmhand"
+                elseif bestCategory == "workshop" then
+                    npc.role = "worker"
+                elseif bestCategory == "greenhouse" then
+                    npc.role = "farmhand"
+                elseif bestCategory == "utility" then
+                    npc.role = "worker"
+                else
+                    npc.role = "farmer"
+                end
             end
 
             if self.settings.debugMode then
@@ -758,27 +1124,13 @@ function NPCSystem:initializeNPCData(npc, location, npcId)
     -- Guard against nil location for field lookup
     local locX = (location and location.x) or 0
     local locZ = (location and location.z) or 0
-    npc.assignedField = self:findNearestField(locX, locZ, npcId)
-    npc.assignedVehicles = self:generateNPCVehicles(npcId)
+    npc.assignedField = self:findNearestField(locX, locZ, npc.id)
+    npc.assignedVehicles = self:generateNPCVehicles(npc.id)
     
     -- Initialize AI state
     npc.aiState = "idle"
     npc.currentAction = "idle"
     npc.path = nil
-    
-    -- Initialize relationship: random 5-35 (Hostile to Neutral range).
-    -- New neighbors aren't enemies, but you haven't earned their trust yet either.
-    npc.relationship = math.random(5, 35)
-    
-    -- Set unique NPC ID
-    npc.uniqueId = string.format("npc_%d_%s_%d", 
-        npcId, 
-        string.lower((npc.name or "Unknown"):gsub("%s+", "_")),
-        math.random(1000, 9999)
-    )
-    
-    -- Add to entity manager
-    self.entityManager:createNPCEntity(npc)
 end
 
 --- Find spawn locations by enumerating non-player-owned placeables.
@@ -947,9 +1299,25 @@ function NPCSystem:createNPCAtLocation(location)
     local locHash = math.floor(math.abs((location and location.x or 0) * 7 + (location and location.z or 0) * 13)) % 1000
     local appearanceSeed = (npcCount * 137 + locHash) % 1000 + 1
 
+    -- RSF-F357: the durable number comes from the allocator (checked for
+    -- exhaustion before it increments) and the name from the pool that skips
+    -- every retained person's name. Either refusal leaves the place empty.
+    local name = self.config.getNPCName(isFemale)
+    if name == nil then
+        if not self.people.namesExhaustedLogged then
+            self.people.namesExhaustedLogged = true
+            print("[NPC Favor] No unused name is left for a new neighbour; a place stays empty")
+        end
+        return nil, NPCPersonRoster.REASON_NAMES_EXHAUSTED
+    end
+    local id, why = self.people:allocateId()
+    if id == nil then
+        return nil, why
+    end
+
     local npc = {
-        id = #self.activeNPCs + 1,
-        name = self.config.getNPCName(isFemale),
+        id = id,
+        name = name,
         isFemale = isFemale,
         age = math.random(25, 65),
         personality = self.config.getRandomPersonality(),
@@ -1033,7 +1401,17 @@ function NPCSystem:createNPCAtLocation(location)
         -- Persistence
         uniqueId = nil,
         saveData = {},
-        entityId = nil
+        entityId = nil,
+
+        -- RSF-F357 identity facts (a durable person of the town, not yet live)
+        personKind = NPCPersonRoster.PERSON_DURABLE,
+        origin = NPCPersonRoster.ORIGIN_TOWN,
+        providerToken = nil,
+        homeUniqueId = nil,
+        live = false,
+        waitingReason = nil,
+        legacy = false,
+        townCandidate = true
     }
     
     -- Apply personality-based modifiers
@@ -1068,7 +1446,7 @@ function NPCSystem:createNPCAtLocation(location)
 end
 
 --- Find the nearest field to a world position using g_fieldManager.
--- Tries 3 field-center patterns: fieldArea.fieldCenterX, posX/posZ, rootNode.
+-- The field centre is the engine's label point (posX/posZ), else the root node.
 -- @param x      World X position
 -- @param z      World Z position
 -- @param npcId  NPC ID (for debug logging)
@@ -1100,12 +1478,20 @@ function NPCSystem:isPlayerOwnedFarmland(farmlandId)
         or (FarmManager and FarmManager.SINGLEPLAYER_FARM_ID) or 1
     if owner == localFarmId then return true end
 
-    -- Multiplayer: any farm carrying human members is a player farm.
-    local farm = g_farmManager and g_farmManager:getFarmById(owner)
-    if farm ~= nil then
-        local users = farm.users or farm.userIds
-        if type(users) == "table" and next(users) ~= nil then return true end
-    end
+    -- [RSF-F206] hole two. This read used to be `farm.users or farm.userIds`, and
+    -- native Farm carries NEITHER: it has players, userIdToPlayer, uniqueUserIdToPlayer
+    -- and activeUsers (Farm.lua:186-189). Both reads were nil, so in multiplayer every
+    -- farm except the local one read as not player owned and every other player's land
+    -- was ambient-work eligible. On a dedicated server there is no local farm to catch
+    -- it one line earlier either.
+    -- Membership is also the wrong test even with the right field names: native saves
+    -- prune the players list at 150 entries and 30 days offline, and a connected client
+    -- rebuilds `players` from a stream carrying only activeUsers, so a real farm can
+    -- legitimately present an empty list. Arissani's ruling 2026-09-14: any currently
+    -- resolvable farm that is not spectator, guided tour or invalid is player land,
+    -- whatever its membership. NPCFarmIdentity already owns exactly that test and the
+    -- three excluded ids; no second copy is made here.
+    if NPCFarmIdentity.isOrdinaryFarmId(owner) then return true end
 
     return false
 end
@@ -1122,6 +1508,250 @@ function NPCSystem:isPlayerOwnedAtPosition(x, z)
     return self:isPlayerOwnedFarmland(fid)
 end
 
+-- =========================================================
+-- [RSF-F206] Ambient land admission
+-- =========================================================
+-- The two helpers above KEEP their boolean signatures and their two existing callers
+-- (the eviction sweep and the synthetic mint) unchanged: they are the only code in the
+-- mod that already got this question right, and changing them is risk with no return.
+-- Everything that has to tell "denied" from "could not ask" comes through here instead,
+-- and nothing calls both for the same decision.
+
+--- Typed admission for a world coordinate, carrying this mod's borrow stash.
+-- @return string status, number|nil farmlandId
+function NPCSystem:admitPosition(x, z)
+    return NPCLandAdmission.classifyPosition(x, z, self._ownershipFlips)
+end
+
+--- Typed admission for a known parcel id (the assignment producer holds ids, not
+--- coordinates).
+-- @return string status
+function NPCSystem:admitFarmlandId(farmlandId)
+    return NPCLandAdmission.classifyFarmlandId(farmlandId, self._ownershipFlips)
+end
+
+--- Typed admission for an assignment RECORD, which is what every door holds.
+-- A synthetic record is exempt from the parcel ORDER and is still judged by POSITION:
+-- it answers ALLOW or DENY_PLAYER and nothing else, so sample-zero ground keeps working
+-- and the farmer's ground is still refused exactly as the sweep refuses it. A real
+-- record goes through the full order at its centre.
+-- @return string status
+function NPCSystem:admitFieldRecord(record)
+    if type(record) ~= "table" then return NPCLandAdmission.INVALID end
+
+    local center = record.center
+    if type(center) ~= "table" then return NPCLandAdmission.INVALID end
+
+    if NPCLandAdmission.isSyntheticRecord(record) then
+        return NPCLandAdmission.classifySynthetic(center.x, center.z, self._ownershipFlips)
+    end
+
+    local status = self:admitPosition(center.x, center.z)
+    return status
+end
+
+--- True when a record is currently admissible. The one test every door makes.
+function NPCSystem:isFieldRecordAdmitted(record)
+    return self:admitFieldRecord(record) == NPCLandAdmission.ALLOW
+end
+
+--- The record a work door is about to act on. Every door in the call graph already
+--- picks its target this way; naming it once keeps admission and action on the SAME
+--- record, which is what "only the actual selected target is checked and acted on"
+--- requires.
+function NPCSystem:_workTargetRecord(npc)
+    if npc == nil then return nil end
+    if npc.assignedField ~= nil then return npc.assignedField end
+    if type(npc.assignedFields) == "table" then return npc.assignedFields[1] end
+    return nil
+end
+
+--- Admit the record a door is about to act on.
+-- @return string status, table|nil record
+function NPCSystem:admitWorkTarget(npc)
+    local record = self:_workTargetRecord(npc)
+    if record == nil then return NPCLandAdmission.UNAVAILABLE, nil end
+    return self:admitFieldRecord(record), record
+end
+
+--- Log a refusal. This repair is deliberately SILENT to the player: the four statuses
+--- live here and no string in this mod means "the ground was refused". A player-facing
+--- caption is registered separately as its own work.
+function NPCSystem:_logLandRefusal(npc, where, status)
+    if not self.settings or not self.settings.debugMode then return end
+    print(string.format("[NPC Favor] %s: land refused at %s (%s)",
+        (npc and npc.name) or "?", tostring(where), tostring(status)))
+end
+
+--- True while the NPC still holds ANY parcel across the three slots.
+function NPCSystem:_holdsAnyParcel(npc)
+    if npc.assignedFarmland ~= nil then return true end
+    if type(npc.assignedFields) == "table" and #npc.assignedFields > 0 then return true end
+    if type(npc.assignedField) == "table" and npc.assignedField.farmlandId ~= nil then return true end
+    return false
+end
+
+--- [RSF-F206] item 7. Clear PER DENIED PARCEL, never wholesale, matching on
+--- `farmlandId` and on nothing else. Position is not a match key and `fieldId` is not
+--- a parcel. Records belonging to a DIFFERENT parcel the same NPC legitimately holds
+--- are left exactly as they are: the producer's wrap-around deliberately allows several
+--- farmlands onto one NPC, so a wholesale clear would strip ground that is still that
+--- neighbour's and empty a field count the farmer can see.
+--- A synthetic record carries no `farmlandId` and is therefore never matched here,
+--- which is correct: it is cleared by the eviction sweep on position, not by a parcel
+--- denial.
+function NPCSystem:clearDeniedParcel(npc, farmlandId)
+    if npc == nil or farmlandId == nil then return false end
+    local cleared = false
+
+    if type(npc.assignedField) == "table" and npc.assignedField.farmlandId == farmlandId then
+        npc.assignedField = nil
+        npc._fieldRetryAge = 0
+        cleared = true
+    end
+
+    if type(npc.assignedFields) == "table" then
+        local kept = {}
+        for _, entry in ipairs(npc.assignedFields) do
+            if type(entry) == "table" and entry.farmlandId == farmlandId then
+                cleared = true
+            else
+                kept[#kept + 1] = entry
+            end
+        end
+        if cleared then npc.assignedFields = kept end
+    end
+
+    if type(npc.assignedFarmland) == "table" and npc.assignedFarmland.farmlandId == farmlandId then
+        npc.assignedFarmland = nil
+        cleared = true
+    end
+
+    -- farmName goes with the LAST parcel. It is generated and never assigned nil
+    -- anywhere in the mod, so without this the farmer opens the list and reads
+    -- "Works at Smith Farm" beside a field count of zero.
+    if cleared and not self:_holdsAnyParcel(npc) then
+        npc.farmName = nil
+    end
+
+    return cleared
+end
+
+--- [RSF-F206] item 7. Ask CURRENT admission for every DISTINCT parcel this NPC holds
+--- and clear per parcel on anything but ALLOW.
+--- assignFarmlands runs once, nothing subscribes to the native owner-changed message,
+--- and the eviction sweep clears only `assignedField`. So a parcel that classified
+--- ALLOW at start of session and is bought by the farmer an hour later keeps its
+--- `assignedFarmland` row and keeps driving the daily treatment. This is the smallest
+--- correct close: no message subscription, no new registry, no re-run of the producer.
+--- It asks about EVERY parcel because an NPC that wrapped around carries fields from a
+--- parcel its `assignedFarmland` no longer names.
+--- @return number  how many parcels were denied and cleared
+function NPCSystem:reviewLandAdmission(npc)
+    if npc == nil then return 0 end
+
+    local seen, parcels = {}, {}
+    local function note(id)
+        if id ~= nil and not seen[id] then
+            seen[id] = true
+            parcels[#parcels + 1] = id
+        end
+    end
+
+    if type(npc.assignedFarmland) == "table" then note(npc.assignedFarmland.farmlandId) end
+    if type(npc.assignedFields) == "table" then
+        for _, entry in ipairs(npc.assignedFields) do
+            if type(entry) == "table" then note(entry.farmlandId) end
+        end
+    end
+    if type(npc.assignedField) == "table" then note(npc.assignedField.farmlandId) end
+
+    local denied = 0
+    for _, farmlandId in ipairs(parcels) do
+        if self:admitFarmlandId(farmlandId) ~= NPCLandAdmission.ALLOW then
+            if self:clearDeniedParcel(npc, farmlandId) then
+                denied = denied + 1
+            end
+        end
+    end
+
+    return denied
+end
+
+--- [RSF-F206] item 7. A terminal land refusal LEAVES THE WORKING STATE and releases
+--- the reservation it took. Two existing calls, in the combination the mod's own
+--- recovery already uses at the work-timer break, and nothing hand-rolled.
+--- stopNPCFieldWork does NOT call setState and does not clear fieldWorkPath, so an NPC
+--- refused without this keeps aiState WORKING with its waypoints intact and KEEPS
+--- WALKING THE ROWS on foot for the rest of the work timer (180 to 600 seconds): from
+--- the tractor seat the machine vanishes and the person stays.
+--- IDLE, not RESTING and not goHome, because IDLE is what every existing recovery uses
+--- when work ends without the day ending, and a refused neighbour should re-decide
+--- rather than be sent home.
+function NPCSystem:endAttemptOnLandRefusal(npc, where, status)
+    if npc == nil then return end
+    self:_logLandRefusal(npc, where, status)
+
+    local ai = self.aiSystem
+    if ai == nil then return end
+
+    -- Release first, then leave the state, matching the work-timer break's order.
+    -- The helper is idempotent, so calling it on a path that already released is safe
+    -- and failing to call it is not.
+    if type(ai._releaseFieldWorkSlot) == "function" then
+        pcall(function() ai:_releaseFieldWorkSlot(npc) end)
+    end
+    if type(ai.setState) == "function" and ai.STATES ~= nil then
+        pcall(function() ai:setState(npc, ai.STATES.IDLE) end)
+    end
+end
+
+--- The field's area in square metres from the engine's own Field: hectares
+--- (Field.lua:20, set at map load :60, read through Field:getAreaHa :138, the same
+--- member the engine's mission sizes read) times ten thousand; nil when the field
+--- carries no finite positive area, so a consumer falls back to its own default
+--- rather than to a one-metre plot.
+---
+--- Native Field carries NO `fieldArea` table (Field.new, :12-30: posX, posZ, areaHa,
+--- polygonPoints, rootNode, angle). The old read `field.fieldArea.fieldArea` was nil
+--- on every field, every field became one square metre, NPCFieldWork clamped that to
+--- a 20 m square around the label point, and a tractor drew three short rows in a
+--- loop that crossed itself: the figure of 8 of PLAYER-REPORTS row 93.
+function NPCSystem.fieldAreaSqm(field)
+    if type(field) ~= "table" then return nil end
+    local ha = nil
+    if type(field.getAreaHa) == "function" then
+        local ok, v = pcall(field.getAreaHa, field)
+        if ok then ha = v end
+    end
+    if ha == nil then ha = field.areaHa end
+    if type(ha) ~= "number" or ha ~= ha or ha == math.huge or ha <= 0 then return nil end
+    return ha * 10000
+end
+
+--- The field's polygon extent in world space (Field:getPolygonPoints, Field.lua:167;
+--- world positions read as the engine reads them, MathUtil.lua:825-830): the bounding
+--- box and the vertices themselves, so a work square can be clipped to the field and
+--- its rows kept on it. nil when fewer than three points can be placed.
+function NPCSystem.fieldExtent(field)
+    if type(field) ~= "table" or type(field.getPolygonPoints) ~= "function" then return nil end
+    local ok, points = pcall(field.getPolygonPoints, field)
+    if not ok or type(points) ~= "table" then return nil end
+    local polygon, minX, maxX, minZ, maxZ = {}, nil, nil, nil, nil
+    for _, node in ipairs(points) do
+        local okT, px, _, pz = pcall(getWorldTranslation, node)
+        if okT and type(px) == "number" and type(pz) == "number" and px == px and pz == pz then
+            polygon[#polygon + 1] = { x = px, z = pz }
+            if minX == nil or px < minX then minX = px end
+            if maxX == nil or px > maxX then maxX = px end
+            if minZ == nil or pz < minZ then minZ = pz end
+            if maxZ == nil or pz > maxZ then maxZ = pz end
+        end
+    end
+    if #polygon < 3 then return nil end
+    return { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ, polygon = polygon }
+end
+
 function NPCSystem:findNearestField(x, z, npcId)
     if not g_fieldManager or not g_fieldManager.fields then
         return nil
@@ -1131,16 +1761,22 @@ function NPCSystem:findNearestField(x, z, npcId)
     local nearestDist = math.huge
 
     for _, field in pairs(g_fieldManager.fields) do
-        -- Ambient NPC fieldwork never targets player-owned land.
-        local skipField = self:isPlayerOwnedFarmland(field.farmlandId)
+        -- [RSF-F206] hole one. This gate used to be
+        --     self:isPlayerOwnedFarmland(field.farmlandId)
+        -- and native Field carries NO `farmlandId`: it carries `self.farmland`, a
+        -- reference to the Farmland object stitched to it by FieldManager at map load.
+        -- The argument was nil on every native field, the guard returned false, every
+        -- field was eligible, and the record then stamped `id = field.farmlandId or 0`
+        -- so the same zero satisfied every later gate too. Admission is now resolved
+        -- from the field's own CENTRE through the native manager, which is the read the
+        -- eviction sweep has always used and the selector never did.
 
-        -- Try multiple field center location patterns used by FS25
+        -- The field's centre: the engine's label point (Field.lua:61-63), else its
+        -- root node. Native Field has no `fieldArea` table; the read of one that used
+        -- to come first here was dead on every field.
         local cx, cz = nil, nil
 
-        if field.fieldArea and field.fieldArea.fieldCenterX then
-            cx = field.fieldArea.fieldCenterX
-            cz = field.fieldArea.fieldCenterZ
-        elseif field.posX and field.posZ then
+        if field.posX and field.posZ then
             cx = field.posX
             cz = field.posZ
         elseif field.rootNode then
@@ -1151,17 +1787,32 @@ function NPCSystem:findNearestField(x, z, npcId)
             end
         end
 
-        if cx and cz and not skipField then
-            local dx = cx - x
-            local dz = cz - z
-            local dist = math.sqrt(dx * dx + dz * dz)
-            if dist < nearestDist then
-                nearestDist = dist
-                nearest = {
-                    id = field.farmlandId or 0,
-                    center = { x = cx, y = 0, z = cz },
-                    size = (field.fieldArea and field.fieldArea.fieldArea) or 1
-                }
+        -- A missing centre is a REJECTION, not world origin: a record centred on 0,0
+        -- is a claim about ground nobody chose.
+        if cx and cz then
+            local status, parcelId = self:admitPosition(cx, cz)
+            if status == NPCLandAdmission.ALLOW then
+                local dx = cx - x
+                local dz = cz - z
+                local dist = math.sqrt(dx * dx + dz * dz)
+                if dist < nearestDist then
+                    nearestDist = dist
+                    -- [RSF-F206] item 8: `farmlandId` is the canonical parcel key every
+                    -- new test uses, and `id` is RETAINED carrying the same value as a
+                    -- compatibility alias so the existing work-start guards and
+                    -- NPCFieldWork's reservation key keep working unchanged.
+                    local recordParcel = parcelId or NPCLandAdmission.fieldParcelId(field)
+                    nearest = {
+                        farmlandId = recordParcel,
+                        id = recordParcel,
+                        center = { x = cx, y = 0, z = cz },
+                        -- Square metres from the engine's hectares, nil when unknown
+                        -- (consumers keep their defaults); the polygon extent so the
+                        -- work square and its rows stay on the field.
+                        size = NPCSystem.fieldAreaSqm(field),
+                        extent = NPCSystem.fieldExtent(field),
+                    }
+                end
             end
         end
     end
@@ -1170,8 +1821,10 @@ function NPCSystem:findNearestField(x, z, npcId)
     if nearest then
         nearest.cropInfo = nil
         for _, field in pairs(g_fieldManager.fields) do
-            local fid = field.farmlandId or 0
-            if fid == nearest.id then
+            -- [RSF-F206] hole one again: resolve the field's parcel through the nested
+            -- Farmland object, not the flat member native Field does not carry.
+            local fid = NPCLandAdmission.fieldParcelId(field)
+            if fid ~= nil and fid == nearest.farmlandId then
                 local cropInfo = {}
                 -- Try to read fruit type
                 pcall(function()
@@ -1319,14 +1972,10 @@ function NPCSystem:assignFarmlands()
     local assignableFarmlands = {}
     for _, farmland in pairs(farmlands) do
         local farmlandId = nil
-        local ownerFarmId = nil
-        local isNPCOwned = false
         local farmlandName = "Farmland"
 
         pcall(function()
             farmlandId = farmland.id or farmland.farmlandId
-            ownerFarmId = farmland.ownerFarmId or 0
-            isNPCOwned = farmland.isNPCOwned or false
             if farmland.getName then
                 farmlandName = farmland:getName()
             elseif farmland.name then
@@ -1335,10 +1984,16 @@ function NPCSystem:assignFarmlands()
         end)
 
         if farmlandId then
-            -- Assign if unowned (farmId 0, nil, or 15=spectator) or marked as NPC-owned
-            -- FarmId 15 is the spectator farm — used for all non-ownable map features
-            local spectatorId = FarmManager.SPECTATOR_FARM_ID or 15
-            if ownerFarmId == 0 or ownerFarmId == nil or ownerFarmId == spectatorId or isNPCOwned then
+            -- [RSF-F206] hole three. This used to classify off `farmland.ownerFarmId`
+            -- and `farmland.isNPCOwned`, and native Farmland carries NEITHER: owner
+            -- truth does not live on the instance at all, it lives in the manager's own
+            -- farmlandMapping (FarmlandManager:getFarmlandOwner). Both reads were nil,
+            -- the owner defaulted to zero, and EVERY native farmland classified
+            -- assignable. This producer runs once and nothing rewrites its output, so a
+            -- wrong classification here was permanent for the session.
+            -- A parcel that does not classify ALLOW is never written into
+            -- assignedFarmland or assignedFields at all.
+            if self:admitFarmlandId(farmlandId) == NPCLandAdmission.ALLOW then
                 table.insert(assignableFarmlands, {
                     farmlandId = farmlandId,
                     name = farmlandName or ("Farmland #" .. tostring(farmlandId)),
@@ -1376,10 +2031,7 @@ function NPCSystem:assignFarmlands()
                     end
                     if fieldFarmlandId and fieldFarmlandId == farmlandEntry.farmlandId then
                         local fx, fz = nil, nil
-                        if field.fieldArea and field.fieldArea.fieldCenterX then
-                            fx = field.fieldArea.fieldCenterX
-                            fz = field.fieldArea.fieldCenterZ
-                        elseif field.posX and field.posZ then
+                        if field.posX and field.posZ then
                             fx = field.posX
                             fz = field.posZ
                         elseif field.rootNode then
@@ -1475,10 +2127,7 @@ function NPCSystem:assignFarmlands()
                         if fieldFarmlandId and fieldFarmlandId == farmlandEntry.farmlandId then
                             local fieldId = field.fieldId or 0
                             local fcx, fcz = nil, nil
-                            if field.fieldArea and field.fieldArea.fieldCenterX then
-                                fcx = field.fieldArea.fieldCenterX
-                                fcz = field.fieldArea.fieldCenterZ
-                            elseif field.posX and field.posZ then
+                            if field.posX and field.posZ then
                                 fcx = field.posX
                                 fcz = field.posZ
                             elseif field.rootNode then
@@ -1486,11 +2135,24 @@ function NPCSystem:assignFarmlands()
                                 if ok3 and fx3 then fcx = fx3; fcz = fz3 end
                             end
 
-                            table.insert(bestNPC.assignedFields, {
-                                fieldId = fieldId,
-                                center = { x = fcx or 0, y = 0, z = fcz or 0 },
-                                field = field
-                            })
+                            -- [RSF-F206] item 8. A missing centre is a REJECTION, not
+                            -- world origin. Entries used to carry fieldId, center and
+                            -- field and NO parcel key at all, so item 7's per-parcel
+                            -- close had nothing to resolve a distinct set from, and
+                            -- anything reading assignedFields[1] as an assignedField
+                            -- (the work fallbacks, and NPCFieldWork's reservation key)
+                            -- saw a nil `id` and took its slot under a different key
+                            -- than a selector record on the same ground.
+                            -- `fieldId` keeps its present meaning and is never a parcel.
+                            if fcx and fcz then
+                                table.insert(bestNPC.assignedFields, {
+                                    fieldId = fieldId,
+                                    farmlandId = farmlandEntry.farmlandId,
+                                    id = farmlandEntry.farmlandId,
+                                    center = { x = fcx, y = 0, z = fcz },
+                                    field = field
+                                })
+                            end
                         end
                     end
                 end
@@ -1548,6 +2210,7 @@ function NPCSystem:tryRelocateNPCHome(npc, fieldX, fieldZ)
         local oldDist = npc.homeToFieldDistance or 0
         npc.homePosition = { x = bestBuilding.x, y = bestBuilding.y or 0, z = bestBuilding.z }
         npc.homeBuilding = bestBuilding.placeable or bestBuilding
+        npc.homeUniqueId = self:placeableUniqueId(bestBuilding.placeable)
         npc.homeBuildingName = bestBuilding.name or "Relocated Home"
         npc.homeToFieldDistance = bestDist
 
@@ -1592,6 +2255,13 @@ NPCSystem.SEEDER_POOL = {
     "data/vehicles/amazone/citan15001C/citan15001C.xml",
     "data/vehicles/horsch/avatar1225/avatar1225.xml",
     "data/vehicles/vaderstad/nzExtreme1425/nzExtreme1425.xml",
+}
+
+--- Sprayers for TREAT jobs (tractor-drawn). Visual fluid only; the actual
+--- treatment fires via B4 applyNamedFungicide on session completion.
+NPCSystem.SPRAYER_POOL = {
+    "data/vehicles/hardi/mega1200L/mega1200L.xml",
+    "data/vehicles/amazone/ux5201Super/ux5201Super.xml",
 }
 
 --- Self-propelled combine + matching header pairs for HARVEST jobs. The combine
@@ -1664,6 +2334,14 @@ function NPCSystem:validateVehiclePools()
     end
     self.SEEDER_POOL = validSeeders
 
+    -- Validate sprayer pool (TREAT role)
+    local validSprayers = {}
+    for _, path in ipairs(self.SPRAYER_POOL or {}) do
+        local ok, item = pcall(function() return g_storeManager:getItemByXMLFilename(path) end)
+        if ok and item then table.insert(validSprayers, path) end
+    end
+    self.SPRAYER_POOL = validSprayers
+
     -- Validate harvest combos (HARVEST role): keep only combos whose combine AND header both exist
     local validCombos = {}
     for _, combo in ipairs(self.HARVEST_COMBOS or {}) do
@@ -1687,8 +2365,8 @@ function NPCSystem:validateVehiclePools()
     -- spawned a real tractor that didn't get cleaned up reliably.
     self.COMMUTE_VEHICLE_POOL = foundCars
 
-    print(string.format("[NPC Favor] Vehicle pools validated: %d tractors, %d implements, %d seeders, %d harvest combos, %d commute",
-        #self.TRACTOR_POOL, #self.IMPLEMENT_POOL, #self.SEEDER_POOL, #self.HARVEST_COMBOS, #self.COMMUTE_VEHICLE_POOL))
+    print(string.format("[NPC Favor] Vehicle pools validated: %d tractors, %d implements, %d seeders, %d sprayers, %d harvest combos, %d commute",
+        #self.TRACTOR_POOL, #self.IMPLEMENT_POOL, #self.SEEDER_POOL, #self.SPRAYER_POOL, #self.HARVEST_COMBOS, #self.COMMUTE_VEHICLE_POOL))
 end
 
 --- Discover valid vehicles from the store by category keyword.
@@ -1717,6 +2395,12 @@ end
 -- @return string  role
 function NPCSystem:getNPCJobRole(npc)
     if npc.jobRole then return npc.jobRole end
+
+    -- B2: pending treatment overrides field need (treat on growing crops).
+    if npc._pendingTreat and self.SPRAYER_POOL and #self.SPRAYER_POOL > 0 then
+        npc.jobRole = "treat"
+        return "treat"
+    end
 
     -- Field-aware: match the role to the assigned field's CURRENT need so we never
     -- park a combine on a growing crop (or on bare ground). A harvester is only
@@ -1777,6 +2461,10 @@ function NPCSystem:getImplementFilename(npc)
     if role == "harvest" then
         local combo = self.HARVEST_COMBOS and self.HARVEST_COMBOS[npc._harvestComboIndex or 1]
         return combo and combo.header
+    elseif role == "treat" then
+        if not self.SPRAYER_POOL or #self.SPRAYER_POOL == 0 then return nil end
+        local index = (((npc.appearanceSeed or npc.id or 1) + 5) % #self.SPRAYER_POOL) + 1
+        return self.SPRAYER_POOL[index]
     elseif role == "sow" then
         if not self.SEEDER_POOL or #self.SEEDER_POOL == 0 then return nil end
         local index = (((npc.appearanceSeed or npc.id or 1) + 3) % #self.SEEDER_POOL) + 1
@@ -1802,6 +2490,26 @@ function NPCSystem:fillSeederWithSeed(implement)
                 local cap = (implement.getFillUnitCapacity and implement:getFillUnitCapacity(i)) or 1000
                 local tt = (ToolType and ToolType.UNDEFINED) or 0
                 implement:addFillUnitFillLevel(farmId, i, cap, seedsIndex, tt)
+            end
+        end)
+    end
+end
+
+--- Best-effort fill a sprayer with HERBICIDE for visual fluid (B2). The fluid
+--- is presentation only; the treatment fires via B4 applyNamedFungicide.
+function NPCSystem:fillSprayer(implement)
+    if not implement or not implement.getFillUnits or not g_fillTypeManager then return end
+    local herbIdx = g_fillTypeManager:getFillTypeIndexByName("HERBICIDE")
+    if not herbIdx then return end
+    local farmId = (implement.getOwnerFarmId and implement:getOwnerFarmId()) or 1
+    local units = implement:getFillUnits()
+    if not units then return end
+    for i = 1, #units do
+        pcall(function()
+            if implement.getFillUnitSupportsFillType and implement:getFillUnitSupportsFillType(i, herbIdx) then
+                local cap = (implement.getFillUnitCapacity and implement:getFillUnitCapacity(i)) or 1000
+                local tt = (ToolType and ToolType.UNDEFINED) or 0
+                implement:addFillUnitFillLevel(farmId, i, cap, herbIdx, tt)
             end
         end)
     end
@@ -1933,6 +2641,22 @@ function NPCSystem:spawnNPCTractor(npc, callback)
                 return
             end
 
+            -- [RSF-F206] item 9: re-admit at the START of the tractor-load callback,
+            -- BEFORE the implement is attached. This leg checks _pendingFieldSpawn and
+            -- aiState and reads no land at all today. Gated on _pendingFieldSpawn like
+            -- the churn guard above, so any other caller of spawnNPCTractor is
+            -- unaffected. The refusal is carried out to the field-spawn callback, which
+            -- owns the terminal pair.
+            if npc._pendingFieldSpawn then
+                local loadStatus = self:admitWorkTarget(npc)
+                if loadStatus ~= NPCLandAdmission.ALLOW then
+                    npc._landRefusedDuringSpawn = loadStatus
+                    pcall(function() self:removeNPCTractor(npc) end)
+                    if callback then callback(nil) end
+                    return
+                end
+            end
+
             self:spawnNPCImplement(npc, vehicle, function(_attached)
                 if callback then callback(vehicle) end
             end)
@@ -2035,6 +2759,8 @@ function NPCSystem:spawnNPCImplement(npc, tractor, callback)
             -- Sowers need seed loaded to actually plant.
             if self:getNPCJobRole(npc) == "sow" then
                 pcall(function() self:fillSeederWithSeed(implement) end)
+            elseif self:getNPCJobRole(npc) == "treat" then
+                pcall(function() self:fillSprayer(implement) end)
             end
             print(string.format("[NPC Favor] Implement attached for %s — %s", npc.name or "?", implementFile))
             if callback then callback(true) end
@@ -2723,8 +3449,17 @@ function NPCSystem:startNPCFieldWorkOwned(npc)
     -- This path temporarily flips farmland ownership to make AIJobFieldWork run. Never
     -- do that to land the player already owns: it is both the wrong tool and it makes
     -- the land-steal worse (George ENGINE ACK 2026-08-07).
-    if npc.assignedField and self:isPlayerOwnedFarmland(npc.assignedField.id) then
-        npc.assignedField = nil
+    -- [RSF-F206] hole one. This guard used to be
+    --     self:isPlayerOwnedFarmland(npc.assignedField.id)
+    -- and every selector record carried id 0 because native Field has no farmlandId,
+    -- so the guard's own early return (`farmlandId == 0 -> not player owned`) passed
+    -- every field straight through. Admission now resolves from the record's centre.
+    local targetStatus, targetRecord = self:admitWorkTarget(npc)
+    if targetStatus ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "startNPCFieldWorkOwned", targetStatus)
+        if npc.assignedField ~= nil and targetRecord == npc.assignedField then
+            npc.assignedField = nil
+        end
         return false
     end
 
@@ -2761,6 +3496,23 @@ function NPCSystem:startNPCFieldWorkOwned(npc)
     local farmlandId
     pcall(function() farmlandId = g_farmlandManager:getFarmlandIdAtWorldPosition(cx, cz) end)
     if not farmlandId then return false end
+
+    -- [RSF-F206] item 6: the ownership BORROW is its own door and it is the one
+    -- irreversible act on this path. `assignedField.id` is never the value handed to
+    -- the native owner write: the centre is resolved to a parcel here, and THAT id is
+    -- flipped. So a synthetic centre sitting on a positive parcel would be flipped
+    -- normally, which is the one thing the position judgement alone cannot stop.
+    -- A synthetic record never borrows a real parcel's ownership, and a real record
+    -- re-admits the parcel it actually resolved before the write.
+    if NPCLandAdmission.isSyntheticRecord(field) then
+        self:_logLandRefusal(npc, "startNPCFieldWorkOwned/borrow", "SYNTHETIC")
+        return false
+    end
+    local borrowStatus = self:admitFarmlandId(farmlandId)
+    if borrowStatus ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "startNPCFieldWorkOwned/borrow", borrowStatus)
+        return false
+    end
 
     -- Temporarily own the field with a GUARDED real farm id (a guaranteed real farm).
     -- [SF-27] LANE B: the flip stays mechanically (the job needs a real farm id),
@@ -2841,6 +3593,16 @@ function NPCSystem:startGoToWaypoint(npc)
     local wp = wps and wps[idx]
     if not wp then return false end
 
+    -- [RSF-F206] item 6: EACH chained waypoint re-admits before it creates the next
+    -- native job. AIJobGoTo has no ownership check of its own, so without this a
+    -- neighbour keeps driving the farmer's field one waypoint at a time after the
+    -- ground changed hands under it.
+    local status = self:admitWorkTarget(npc)
+    if status ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "startGoToWaypoint", status)
+        return false
+    end
+
     local job = g_currentMission.aiJobTypeManager:createJob(AIJobType.GOTO)
     if not job then return false end
 
@@ -2893,6 +3655,15 @@ function NPCSystem:startNPCComboGoTo(npc)
 
     local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
     if not field then return false end
+
+    -- [RSF-F206] item 6: admit BEFORE getWorkPattern, because that call is what takes
+    -- the field-work reservation. Refusing after it would leak a worker slot on every
+    -- refusal.
+    local status = self:admitFieldRecord(field)
+    if status ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "startNPCComboGoTo", status)
+        return false
+    end
 
     local waypoints
     if self.fieldWork and self.fieldWork.getWorkPattern then
@@ -3004,6 +3775,20 @@ function NPCSystem:spawnFieldWorkVehicle(npc)
     local field = npc.assignedField or (npc.assignedFields and npc.assignedFields[1])
     if not field or not field.center then return false end
 
+    -- [RSF-F206] item 6: admit BEFORE the vehicle load is requested, not only after it
+    -- returns. The load is asynchronous and the callback below is a terminal site in
+    -- its own right; refusing only there would still have spent the spawn.
+    local spawnStatus = self:admitFieldRecord(field)
+    if spawnStatus ~= NPCLandAdmission.ALLOW then
+        self:endAttemptOnLandRefusal(npc, "spawnFieldWorkVehicle", spawnStatus)
+        return false
+    end
+    -- [RSF-F206] item 9: capture the parcel this attempt was admitted for, so each
+    -- re-admission across the async gap can compare it to the NPC's CURRENT assignment.
+    -- A changed target is a refusal, never an inherited permission.
+    local admittedParcel = field.farmlandId
+    local admittedRecord = field
+
     -- Concurrency cap for performance; extra NPCs work the field on foot.
     if self:countActiveFieldVehicles() >= (self.MAX_FIELD_VEHICLES or 4) then
         if self.settings.debugMode then
@@ -3020,8 +3805,9 @@ function NPCSystem:spawnFieldWorkVehicle(npc)
 
     -- Growing crop -> nothing to work. Don't spawn equipment; the NPC just visits
     -- on foot. This structurally eliminates plow/combine-on-standing-crop.
+    -- B2 exception: treat role sprays a growing crop (visual only; B4 does the work).
     local need = self:getFieldJobType(field)
-    if need == "protect" then
+    if need == "protect" and not npc._pendingTreat then
         if self.settings.debugMode then
             print(string.format("[NPC Favor] %s: field has a growing crop — no equipment, visiting on foot", npc.name or "?"))
         end
@@ -3039,6 +3825,19 @@ function NPCSystem:spawnFieldWorkVehicle(npc)
         -- async. Never strand a vehicle: remove it and bail. If the spawn itself
         -- failed (vehicle == nil), there is nothing to remove and the NPC simply
         -- works the field on foot.
+        -- [RSF-F206] a land refusal raised by the tractor-load leg lands here. It is
+        -- NOT an ordinary spawn failure: an ordinary one leaves the NPC working the
+        -- field on foot, which on refused ground is the defect itself.
+        local carriedRefusal = npc._landRefusedDuringSpawn
+        npc._landRefusedDuringSpawn = nil
+        if carriedRefusal ~= nil then
+            if npc.realTractor then
+                pcall(function() self:removeNPCTractor(npc) end)
+            end
+            self:endAttemptOnLandRefusal(npc, "spawnNPCTractor/load", carriedRefusal)
+            return
+        end
+
         if not vehicle or npc.aiState ~= "working" or not npc.realTractor then
             if npc.realTractor then
                 pcall(function() self:removeNPCTractor(npc) end)
@@ -3046,15 +3845,64 @@ function NPCSystem:spawnFieldWorkVehicle(npc)
             return
         end
 
+        -- [RSF-F206] item 9: re-admit across the async gap, in the ACTIVATION callback,
+        -- before activateNPCTractor runs. Neither leg of the spawn reads land today:
+        -- the tractor-load leg checks _pendingFieldSpawn and aiState, the
+        -- implement-attach leg re-checks tractor identity. The captured parcel is
+        -- compared to the NPC's current assignment, so a target that changed while we
+        -- loaded is a refusal rather than an inherited permission.
+        local current = self:_workTargetRecord(npc)
+        local gapStatus = self:admitFieldRecord(current)
+        local sameTarget = (current == admittedRecord)
+            or (current ~= nil and admittedParcel ~= nil and current.farmlandId == admittedParcel)
+        if gapStatus ~= NPCLandAdmission.ALLOW or not sameTarget then
+            -- THIS CALLBACK IS A TERMINAL SITE IN ITS OWN RIGHT. startWorking has
+            -- already set WORKING and called initFieldWork, which took the reservation
+            -- and planted fieldWorkPath, BEFORE any vehicle existed, and this callback's
+            -- own failure path leaves the NPC working the field ON FOOT. A refusal that
+            -- fired only inside activateNPCTractor, or only at the five-second sweep,
+            -- would leave a neighbour walking the farmer's rows with no tractor for up
+            -- to ten minutes.
+            pcall(function() self:removeNPCTractor(npc) end)
+            self:endAttemptOnLandRefusal(npc, "spawnFieldWorkVehicle/callback",
+                sameTarget and gapStatus or "TARGET_CHANGED")
+            return
+        end
+
         -- Seat the NPC and start the AI job (tillage -> GoTo -> kinematic fallback).
-        pcall(function() self:activateNPCTractor(npc) end)
+        -- [RSF-F206] item 4: the return is CAPTURED now. A land refusal ends the
+        -- attempt here instead of being discarded inside the pcall.
+        local started, landStatus
+        pcall(function() started, landStatus = self:activateNPCTractor(npc) end)
+        if not started and landStatus ~= nil then
+            pcall(function() self:removeNPCTractor(npc) end)
+            self:endAttemptOnLandRefusal(npc, "activateNPCTractor/callback", landStatus)
+        end
     end)
 
     return true
 end
 
+--- Seat the NPC and start the best available job.
+-- [RSF-F206] item 4. THE SIGNATURE IS TWO VALUES: the existing boolean FIRST, so
+-- nothing that reads it today changes meaning, and the admission status SECOND.
+-- An ordinary failure (AI capacity, a missing implement) returns its existing boolean
+-- with NO status, which preserves the visual fallback. A LAND refusal returns false
+-- with DENY_PLAYER, UNAVAILABLE or INVALID, and the caller stops the attempt.
+-- @return boolean started, string|nil landStatus
 function NPCSystem:activateNPCTractor(npc)
     if not npc.realTractor then return false end
+
+    -- THE LAND STATUS IS CONSULTED BEFORE THE FALLBACK CHAIN, NOT AFTER IT. A check
+    -- placed inside startNPCFieldWorkOwned alone, with the boolean still meaning
+    -- "try the next fallback", would drive the neighbour to the refused parcel via
+    -- GoTo or work it kinematically until the sweep fires, which is the exact churn
+    -- this repair exists to end.
+    local status = self:admitWorkTarget(npc)
+    if status ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(npc, "activateNPCTractor", status)
+        return false, status
+    end
 
     -- 1. Real AI TILLAGE via AIJobFieldWork with temporary field ownership
     --    (the AI actually works the ground).
@@ -3275,9 +4123,6 @@ function NPCSystem:getFieldEdgePosition(field)
         if field.center then
             cx = field.center.x
             cz = field.center.z
-        elseif field.fieldArea and field.fieldArea.fieldCenterX then
-            cx = field.fieldArea.fieldCenterX
-            cz = field.fieldArea.fieldCenterZ
         elseif field.posX and field.posZ then
             cx = field.posX
             cz = field.posZ
@@ -3340,19 +4185,37 @@ function NPCSystem:update(dt)
         return
     end
 
+    -- RSF-F357 section 9b: the shared 2-second work-page refresh and the farm
+    -- change clear, on both sides (presentation timing, never a favour clock).
+    if self.tickPersonalWork ~= nil then
+        self:tickPersonalWork(dt)
+    end
+
     -- FS25 passes dt in milliseconds - convert to seconds for all timers/movement
     dt = dt / 1000
 
     self.updateCounter = self.updateCounter + 1
 
+    -- RSF-F357: during person WAITING or FAILED the server fills no town place,
+    -- accepts or advances no work, mutates no trust and publishes no ready town.
+    if self.isServer and self.people ~= nil and not self.people:isReady() then
+        if self.settingsPanel then
+            self.settingsPanel:update()
+        end
+        return
+    end
+
     -- Both server and client need player position for proximity checks / UI
     self:updatePlayerPosition()
 
-    -- Periodically relocate far-away NPCs near the player
-    self.relocateTimer = self.relocateTimer + dt
-    if self.relocateTimer >= self.RELOCATE_INTERVAL then
-        self.relocateTimer = 0
-        self:relocateFarNPCs()
+    -- Periodically relocate far-away NPCs near the player (server only —
+    -- clients receive authoritative positions via sync events)
+    if self.isServer then
+        self.relocateTimer = self.relocateTimer + dt
+        if self.relocateTimer >= self.RELOCATE_INTERVAL then
+            self.relocateTimer = 0
+            self:relocateFarNPCs()
+        end
     end
 
     if self.isServer then
@@ -3443,6 +4306,13 @@ function NPCSystem:update(dt)
                     pcall(function() self:removeNPCTractor(npc) end)
                     npc.assignedField = nil
                     npc._fieldRetryAge = 0
+                    -- [RSF-F206] item 7. stopNPCFieldWork does NOT call setState and
+                    -- does not clear fieldWorkPath, and the sweep released nothing, so
+                    -- an evicted NPC kept aiState WORKING with its waypoints intact and
+                    -- KEPT WALKING THE FARMER'S ROWS on foot for the rest of the work
+                    -- timer while its tractor vanished, leaking its worker slot too.
+                    self:endAttemptOnLandRefusal(npc, "evictionSweep",
+                        NPCLandAdmission.DENY_PLAYER)
                 end
             end
 
@@ -3541,8 +4411,11 @@ function NPCSystem:update(dt)
             self.favorHUD:update(dt)           -- HUD edit mode auto-exit checks
         end
 
-        -- NPC proximity checks use synced positions
+        -- Sync entity visuals + map hotspot positions from server-synced NPC data.
+        -- Without this, entities stay at their client-local init positions and
+        -- map Visit teleport targets are never refreshed.
         for _, npc in ipairs(self.activeNPCs) do
+            self.entityManager:updateNPCEntity(npc, dt)
             self:checkPlayerProximity(npc)
         end
     end
@@ -4049,25 +4922,23 @@ function NPCSystem:consoleCommandSpawn(name)
         location = {x = 0, y = 0, z = 0}
     end
 
-    local npc = self:createNPCAtLocation(location)
+    if not self.isServer or self.people == nil or not self.people:isReady() then
+        return "Cannot spawn NPC: the neighbours are not ready on this side"
+    end
+
+    -- RSF-F357: the console creator uses the same allocator and roster as the
+    -- town fill; a caller-chosen display name is a label, never identity.
+    local npc, why = self:createPersonAtLocation(location, NPCPersonRoster.ORIGIN_TOWN)
     if npc then
-        -- Override name only if user specified one; otherwise keep the gendered name
         if name and name ~= "" then
             npc.name = name
         end
         name = npc.name
-        
-        -- Initialize NPC data
-        self:initializeNPCData(npc, location, #self.activeNPCs + 1)
-        
-        table.insert(self.activeNPCs, npc)
-        self.npcCount = self.npcCount + 1
-        
-        return string.format("NPC '%s' spawned at (%.1f, %.1f, %.1f)", 
-            name, location.x, location.y, location.z)
+        return string.format("NPC '%s' (#%d) spawned at (%.1f, %.1f, %.1f)",
+            name, npc.id, location.x, location.y, location.z)
     end
     
-    return "Failed to spawn NPC"
+    return "Failed to spawn NPC: " .. tostring(why)
 end
 
 --- Convert world coordinates to map display coordinates.
@@ -4150,9 +5021,11 @@ end
 function NPCSystem:consoleCommandReset()
     print("NPC Favor: Resetting NPC system...")
 
-    -- Remove all NPCs
-    self:clearAllNPCs()
-    
+    -- RSF-F357: explicitly end the old town, clear its dependent runtime caches
+    -- and start one new controlled load. The high-water mark is never reset for
+    -- the same saved population, so no number is reused.
+    self:teardownTown(true)
+
     -- Reset state
     self.isInitialized = false
     self.initializing = false
@@ -4295,7 +5168,10 @@ function NPCSystem:clearAllNPCs()
         if npc.realCar then
             self:removeNPCCar(npc)
         end
-        self.entityManager:removeNPCEntity(npc)
+        if self.entityManager ~= nil then
+            self.entityManager:removeNPCEntity(npc)
+        end
+        npc.live = false
     end
 
     self.activeNPCs = {}
@@ -4307,89 +5183,95 @@ end
 -- Multiplayer: Sync Data Collection + Application
 -- =========================================================
 
---[[
-    Collect current NPC state for network sync (server only).
-    @return array of NPC data tables
-]]
-function NPCSystem:collectSyncData()
-    local data = {}
-    for _, npc in ipairs(self.activeNPCs) do
-        if npc.isActive then
-            table.insert(data, {
-                id = npc.id,
-                name = npc.name or "",
-                personality = npc.personality or "",
-                x = npc.position.x or 0,
-                y = npc.position.y or 0,
-                z = npc.position.z or 0,
-                aiState = npc.aiState or "idle",
-                relationship = npc.relationship or 50,
-                isActive = npc.isActive,
-                currentAction = npc.currentAction or "idle"
-            })
-        end
-    end
-    return data
+--- RSF-F357: the complete public roster as one stamped snapshot (server). Every
+--- retained person (live and waiting), every worker presence and every opaque
+--- row travels; personal trust and position only for a live person; no favour,
+--- owner, payment or recovery detail. Both transports send the same snapshot
+--- with the same sequence number, so duplicate deliveries are idempotent.
+function NPCSystem:publishSnapshot()
+    if self.people == nil then return nil end
+    return self.people:publishSnapshot()
 end
 
---[[
-    Apply NPC state received from server (client only).
-    Updates existing NPCs or creates placeholders for new ones.
-    Removes NPCs not present in sync data.
-    @param npcDataArray - Array of NPC data from NPCStateSyncEvent
-]]
-function NPCSystem:applyNetworkState(npcDataArray)
-    if not npcDataArray then return end
-
-    -- Build lookup of received NPC IDs
-    local receivedIds = {}
-    for _, entry in ipairs(npcDataArray) do
-        receivedIds[entry.id] = true
-
-        -- Find existing NPC or create placeholder
-        local npc = self:getNPCById(entry.id)
-        if npc then
-            -- Update existing NPC
-            npc.position.x = entry.x
-            npc.position.y = entry.y
-            npc.position.z = entry.z
-            npc.aiState = entry.aiState
-            npc.currentAction = entry.currentAction
-            npc.relationship = entry.relationship
-            npc.isActive = entry.isActive
-        else
-            -- Create placeholder NPC (client doesn't run full init)
-            local newNPC = {
-                id = entry.id,
-                name = entry.name,
-                personality = entry.personality,
-                position = { x = entry.x, y = entry.y, z = entry.z },
-                rotation = { x = 0, y = 0, z = 0 },
-                isActive = entry.isActive,
-                currentAction = entry.currentAction,
-                aiState = entry.aiState,
-                relationship = entry.relationship,
-                favorCooldown = 0,
-                canInteract = false,
-                interactionDistance = 999,
-                homePosition = { x = entry.x, y = entry.y, z = entry.z },
-                movementSpeed = 1.0,
-                totalFavorsCompleted = 0,
-                totalFavorsFailed = 0,
-                lastUpdateTime = 0,
-                entityId = nil
-            }
-            table.insert(self.activeNPCs, newNPC)
-            self.npcCount = self.npcCount + 1
+--- RSF-F357: the atomic client apply. Runs only after the roster validated a
+--- complete snapshot (every page present and agreeing, ids unique and valid).
+--- Live durable people are reconciled by number into the activeNPCs view and
+--- get bodies; waiting, presence and opaque rows stay display rows; people no
+--- longer in the snapshot are removed. Nothing here mints, spawns or saves.
+function NPCSystem:installClientSnapshot(loadState, rows, sequence)
+    if self.isServer then return end
+    local keep = {}
+    if loadState == NPCPersonRoster.LOAD_READY then
+        for _, rec in ipairs(rows or {}) do
+            if rec.kind == NPCPersonRoster.KIND_LIVE and rec.personIdPresent then
+                keep[rec.personId] = true
+                local npc = nil
+                for _, candidate in ipairs(self.activeNPCs) do
+                    if candidate.id == rec.personId then npc = candidate break end
+                end
+                if npc == nil then
+                    npc = {
+                        id = rec.personId,
+                        personKind = NPCPersonRoster.PERSON_DURABLE,
+                        origin = NPCPersonRoster.ORIGIN_TOWN,
+                        live = true,
+                        name = rec.name,
+                        personality = rec.personality,
+                        isFemale = rec.isFemale == true,
+                        appearanceSeed = rec.appearanceSeed or 1,
+                        position = { x = rec.x or 0, y = rec.y or 0, z = rec.z or 0 },
+                        rotation = { x = 0, y = 0, z = 0 },
+                        isActive = true,
+                        currentAction = rec.currentAction,
+                        aiState = rec.aiState,
+                        relationship = rec.trustPresent and rec.trust or nil,
+                        favorCooldown = 0,
+                        canInteract = false,
+                        interactionDistance = 999,
+                        homePosition = { x = rec.x or 0, y = rec.y or 0, z = rec.z or 0 },
+                        homeBuildingName = rec.houseLabel,
+                        role = rec.roleLabel,
+                        movementSpeed = 1.0,
+                        totalFavorsCompleted = 0,
+                        totalFavorsFailed = 0,
+                        lastUpdateTime = 0,
+                        model = "farmer",
+                        clothing = { "farmer" },
+                        entityId = nil,
+                    }
+                    table.insert(self.activeNPCs, npc)
+                    self.npcCount = self.npcCount + 1
+                    if self.entityManager ~= nil and self.entityManager.createNPCEntity ~= nil and rec.positionPresent then
+                        pcall(self.entityManager.createNPCEntity, self.entityManager, npc)
+                    end
+                else
+                    npc.name = rec.name
+                    npc.personality = rec.personality
+                    npc.isFemale = rec.isFemale == true
+                    npc.appearanceSeed = rec.appearanceSeed or npc.appearanceSeed
+                    if rec.positionPresent then
+                        npc.position.x, npc.position.y, npc.position.z = rec.x, rec.y, rec.z
+                    end
+                    npc.aiState = rec.aiState
+                    npc.currentAction = rec.currentAction
+                    npc.relationship = rec.trustPresent and rec.trust or nil
+                    npc.role = rec.roleLabel
+                    npc.homeBuildingName = rec.houseLabel
+                    npc.isActive = true
+                    npc.live = true
+                end
+            end
         end
     end
-
-    -- Remove NPCs not in sync data (they were removed on server)
+    -- Remove people the complete snapshot no longer carries (a complete empty
+    -- snapshot removes every body).
     local i = 1
     while i <= #self.activeNPCs do
         local npc = self.activeNPCs[i]
-        if not receivedIds[npc.id] then
-            self.entityManager:removeNPCEntity(npc)
+        if not keep[npc.id] then
+            if self.entityManager ~= nil then
+                pcall(self.entityManager.removeNPCEntity, self.entityManager, npc)
+            end
             table.remove(self.activeNPCs, i)
             self.npcCount = self.npcCount - 1
         else
@@ -4398,14 +5280,264 @@ function NPCSystem:applyNetworkState(npcDataArray)
     end
 end
 
+--- RSF-F357: a pure client's start. Empty read/cache/UI containers, person
+--- WAITING, no local roster, no allocator, no town, no contractor ingestion.
+function NPCSystem:bootstrapClient()
+    self:clearAllNPCs()
+    if self.people ~= nil then
+        self.people:reset(false)
+        self.people:_clearReceiveState()
+    end
+    self:initEventScheduler()
+    print("[NPC Favor] Client: neighbours WAITING for the server's roster")
+end
+
+--- RSF-F357 section 9a: the copied public roster view for the host's own
+--- surfaces and companions. Schema 1; see NPCPersonRoster:getRosterView.
+function NPCSystem:getNeighbourRosterView()
+    if self.people == nil then
+        return { schema = 1, personLoadState = NPCPersonRoster.LOAD_WAITING,
+            snapshotState = NPCPersonRoster.SNAPSHOT_UNAVAILABLE, revision = 0,
+            reasonKey = NPCPersonRoster.REASON_LOADING, rows = {} }
+    end
+    return self.people:getRosterView(self.isServer == true)
+end
+
+--- RSF-F357 section 7, host half. Server only. The only provider token is the
+--- fixed consultant token; the caller supplies a bounded display name and a
+--- finite position and nothing else. No matching record: create one consultant
+--- through the normal default-person path with normal starting trust. Exactly
+--- one validated record: wake her and return her number. More than one: keep
+--- every row, mark the association conflicted, return nil.
+--- @return personId or nil, reasonKey
+function NPCSystem:claimCropStressConsultant(displayName, position)
+    if not self.isServer then return nil, "npc_person_server_only" end
+    if self.people == nil or not self.people:isReady() then return nil, NPCPersonRoster.REASON_LOADING end
+    if type(displayName) ~= "string" or displayName == "" then return nil, "npc_person_bad_claim" end
+    if type(position) ~= "table" or not NPCPersonRoster.isFiniteNumber(position.x)
+        or not NPCPersonRoster.isFiniteNumber(position.z) then
+        return nil, "npc_person_bad_claim"
+    end
+    local token = NPCPersonRoster.CONSULTANT_TOKEN
+    local matches = self.people:peopleWithToken(token)
+    if #matches > 1 then
+        for _, person in ipairs(matches) do
+            person.providerConflict = true
+            if person.live then
+                self:setPersonLive(person, false, NPCPersonRoster.REASON_IDENTITY_CONFLICT)
+            else
+                person.waitingReason = NPCPersonRoster.REASON_IDENTITY_CONFLICT
+            end
+        end
+        self.people:touch()
+        print("[NPC Favor] Consultant claim refused: more than one saved record carries the provider token")
+        return nil, NPCPersonRoster.REASON_IDENTITY_CONFLICT
+    end
+    if #matches == 1 then
+        local person = matches[1]
+        if person.providerConflict then return nil, NPCPersonRoster.REASON_IDENTITY_CONFLICT end
+        if not person.live then
+            local location = self:resolvePersonHome(person, nil)
+                or { x = position.x, y = NPCPersonRoster.isFiniteNumber(position.y) and position.y or 0, z = position.z,
+                     building = nil, buildingName = person.homeBuildingName or "", ownerFarmId = 0 }
+            self:assignPersonPlaces(person, location, true)
+            self:setPersonLive(person, true)
+            self.syncDirty = true
+        end
+        return person.id
+    end
+    local location = { x = position.x, y = NPCPersonRoster.isFiniteNumber(position.y) and position.y or 0,
+        z = position.z, building = nil, buildingName = "", ownerFarmId = 0 }
+    local npc, why = self:createNPCAtLocation(location)
+    if npc == nil then return nil, why end
+    npc.name = NPCPersonRoster.boundLabel(displayName, NPCPersonRoster.NAME_LIMIT)
+    npc.origin = NPCPersonRoster.ORIGIN_CONSULTANT
+    npc.townCandidate = false
+    npc.providerToken = token
+    npc.role = "agronomist"
+    self:initializeNPCData(npc, location, npc.id)
+    npc.role = "agronomist"
+    self.people:addPerson(npc)
+    self:setPersonLive(npc, true)
+    self.syncDirty = true
+    return npc.id
+end
+
+--- NPC-204: the provider verbs, API version 1, on the published mission
+--- handle (g_currentMission.npcFavorSystem). Server only; every verb answers a
+--- table { result, reason, ... } and never a silent nil. A companion binds with
+--- a protected call and treats a missing handle or method as NPCFavor absent.
+function NPCSystem:_companionCall(name, ...)
+    if not self.isServer then return { result = "REFUSED", reason = "not_server" } end
+    local fav = self.favorSystem
+    if fav == nil or type(fav[name]) ~= "function" then return { result = "UNAVAILABLE", reason = "favours_absent" } end
+    local ok, reply = pcall(fav[name], fav, ...)
+    if not ok then
+        print(string.format("[NPC Favor] Companion verb %s failed: %s", name, tostring(reply)))
+        return { result = "UNAVAILABLE", reason = "internal_error" }
+    end
+    if type(reply) ~= "table" then return { result = "UNAVAILABLE", reason = "internal_error" } end
+    return reply
+end
+
+function NPCSystem:registerCompanionProvider(spec)
+    return self:_companionCall("registerCompanionProvider", spec)
+end
+
+function NPCSystem:unregisterCompanionProvider(namespace)
+    return self:_companionCall("unregisterCompanionProvider", namespace)
+end
+
+function NPCSystem:registerFavorType(namespace, declaration)
+    return self:_companionCall("registerFavorType", namespace, declaration)
+end
+
+function NPCSystem:requestFavorOffer(namespace, kindKey, request)
+    return self:_companionCall("requestFavorOffer", namespace, kindKey, request)
+end
+
+function NPCSystem:reportFavorStep(namespace, report)
+    return self:_companionCall("reportFavorStep", namespace, report)
+end
+
+--- NPC-204 3.12: the provider's own open offers and jobs, copied.
+function NPCSystem:getProviderWork(namespace)
+    return self:_companionCall("getProviderWork", namespace)
+end
+
+--- NPC-204 3.2: F357's saved-person claim, generalized to a provider's own
+--- people in the same durable store. The identity is (namespace, personKey);
+--- a unique proved saved row wakes, ambiguity creates nothing, and at most four
+--- people per provider exist. The consultant claim above stays its own alias.
+function NPCSystem:claimProviderPerson(namespace, personKey, spec)
+    if not self.isServer then return { result = "REFUSED", reason = "not_server" } end
+    local ok, reply = pcall(self._claimProviderPerson, self, namespace, personKey, spec)
+    if not ok then
+        print(string.format("[NPC Favor] Companion verb claimProviderPerson failed: %s", tostring(reply)))
+        return { result = "UNAVAILABLE", reason = "internal_error" }
+    end
+    return reply
+end
+
+local PERSON_SPEC_KEYS = { displayName = true, roleTextKey = true, home = true }
+local HOME_KEYS = { x = true, z = true }
+
+function NPCSystem:_claimProviderPerson(namespace, personKey, spec)
+    local fav = self.favorSystem
+    if fav == nil or fav.getCompanionProvider == nil then return { result = "UNAVAILABLE", reason = "favours_absent" } end
+    if not NPCCompanion.validNamespace(namespace) then return { result = "REFUSED", reason = "bad_namespace" } end
+    if fav:getCompanionProvider(namespace) == nil then return { result = "REFUSED", reason = "provider_unknown" } end
+    if not NPCCompanion.validKey(personKey) then return { result = "REFUSED", reason = "bad_person_key" } end
+    if type(spec) ~= "table" then return { result = "REFUSED", reason = "bad_spec" } end
+    for k in pairs(spec) do
+        if PERSON_SPEC_KEYS[k] ~= true then return { result = "REFUSED", reason = "bad_spec" } end
+    end
+    local name = spec.displayName
+    if type(name) ~= "string" or #name < 1 or #name > 64 then return { result = "REFUSED", reason = "bad_name" } end
+    local role = spec.roleTextKey
+    if role ~= nil and (type(role) ~= "string" or #role < 1 or #role > 64) then
+        return { result = "REFUSED", reason = "bad_role" }
+    end
+    local home = spec.home
+    if type(home) ~= "table" then return { result = "REFUSED", reason = "bad_home" } end
+    for k in pairs(home) do
+        if HOME_KEYS[k] ~= true then return { result = "REFUSED", reason = "bad_home" } end
+    end
+    if not NPCPersonRoster.isFiniteNumber(home.x) or not NPCPersonRoster.isFiniteNumber(home.z) then
+        return { result = "REFUSED", reason = "bad_home" }
+    end
+    if self.people == nil or not self.people:isReady() then return { result = "WAIT", reason = "people_loading" } end
+
+    local token = NPCPersonRoster.providerPersonToken(namespace, personKey)
+    local matches = self.people:peopleWithToken(token)
+    if #matches > 1 then
+        for _, person in ipairs(matches) do
+            person.providerConflict = true
+            if person.live then
+                self:setPersonLive(person, false, NPCPersonRoster.REASON_IDENTITY_CONFLICT)
+            else
+                person.waitingReason = NPCPersonRoster.REASON_IDENTITY_CONFLICT
+            end
+        end
+        self.people:touch()
+        print(string.format("[NPC Favor] Provider person claim refused: more than one saved record is %s", token))
+        return { result = "UNAVAILABLE", reason = "identity_conflict" }
+    end
+    if #matches == 1 then
+        local person = matches[1]
+        if person.providerConflict then return { result = "UNAVAILABLE", reason = "identity_conflict" } end
+        if not person.live then
+            local location = self:resolvePersonHome(person, nil)
+                or { x = home.x, y = 0, z = home.z, building = nil, buildingName = person.homeBuildingName or "", ownerFarmId = 0 }
+            self:assignPersonPlaces(person, location, true)
+            self:setPersonLive(person, true)
+            self.syncDirty = true
+        end
+        return { result = "READY", reason = "claimed", personId = person.id }
+    end
+    if #self.people:peopleOfProvider(namespace) >= NPCCompanion.MAX_PEOPLE then
+        return { result = "REFUSED", reason = "person_limit" }
+    end
+    local location = { x = home.x, y = 0, z = home.z, building = nil, buildingName = "", ownerFarmId = 0 }
+    local npc, why = self:createPersonAtLocation(location, NPCPersonRoster.ORIGIN_PROVIDER)
+    if npc == nil then return { result = "UNAVAILABLE", reason = tostring(why or "person_unplaced") } end
+    npc.name = NPCPersonRoster.boundLabel(name, NPCPersonRoster.NAME_LIMIT)
+    npc.providerToken = token
+    npc.providerRoleTextKey = role
+    self.people:touch()
+    self.syncDirty = true
+    return { result = "READY", reason = "created", personId = npc.id }
+end
+
+--- RSF-F357 section 7: the read-only getter. A number only for the unique live
+--- consultant in a complete authoritative local roster; otherwise nil plus an
+--- unavailable reason. Copied scalars, never a model table.
+function NPCSystem:getCropStressConsultantId()
+    local people = self.people
+    if people == nil then return nil, NPCPersonRoster.REASON_LOADING end
+    local token = NPCPersonRoster.CONSULTANT_TOKEN
+    if self.isServer then
+        if not people:isReady() then return nil, people.loadReason or NPCPersonRoster.REASON_LOADING end
+        local matches = people:peopleWithToken(token)
+        if #matches ~= 1 then
+            return nil, (#matches > 1) and NPCPersonRoster.REASON_IDENTITY_CONFLICT or "npc_person_consultant_absent"
+        end
+        local person = matches[1]
+        if person.providerConflict then return nil, NPCPersonRoster.REASON_IDENTITY_CONFLICT end
+        if not person.live then return nil, person.waitingReason or NPCPersonRoster.REASON_WAITING_COMPANION end
+        return person.id
+    end
+    if people.clientRows == nil or people:getClientSnapshotState() ~= NPCPersonRoster.SNAPSHOT_CURRENT
+        or people.clientLoadState ~= NPCPersonRoster.LOAD_READY then
+        return nil, NPCPersonRoster.REASON_LOADING
+    end
+    local found = nil
+    for _, rec in ipairs(people.clientRows) do
+        if rec.providerPresent then
+            if found ~= nil then return nil, NPCPersonRoster.REASON_IDENTITY_CONFLICT end
+            found = rec
+        end
+    end
+    if found == nil then return nil, "npc_person_consultant_absent" end
+    if found.kind ~= NPCPersonRoster.KIND_LIVE then return nil, found.reasonKey or NPCPersonRoster.REASON_WAITING_COMPANION end
+    return found.personId
+end
+
 --[[
     Find an NPC by their integer ID.
     @param id - NPC ID
     @return NPC table or nil
 ]]
 function NPCSystem:getNPCById(id)
+    -- RSF-F357: ordinary readers get only a unique live durable person. A
+    -- waiting reference is the persistence owner's business
+    -- (resolveRetainedPerson); a presence is never in this array.
+    if not NPCPersonRoster.validId(id) then return nil end
     for _, npc in ipairs(self.activeNPCs) do
         if npc.id == id then
+            if self.isServer and self.people ~= nil and self.people:getPerson(id) ~= npc then
+                return nil
+            end
             return npc
         end
     end
@@ -4430,21 +5562,88 @@ function NPCSystem:isRelationshipAtLeast(npcId, threshold)
     return self:getRelationshipValue(npcId) >= (threshold or 0)
 end
 
---- True when any ACCEPTED favor (status active / in_progress, matching
---- getActiveFavorForNPC) is of the given type. An optional farmId scopes the
---- check to that farm's favors; omit it to check across all farms.
+--- Published cross-mod query (RSF-F148 contract). True when any ACCEPTED
+--- favor (status active / in_progress) is of the given type.
+---
+--- Contract, stated for companion readers:
+---   * farmId == nil answers across all farms.
+---   * farmId that resolves to a live ordinary farm answers true only for that
+---     farm's rows at status active or in_progress, compared on ownerFarmId,
+---     the one farm field a favor record carries.
+---   * farmId that does not resolve to a live ordinary farm, including the
+---     spectator, guided-tour and invalid sentinels, always answers false by
+---     this explicit branch, regardless of where any orphaned row sits.
+---   * Pending, paused_recovery and terminal rows never qualify. The read never
+---     mutates or resolves an owner.
 function NPCSystem:hasActiveFavorOfType(favorType, farmId)
     if favorType == nil or self.favorSystem == nil then return false end
+    if farmId ~= nil and not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+        return false
+    end
     local favors = self.favorSystem:getActiveFavors()
     if type(favors) ~= "table" then return false end
     for _, favor in ipairs(favors) do
         if favor.type == favorType
             and (favor.status == "active" or favor.status == "in_progress")
-            and (farmId == nil or favor.farmId == farmId) then
+            and (farmId == nil or favor.ownerFarmId == farmId) then
             return true
         end
     end
     return false
+end
+
+-- =========================================================
+-- RSF-F148: farm lifecycle messages and recovery entry points
+-- =========================================================
+
+--- FARM_DELETED subscriber (server only). Both engine publishers reach here:
+--- the immediate publish from FarmManager:destroyFarm and the delayed publish
+--- from onFarmObjectDeleted. The favor system refuses a stale notice itself.
+function NPCSystem:onFarmDeletedMessage(farmId)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.onFarmDeleted == nil then return end
+    self.favorSystem:onFarmDeleted(farmId)
+end
+
+--- FARM_CREATED subscriber (server only). The engine also publishes this on
+--- the client replication path for every existing farm at join, so the
+--- subscription itself is established only when self.isServer.
+function NPCSystem:onFarmCreatedMessage(farmId)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.onFarmCreated == nil then return end
+    self.favorSystem:onFarmCreated(farmId)
+end
+
+--- USER_REMOVED subscriber (server only): a departed user's retained recovery
+--- requests and view are discarded (UserManager.lua publishes user, reason).
+function NPCSystem:onUserRemovedMessage(user)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.onActorDisconnected == nil then return end
+    if user == nil or type(user.getId) ~= "function" then return end
+    local ok, userId = pcall(function() return user:getId() end)
+    if ok and userId ~= nil then
+        self.favorSystem:onActorDisconnected("user:" .. tostring(userId))
+        if self.clearDialogSession ~= nil then self:clearDialogSession("user:" .. tostring(userId)) end
+    end
+end
+
+--- Server-side recovery view for a request from `connection` (nil = local
+--- host entry, valid only with g_localPlayer present). Returns a reply table
+--- for the requester only, or nil when there is no verified actor.
+function NPCSystem:serverRecoveryView(connection, requestId, cursor)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.serverRecoveryView == nil then
+        return nil
+    end
+    local actor = NPCFarmIdentity.resolveActor(connection)
+    if actor == nil then return nil end
+    return self.favorSystem:serverRecoveryView(actor, requestId, cursor)
+end
+
+--- Server-side recovery command for a request from `connection`.
+function NPCSystem:serverRecoveryCommand(connection, cmd)
+    if not self.isServer or self.favorSystem == nil or self.favorSystem.serverRecoveryCommand == nil then
+        return nil
+    end
+    local actor = NPCFarmIdentity.resolveActor(connection)
+    if actor == nil then return nil end
+    return self.favorSystem:serverRecoveryCommand(actor, cmd)
 end
 
 -- =========================================================
@@ -4452,66 +5651,210 @@ end
 -- Called from NPCInteractionEvent.execute() after validation
 -- =========================================================
 
-function NPCSystem:serverAcceptFavor(npc, farmId)
-    -- Rate limiting: check cooldown
-    if npc.favorCooldown > 0 then
-        if self.settings.debugMode then
-            print(string.format("[NPC Favor] Favor accept blocked: %s has cooldown %.0f", npc.name, npc.favorCooldown))
-        end
-        return false
+--- RSF-F357: resolve the exact record a selection names, for this person.
+--- @return favor|nil, reasonKey
+function NPCSystem:_selectedWorkRecord(npc, selection)
+    local fav = self.favorSystem
+    if fav == nil or type(selection) ~= "table" or fav.getRecoveryRecordByToken == nil then
+        return nil, "npc_dialog_refused_stale"
     end
-
-    -- Delegate to the favor system. acceptFavorForNPC(npcId, farmId) stamps
-    -- favor.ownerFarmId = farmId (the acting farm, validated by NPCInteractionEvent:run)
-    -- and returns the favor table. The old call to a non-existent acceptFavor(npc.id,
-    -- farmId) was dead; this is the real signature.
-    if self.favorSystem and self.favorSystem.acceptFavorForNPC then
-        local favor = self.favorSystem:acceptFavorForNPC(npc.id, farmId)
-        if favor then
-            self.syncDirty = true
-            return true
-        end
-    end
-    return false
+    local record = fav:getRecoveryRecordByToken(selection.token)
+    if record == nil or record.npcId ~= npc.id then return nil, "npc_dialog_refused_stale" end
+    if (record.recordRevision or 0) ~= selection.recordRevision then return nil, "npc_dialog_refused_stale" end
+    return record
 end
 
-function NPCSystem:serverCompleteFavor(npc, farmId)
-    -- Resolve the NPC's active favor, then complete it by its real favorId.
-    -- completeFavor(favorId) is server-authoritative and pays favor.ownerFarmId once
-    -- (idempotency flags + reward.relationship), so this is the single completion +
-    -- money path. The old completeFavor(npc.id, farmId) passed npc.id as a favorId and
-    -- was dead. No extra relationship boost here; applyFavorRewards owns that.
-    if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.completeFavor then
-        local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
-        if favor then
-            local success = self.favorSystem:completeFavor(favor.id)
-            if success then
-                self.syncDirty = true
-            end
-            return success
-        end
+function NPCSystem:serverAcceptFavor(npc, farmId, selection)
+    -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+        return false, "npc_dialog_refused_farm"
     end
-    return false
+    local fav = self.favorSystem
+    if fav == nil or fav.acceptFavorForNPC == nil then return false, "npc_dialog_unavailable" end
+
+    -- RSF-F357: the exact offer the player saw. The generation cooldown keeps
+    -- another offer from being created; it is no barrier to accepting the one
+    -- already made. Person, revision, durable proof, pending and unowned and
+    -- payment facts, and that this is the sole eligible pending record for
+    -- the person, are all re-resolved here.
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    if record.personRefKind ~= "durable" then return false, "npc_dialog_refused_stale" end
+    -- NPC-204: companion work has its own accept; this one refuses it.
+    if type(record.contribution) == "table" then return false, "npc_dialog_refused_stale" end
+    if not (NPCPersonDialog ~= nil and NPCPersonDialog.isPublicOffer(record, TimeHelper.getGameTimeMs())) then
+        return false, "npc_dialog_refused_stale"
+    end
+    if record.rewardPaidPresent ~= true or record.rewardPaid ~= false then return false, "npc_dialog_refused_stale" end
+    local pendingCount = 0
+    for _, other in ipairs(fav.activeFavors or {}) do
+        if other.npcId == npc.id and other.status == "pending" then pendingCount = pendingCount + 1 end
+    end
+    if pendingCount ~= 1 then return false, "npc_dialog_refused_stale" end
+
+    local accepted = fav:acceptFavorForNPC(npc.id, farmId)
+    if accepted ~= record then
+        return false, "npc_dialog_refused_stale"
+    end
+    self.syncDirty = true
+    return true, "npc_dialog_accepted", record
 end
 
-function NPCSystem:serverAbandonFavor(npc, farmId)
-    -- Resolve the favor, then abandon it by its real favorId. abandonFavor(favorId)
-    -- applies its own (half) relationship penalty, so no extra penalty here. The old
-    -- abandonFavor(npc.id, farmId) passed npc.id as a favorId and was dead.
-    if self.favorSystem and self.favorSystem.getActiveFavorForNPC and self.favorSystem.abandonFavor then
-        local favor = self.favorSystem:getActiveFavorForNPC(npc.id)
-        if favor then
-            local success = self.favorSystem:abandonFavor(favor.id)
-            if success then
-                self.syncDirty = true
-            end
-            return success
-        end
+function NPCSystem:serverCompleteFavor(npc, farmId, selection)
+    -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    local fav = self.favorSystem
+    if fav == nil or fav.completeFavor == nil then return false, "npc_dialog_unavailable" end
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    -- NPC-204: companion work completes only through its TALK adapter.
+    if type(record.contribution) == "table" then return false, "npc_dialog_refused_stale" end
+    -- The selected ordinary active work owned by the verified actor farm, not
+    -- a recovered row (those use the exact F148 token command).
+    local inActive = false
+    for _, candidate in ipairs(fav.activeFavors or {}) do
+        if candidate == record then inActive = true break end
     end
-    return false
+    if not inActive or not (record.status == "active" or record.status == "in_progress") then
+        return false, "npc_dialog_refused_stale"
+    end
+    if record.recoveredFromLegacy == true then
+        return false, "npc_recovery_dialog_use_view"
+    end
+    if record.ownerFarmId ~= farmId then
+        print(string.format("[NPC Favor SECURITY] Complete refused: farm %s does not own favor %s (owner %s)",
+            tostring(farmId), tostring(record.id), tostring(record.ownerFarmId)))
+        return false, "npc_recovery_refused_not_owner"
+    end
+    -- Completion re-derives the dialog condition from the server's record:
+    -- every preceding step done and the current one a dialog or loan-repay
+    -- step, or the awaiting-confirmation condition. Client step flags are
+    -- never accepted; an unfinished travel or task step is not a success.
+    local eligible, step = NPCPersonDialog.completionEligible(record)
+    if not eligible then
+        return false, "npc_dialog_refused_not_ready"
+    end
+    local clearedConfirmation, markedStep = false, nil
+    if record.awaitingConfirmation == true then
+        record.awaitingConfirmation = false
+        clearedConfirmation = true
+    elseif step ~= nil then
+        step.completed = true
+        markedStep = step
+    end
+    local success = fav:completeFavor(record.id)
+    if success then
+        if fav.bumpRecordRevision then fav:bumpRecordRevision(record) end
+        if fav.retireRecoveryToken then fav:retireRecoveryToken(record) end
+        self.syncDirty = true
+        return true, "npc_dialog_completed"
+    end
+    -- The owner refused: the record keeps the facts it had before this call.
+    if clearedConfirmation then record.awaitingConfirmation = true end
+    if markedStep ~= nil then markedStep.completed = false end
+    return false, "npc_dialog_refused_stale"
+end
+
+--- NPC-204 3.5: ACCEPT_OFFER for a record carrying a contribution block, routed
+--- here by NPCInteractionEvent before any built-in accept check.
+function NPCSystem:serverAcceptContributedFavor(npc, farmId, selection)
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then return false, "npc_dialog_refused_farm" end
+    local fav = self.favorSystem
+    if fav == nil or fav.acceptContributedFavor == nil then return false, "npc_dialog_unavailable" end
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    local ok, reason = fav:acceptContributedFavor(record.id, selection.recordRevision, npc.id, farmId)
+    if not ok then
+        if reason == "not_addressed" then return false, "npc_dialog_refused_farm" end
+        if reason == "person" then return false, "npc_dialog_refused_person" end
+        if reason == "stale" then return false, "npc_dialog_refused_stale" end
+        return false, "npc_dialog_unavailable"
+    end
+    self.syncDirty = true
+    return true, "npc_dialog_accepted", record
+end
+
+--- NPC-204 3.6: the TALK adapter. COMPLETE_WORK for a record carrying a
+--- contribution block, never the built-in serverCompleteFavor. It repeats that
+--- function's checks; completionEligible then allows finishing only once the
+--- REPORT step (not a dialog step) is done and the open step is TALK.
+function NPCSystem:serverCompleteContributedFavor(npc, farmId, selection)
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    local fav = self.favorSystem
+    if fav == nil or fav.completeContributedFavor == nil then return false, "npc_dialog_unavailable" end
+    -- A lock takes effect before any completion can pay.
+    if fav.readCompanionSurface ~= nil then fav:readCompanionSurface() end
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    if not NPCCompanion.isContributed(record) then return false, "npc_dialog_refused_stale" end
+    local inActive = false
+    for _, candidate in ipairs(fav.activeFavors or {}) do
+        if candidate == record then inActive = true break end
+    end
+    if not inActive or not (record.status == "active" or record.status == "in_progress") then
+        return false, "npc_dialog_refused_stale"
+    end
+    if record.recoveredFromLegacy == true then
+        return false, "npc_recovery_dialog_use_view"
+    end
+    if record.ownerFarmId ~= farmId then
+        print(string.format("[NPC Favor SECURITY] Complete refused: farm %s does not own favor %s (owner %s)",
+            tostring(farmId), tostring(record.id), tostring(record.ownerFarmId)))
+        return false, "npc_recovery_refused_not_owner"
+    end
+    local eligible, step = NPCPersonDialog.completionEligible(record)
+    if not eligible or step == nil or step.isDialogStep ~= true then
+        return false, "npc_dialog_refused_not_ready"
+    end
+    step.completed = true
+    if fav:completeContributedFavor(record.id) then
+        fav:bumpRecordRevision(record)
+        fav:retireRecoveryToken(record)
+        self.syncDirty = true
+        return true, "npc_dialog_completed"
+    end
+    -- The owner refused: the record keeps the facts it had before this call.
+    step.completed = false
+    return false, "npc_dialog_refused_stale"
+end
+
+function NPCSystem:serverAbandonFavor(npc, farmId, selection)
+    -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
+    if not self:isPersonActionable(npc) then return false, "npc_dialog_refused_person" end
+    local fav = self.favorSystem
+    if fav == nil or fav.abandonFavor == nil then return false, "npc_dialog_unavailable" end
+    local record, why = self:_selectedWorkRecord(npc, selection)
+    if record == nil then return false, why end
+    local inActive = false
+    for _, candidate in ipairs(fav.activeFavors or {}) do
+        if candidate == record then inActive = true break end
+    end
+    if not inActive or not (record.status == "active" or record.status == "in_progress") then
+        return false, "npc_dialog_refused_stale"
+    end
+    if record.recoveredFromLegacy == true then
+        return false, "npc_recovery_dialog_use_view"
+    end
+    if record.ownerFarmId ~= farmId then
+        print(string.format("[NPC Favor SECURITY] Abandon refused: farm %s does not own favor %s (owner %s)",
+            tostring(farmId), tostring(record.id), tostring(record.ownerFarmId)))
+        return false, "npc_recovery_refused_not_owner"
+    end
+    local success = fav:abandonFavor(record.id)
+    if success then
+        if fav.bumpRecordRevision then fav:bumpRecordRevision(record) end
+        if fav.retireRecoveryToken then fav:retireRecoveryToken(record) end
+        self.syncDirty = true
+        return true, "npc_dialog_abandoned"
+    end
+    return false, "npc_dialog_refused_stale"
 end
 
 function NPCSystem:serverGiveGift(npc, farmId, giftValue, giftType)
+    -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
+    if not self:isPersonActionable(npc) then return false end
     if self.relationshipManager and self.relationshipManager.giveGiftToNPC then
         -- Server-authoritative money: a money gift moves giftValue out of the acting
         -- farm. Re-check the farm balance on the server (never trust the client's local
@@ -4539,6 +5882,8 @@ function NPCSystem:serverGiveGift(npc, farmId, giftValue, giftType)
 end
 
 function NPCSystem:serverUpdateRelationship(npc, farmId, change, reason)
+    -- RSF-F357: only a unique live durable person can be the target of a personal mutation or charge.
+    if not self:isPersonActionable(npc) then return false end
     if self.relationshipManager then
         local success = self.relationshipManager:updateRelationship(npc.id, change, reason or "DAILY_INTERACTION")
         if success then
@@ -4688,9 +6033,415 @@ local function schemaVersionLessThan(a, b)
     return false
 end
 
+-- =========================================================
+-- RSF-F148 favor record XML shape (schema 1)
+-- =========================================================
+-- Mirrors NPCFavorSystem:exportFavorRecord exactly. Presence booleans travel
+-- as their own attributes; a value attribute is written only when present, so
+-- a false payment flag and an unknown one never look alike on disk.
+
+local function xmlIsNumber(v)
+    return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+--- NPC-204 3.10: the contribution block travels as one packed attribute of a
+--- .contribution child: every primitive field as name=type:value, %XX escaped,
+--- so a block of a future schema comes back with every field it carried.
+local function packContributionFields(block)
+    local keys = {}
+    for k, v in pairs(block) do
+        if type(k) == "string" and (type(v) == "number" or type(v) == "boolean" or type(v) == "string") then
+            keys[#keys + 1] = k
+        end
+    end
+    table.sort(keys)
+    local parts = {}
+    for _, k in ipairs(keys) do
+        local v = block[k]
+        local encoded = tostring(v):gsub("[^%w%.%- ]", function(c) return string.format("%%%02X", c:byte()) end)
+        local kEnc = k:gsub("[^%w_]", function(c) return string.format("%%%02X", c:byte()) end)
+        parts[#parts + 1] = kEnc .. "=" .. type(v) .. ":" .. encoded
+    end
+    return table.concat(parts, ";")
+end
+
+local function unpackContributionFields(packed)
+    local block = {}
+    local function unescape(s) return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)) end
+    for pair in tostring(packed or ""):gmatch("[^;]+") do
+        local k, ty, enc = pair:match("^([^=]+)=(%a+):(.*)$")
+        if k ~= nil then
+            local v = unescape(enc)
+            if ty == "number" then block[unescape(k)] = tonumber(v)
+            elseif ty == "boolean" then block[unescape(k)] = (v == "true")
+            else block[unescape(k)] = v end
+        end
+    end
+    return block
+end
+
+function NPCSystem.writeFavorRecordXML(xmlFile, key, flat)
+    xmlFile:setInt(key .. "#f148Schema", flat.f148Schema or 1)
+    -- RSF-F357: the durable person mark, written only when present.
+    if flat.personRefKind == "durable" then
+        xmlFile:setString(key .. "#personRefKind", "durable")
+    end
+    if xmlIsNumber(flat.favorId) then
+        xmlFile:setInt(key .. "#favorId", flat.favorId)
+    end
+    xmlFile:setInt(key .. "#npcId", flat.npcId or 0)
+    xmlFile:setString(key .. "#npcName", encodeXMLValue(flat.npcName or ""))
+    xmlFile:setString(key .. "#type", encodeXMLValue(flat.type or ""))
+    xmlFile:setString(key .. "#description", encodeXMLValue(flat.description or ""))
+    xmlFile:setString(key .. "#status", encodeXMLValue(flat.status or "pending"))
+    -- Unknown time is written as absent (presence false), never as 0.
+    local timePresent = flat.timeRemainingPresent == true and xmlIsNumber(flat.timeRemaining)
+    xmlFile:setBool(key .. "#timeRemainingPresent", timePresent)
+    if timePresent then
+        xmlFile:setFloat(key .. "#timeRemaining", flat.timeRemaining)
+    end
+    xmlFile:setFloat(key .. "#progress", xmlIsNumber(flat.progress) and flat.progress or 0)
+    xmlFile:setBool(key .. "#awaitingConfirmation", flat.awaitingConfirmation == true)
+
+    local function writePresent(name, value, present, setter)
+        xmlFile:setBool(key .. "#" .. name .. "Present", present == true)
+        if present == true and value ~= nil then
+            setter(key .. "#" .. name, value)
+        end
+    end
+    local function setInt(k, v) if xmlIsNumber(v) then xmlFile:setInt(k, v) end end
+    local function setFloat(k, v) if xmlIsNumber(v) then xmlFile:setFloat(k, v) end end
+    local function setBool(k, v) if type(v) == "boolean" then xmlFile:setBool(k, v) end end
+
+    writePresent("ownerFarmId", flat.ownerFarmId, flat.ownerFarmIdPresent, setInt)
+    writePresent("rewardPaid", flat.rewardPaid, flat.rewardPaidPresent, setBool)
+    writePresent("repaymentCollected", flat.repaymentCollected, flat.repaymentCollectedPresent, setBool)
+    writePresent("loanAmountDeducted", flat.loanAmountDeducted, flat.loanAmountDeductedPresent, setBool)
+    writePresent("loanAmount", flat.loanAmount, flat.loanAmountPresent, setFloat)
+    writePresent("taskFieldId", flat.taskFieldId, flat.taskFieldIdPresent, setInt)
+    writePresent("originalOwnerFarmId", flat.originalOwnerFarmId, flat.originalOwnerFarmIdPresent, setInt)
+
+    xmlFile:setFloat(key .. "#rewardRelationship", flat.rewardRelationship or 0)
+    xmlFile:setFloat(key .. "#rewardMoney", flat.rewardMoney or 0)
+    xmlFile:setFloat(key .. "#rewardXp", flat.rewardXp or 0)
+
+    xmlFile:setBool(key .. "#recoveredFromLegacy", flat.recoveredFromLegacy == true)
+    if type(flat.recoveryReason) == "string" then
+        xmlFile:setString(key .. "#recoveryReason", encodeXMLValue(flat.recoveryReason))
+    end
+    if type(flat.resumable) == "boolean" then
+        xmlFile:setBool(key .. "#resumable", flat.resumable)
+    end
+    if type(flat.originalStatus) == "string" then
+        xmlFile:setString(key .. "#originalStatus", encodeXMLValue(flat.originalStatus))
+    end
+
+    -- RSF-F221: remaining destinations, one .step(i) child per step. The
+    -- index is zero-based like the favor rows themselves (favorIndex - 1
+    -- above; XMLFile:iterate walks from zero). Additive keys inside schema 1.
+    local count = flat.stepCount
+    if xmlIsNumber(count) and math.floor(count) == count and count >= 0 and type(flat.steps) == "table" then
+        xmlFile:setInt(key .. "#stepCount", count)
+        for i = 1, count do
+            local r = flat.steps[i]
+            if type(r) == "table" then
+                local stepKey = string.format("%s.step(%d)", key, i - 1)
+                local present = r.locPresent == true and xmlIsNumber(r.x) and xmlIsNumber(r.y) and xmlIsNumber(r.z)
+                xmlFile:setBool(stepKey .. "#completed", r.completed == true)
+                xmlFile:setBool(stepKey .. "#locPresent", present)
+                if present then
+                    xmlFile:setFloat(stepKey .. "#x", r.x)
+                    xmlFile:setFloat(stepKey .. "#y", r.y)
+                    xmlFile:setFloat(stepKey .. "#z", r.z)
+                end
+            end
+        end
+    end
+
+    if type(flat.contribution) == "table" then
+        xmlFile:setString(key .. ".contribution#fields", encodeXMLValue(packContributionFields(flat.contribution)))
+    end
+end
+
+--- Read one favor row into the flat record shape. A row without #f148Schema
+--- is legacy: its presence is the attribute's presence (hasProperty) and it
+--- carries no status. A schema-1 row reads its explicit presence flags.
+function NPCSystem.readFavorRecordXML(xmlFile, key)
+    local schema = nil
+    if xmlFile:hasProperty(key .. "#f148Schema") then
+        schema = xmlFile:getInt(key .. "#f148Schema", 0)
+    end
+    -- RSF-F357: the durable person mark; absent stays absent (unproven).
+    local personRefKind = nil
+    if xmlFile:hasProperty(key .. "#personRefKind") and xmlFile:getString(key .. "#personRefKind", "") == "durable" then
+        personRefKind = "durable"
+    end
+    local flat = {
+        f148Schema = schema,
+        personRefKind = personRefKind,
+        npcId = xmlFile:getInt(key .. "#npcId", 0),
+        npcName = xmlFile:getString(key .. "#npcName", ""),
+        type = xmlFile:getString(key .. "#type", ""),
+        description = xmlFile:getString(key .. "#description", ""),
+        progress = xmlFile:getFloat(key .. "#progress", 0),
+        awaitingConfirmation = xmlFile:getBool(key .. "#awaitingConfirmation", false),
+        rewardRelationship = xmlFile:getFloat(key .. "#rewardRelationship", 0),
+        rewardMoney = xmlFile:getFloat(key .. "#rewardMoney", xmlFile:getFloat(key .. "#reward", 0)),
+        rewardXp = xmlFile:getFloat(key .. "#rewardXp", 0),
+    }
+
+    local function readPresent(name, getter)
+        local present
+        if schema == nil then
+            present = xmlFile:hasProperty(key .. "#" .. name)
+        else
+            present = xmlFile:getBool(key .. "#" .. name .. "Present", false)
+        end
+        flat[name .. "Present"] = present
+        if present and xmlFile:hasProperty(key .. "#" .. name) then
+            flat[name] = getter(key .. "#" .. name)
+        end
+    end
+    local function getInt(k) return xmlFile:getInt(k, 0) end
+    local function getFloat(k) return xmlFile:getFloat(k, 0) end
+    local function getBool(k) return xmlFile:getBool(k, false) end
+
+    readPresent("timeRemaining", getFloat)
+    readPresent("ownerFarmId", getInt)
+    readPresent("rewardPaid", getBool)
+    readPresent("repaymentCollected", getBool)
+    readPresent("loanAmountDeducted", getBool)
+    readPresent("loanAmount", getFloat)
+    readPresent("taskFieldId", getInt)
+
+    if schema ~= nil then
+        if xmlFile:hasProperty(key .. "#favorId") then
+            flat.favorId = xmlFile:getInt(key .. "#favorId", 0)
+        end
+        flat.status = xmlFile:getString(key .. "#status", "")
+        flat.recoveredFromLegacy = xmlFile:getBool(key .. "#recoveredFromLegacy", false)
+        if xmlFile:hasProperty(key .. "#recoveryReason") then
+            flat.recoveryReason = xmlFile:getString(key .. "#recoveryReason", "")
+        end
+        if xmlFile:hasProperty(key .. "#resumable") then
+            flat.resumable = xmlFile:getBool(key .. "#resumable", false)
+        end
+        if xmlFile:hasProperty(key .. "#originalStatus") then
+            flat.originalStatus = xmlFile:getString(key .. "#originalStatus", "")
+        end
+        readPresent("originalOwnerFarmId", getInt)
+    end
+
+    -- RSF-F221: the saved step set, read raw. The read stops at the first
+    -- missing child, leaving a hole at that index (a declared count is never
+    -- trusted to bound the walk: an edited or corrupt count must not spin the
+    -- load); a present-location flag with a missing coordinate keeps
+    -- locPresent true with a nil coordinate. NPCFavorRecovery.decodeSavedSteps
+    -- applies the partial-row rules for both writers, and a hole reads as no
+    -- set at all.
+    if xmlFile:hasProperty(key .. "#stepCount") then
+        local count = xmlFile:getInt(key .. "#stepCount", 0)
+        flat.stepCount = count
+        flat.steps = {}
+        for i = 1, count do
+            local stepKey = string.format("%s.step(%d)", key, i - 1)
+            if not (xmlFile:hasProperty(stepKey .. "#completed") or xmlFile:hasProperty(stepKey .. "#locPresent")) then
+                break
+            end
+            local row = {
+                completed = xmlFile:getBool(stepKey .. "#completed", false),
+                locPresent = xmlFile:getBool(stepKey .. "#locPresent", false),
+            }
+            if row.locPresent then
+                if xmlFile:hasProperty(stepKey .. "#x") then row.x = xmlFile:getFloat(stepKey .. "#x", 0) end
+                if xmlFile:hasProperty(stepKey .. "#y") then row.y = xmlFile:getFloat(stepKey .. "#y", 0) end
+                if xmlFile:hasProperty(stepKey .. "#z") then row.z = xmlFile:getFloat(stepKey .. "#z", 0) end
+            end
+            flat.steps[i] = row
+        end
+    end
+    -- NPC-204 3.10: the contribution block, read whatever its schema.
+    if xmlFile:hasProperty(key .. ".contribution#fields") then
+        flat.contribution = unpackContributionFields(xmlFile:getString(key .. ".contribution#fields", ""))
+    end
+    return flat
+end
+
 --- Save all NPC state to XML file in savegame directory.
 -- Called from FSCareerMissionInfo.saveToXMLFile hook in main.lua.
 -- @param missionInfo  FS25 missionInfo table (has savegameDirectory)
+-- =========================================================
+-- RSF-F357 person row XML shape (person schema 1)
+-- =========================================================
+-- Mirrors NPCPersonRoster.exportPersonRow exactly: the same flat row the ledger
+-- writes, spread over attributes. The durable number is #id; the old uniqueId
+-- is kept only as #legacyUniqueId, migration evidence.
+
+function NPCSystem.writePersonRowXML(xmlFile, npcKey, d)
+    xmlFile:setInt(npcKey .. "#id", d.id)
+    xmlFile:setString(npcKey .. "#origin", encodeXMLValue(d.origin or NPCPersonRoster.ORIGIN_TOWN))
+    if d.providerToken ~= nil then
+        xmlFile:setString(npcKey .. "#providerToken", encodeXMLValue(d.providerToken))
+    end
+    if d.legacyUniqueId ~= nil then
+        xmlFile:setString(npcKey .. "#legacyUniqueId", encodeXMLValue(d.legacyUniqueId))
+    end
+    if d.role ~= nil then
+        xmlFile:setString(npcKey .. "#role", encodeXMLValue(d.role))
+    end
+    xmlFile:setString(npcKey .. "#name", encodeXMLValue(d.name or ""))
+    xmlFile:setString(npcKey .. "#personality", encodeXMLValue(d.personality or ""))
+    xmlFile:setInt(npcKey .. "#age", d.age or 30)
+
+    xmlFile:setFloat(npcKey .. ".position#x", d.px or 0)
+    xmlFile:setFloat(npcKey .. ".position#y", d.py or 0)
+    xmlFile:setFloat(npcKey .. ".position#z", d.pz or 0)
+    xmlFile:setFloat(npcKey .. ".rotation#y", d.ry or 0)
+
+    if d.hasHome then
+        xmlFile:setFloat(npcKey .. ".home#x", d.hx or 0)
+        xmlFile:setFloat(npcKey .. ".home#y", d.hy or 0)
+        xmlFile:setFloat(npcKey .. ".home#z", d.hz or 0)
+    end
+    xmlFile:setString(npcKey .. ".home#buildingName", encodeXMLValue(d.homeBuildingName or ""))
+    if d.homeUniqueId ~= nil then
+        xmlFile:setString(npcKey .. ".home#uniqueId", encodeXMLValue(d.homeUniqueId))
+    end
+
+    xmlFile:setInt(npcKey .. ".stats#relationship", d.relationship or 50)
+    xmlFile:setInt(npcKey .. ".stats#favorsCompleted", d.favorsCompleted or 0)
+    xmlFile:setInt(npcKey .. ".stats#favorsFailed", d.favorsFailed or 0)
+    xmlFile:setFloat(npcKey .. ".stats#favorCooldown", d.favorCooldown or 0)
+
+    xmlFile:setString(npcKey .. ".ai#state", encodeXMLValue(d.aiState or "idle"))
+    xmlFile:setString(npcKey .. ".ai#action", encodeXMLValue(d.currentAction or "idle"))
+
+    xmlFile:setFloat(npcKey .. ".personality#workEthic", d.workEthic or 1.0)
+    xmlFile:setFloat(npcKey .. ".personality#sociability", d.sociability or 1.0)
+    xmlFile:setFloat(npcKey .. ".personality#generosity", d.generosity or 1.0)
+    xmlFile:setFloat(npcKey .. ".personality#punctuality", d.punctuality or 1.0)
+    xmlFile:setFloat(npcKey .. ".personality#workEthicOffset", d.workEthicOffset or 0)
+
+    xmlFile:setInt(npcKey .. ".visual#appearanceSeed", d.appearanceSeed or 1)
+    xmlFile:setBool(npcKey .. ".visual#isFemale", d.isFemale or false)
+    xmlFile:setFloat(npcKey .. ".visual#movementSpeed", d.movementSpeed or 1.0)
+    xmlFile:setFloat(npcKey .. ".visual#heightScale", d.heightScale or 1.0)
+
+    xmlFile:setFloat(npcKey .. ".needs#energy", d.energy or 20)
+    xmlFile:setFloat(npcKey .. ".needs#social", d.social or 30)
+    xmlFile:setFloat(npcKey .. ".needs#hunger", d.hunger or 10)
+    xmlFile:setFloat(npcKey .. ".needs#workSatisfaction", d.workSatisfaction or 50)
+    xmlFile:setString(npcKey .. ".needs#mood", encodeXMLValue(d.mood or "neutral"))
+
+    for ei, encounter in ipairs(d.encounters or {}) do
+        if ei > 10 then break end
+        local eKey = string.format("%s.encounters.encounter(%d)", npcKey, ei - 1)
+        xmlFile:setString(eKey .. "#type", encodeXMLValue(encounter.type or ""))
+        xmlFile:setFloat(eKey .. "#time", encounter.time or 0)
+        xmlFile:setString(eKey .. "#details", encodeXMLValue(encounter.details or ""))
+        xmlFile:setString(eKey .. "#partner", encodeXMLValue(encounter.partner or ""))
+        xmlFile:setString(eKey .. "#sentiment", encodeXMLValue(encounter.sentiment or "neutral"))
+    end
+end
+
+--- Read one saved person row (new or legacy) into the flat shape. A legacy row
+--- (no #id) keeps its old uniqueId as legacyUniqueId only.
+function NPCSystem.readPersonRowXML(xmlFile, npcKey)
+    local d = {}
+    if xmlFile:hasProperty(npcKey .. "#id") then
+        d.id = xmlFile:getInt(npcKey .. "#id", nil)
+    end
+    if xmlFile:hasProperty(npcKey .. "#origin") then d.origin = xmlFile:getString(npcKey .. "#origin", nil) end
+    if xmlFile:hasProperty(npcKey .. "#providerToken") then d.providerToken = xmlFile:getString(npcKey .. "#providerToken", nil) end
+    if xmlFile:hasProperty(npcKey .. "#legacyUniqueId") then
+        d.legacyUniqueId = xmlFile:getString(npcKey .. "#legacyUniqueId", nil)
+    elseif xmlFile:hasProperty(npcKey .. "#uniqueId") then
+        d.legacyUniqueId = xmlFile:getString(npcKey .. "#uniqueId", nil)
+    end
+    if xmlFile:hasProperty(npcKey .. "#role") then d.role = xmlFile:getString(npcKey .. "#role", nil) end
+    d.name = xmlFile:getString(npcKey .. "#name", "")
+    d.personality = xmlFile:getString(npcKey .. "#personality", "")
+    d.age = xmlFile:getInt(npcKey .. "#age", 30)
+    d.px = xmlFile:getFloat(npcKey .. ".position#x", 0)
+    d.py = xmlFile:getFloat(npcKey .. ".position#y", 0)
+    d.pz = xmlFile:getFloat(npcKey .. ".position#z", 0)
+    d.ry = xmlFile:getFloat(npcKey .. ".rotation#y", 0)
+    if xmlFile:hasProperty(npcKey .. ".home#x") then
+        d.hasHome = true
+        d.hx = xmlFile:getFloat(npcKey .. ".home#x", 0)
+        d.hy = xmlFile:getFloat(npcKey .. ".home#y", 0)
+        d.hz = xmlFile:getFloat(npcKey .. ".home#z", 0)
+    end
+    d.homeBuildingName = xmlFile:getString(npcKey .. ".home#buildingName", "")
+    if xmlFile:hasProperty(npcKey .. ".home#uniqueId") then
+        d.homeUniqueId = xmlFile:getString(npcKey .. ".home#uniqueId", nil)
+    end
+    d.relationship = xmlFile:getInt(npcKey .. ".stats#relationship", 50)
+    d.favorsCompleted = xmlFile:getInt(npcKey .. ".stats#favorsCompleted", 0)
+    d.favorsFailed = xmlFile:getInt(npcKey .. ".stats#favorsFailed", 0)
+    d.favorCooldown = xmlFile:getFloat(npcKey .. ".stats#favorCooldown", 0)
+    d.aiState = xmlFile:getString(npcKey .. ".ai#state", "idle")
+    d.currentAction = xmlFile:getString(npcKey .. ".ai#action", "idle")
+    d.workEthic = xmlFile:getFloat(npcKey .. ".personality#workEthic", 1.0)
+    d.sociability = xmlFile:getFloat(npcKey .. ".personality#sociability", 1.0)
+    d.generosity = xmlFile:getFloat(npcKey .. ".personality#generosity", 1.0)
+    d.punctuality = xmlFile:getFloat(npcKey .. ".personality#punctuality", 1.0)
+    d.workEthicOffset = xmlFile:getFloat(npcKey .. ".personality#workEthicOffset", 0)
+    d.appearanceSeed = xmlFile:getInt(npcKey .. ".visual#appearanceSeed", 1)
+    d.isFemale = xmlFile:getBool(npcKey .. ".visual#isFemale", false)
+    d.movementSpeed = xmlFile:getFloat(npcKey .. ".visual#movementSpeed", 1.0)
+    d.heightScale = xmlFile:getFloat(npcKey .. ".visual#heightScale", 1.0)
+    d.energy = xmlFile:getFloat(npcKey .. ".needs#energy", 20)
+    d.social = xmlFile:getFloat(npcKey .. ".needs#social", 30)
+    d.hunger = xmlFile:getFloat(npcKey .. ".needs#hunger", 10)
+    d.workSatisfaction = xmlFile:getFloat(npcKey .. ".needs#workSatisfaction", 50)
+    d.mood = xmlFile:getString(npcKey .. ".needs#mood", "neutral")
+    d.encounters = {}
+    xmlFile:iterate(npcKey .. ".encounters.encounter", function(_, eKey)
+        if #d.encounters >= 10 then return end
+        d.encounters[#d.encounters + 1] = {
+            type = xmlFile:getString(eKey .. "#type", ""),
+            time = xmlFile:getFloat(eKey .. "#time", 0),
+            details = xmlFile:getString(eKey .. "#details", ""),
+            partner = xmlFile:getString(eKey .. "#partner", ""),
+            sentiment = xmlFile:getString(eKey .. "#sentiment", "neutral"),
+        }
+    end)
+    return d
+end
+
+--- Opaque evidence rows: retained saved rows that name no person. Only their
+--- primitive fields can be written; a primitive row is written as #value.
+local function writeOpaqueRowXML(xmlFile, key, raw)
+    if type(raw) == "table" then
+        -- Every primitive field, packed into one attribute so the reader can
+        -- give them all back without knowing their names: name=type:value
+        -- pairs, the value URL-style escaped (%XX) so '=', ';' and ':' are safe.
+        local parts = {}
+        local keys = {}
+        for k, v in pairs(raw) do
+            if type(k) == "string" and (type(v) == "number" or type(v) == "boolean" or type(v) == "string") then
+                keys[#keys + 1] = k
+            end
+        end
+        table.sort(keys)
+        for _, k in ipairs(keys) do
+            local v = raw[k]
+            local encoded = tostring(v):gsub("[^%w%.%- ]", function(c) return string.format("%%%02X", c:byte()) end)
+            local kEnc = k:gsub("[^%w_]", function(c) return string.format("%%%02X", c:byte()) end)
+            parts[#parts + 1] = kEnc .. "=" .. type(v) .. ":" .. encoded
+        end
+        xmlFile:setString(key .. "#fields", encodeXMLValue(table.concat(parts, ";")))
+        if type(raw.name) == "string" then
+            xmlFile:setString(key .. "#name", encodeXMLValue(raw.name))
+        end
+        xmlFile:setBool(key .. "#opaqueTable", true)
+    else
+        xmlFile:setString(key .. "#value", encodeXMLValue(tostring(raw)))
+        xmlFile:setString(key .. "#valueType", type(raw))
+    end
+end
+
 function NPCSystem:saveToXMLFile(missionInfo)
     -- Safeguard: restore any temporary field-ownership flips BEFORE saving so a
     -- borrowed farmland can never persist to disk (see startNPCFieldWorkOwned).
@@ -4710,7 +6461,29 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
         return
     end
 
-    if not self.isInitialized or self.npcCount == 0 then
+    if not self.isInitialized then
+        return
+    end
+
+    -- RSF-F357: the gate is the selected-state readiness, not npcCount. A
+    -- waiting-only roster, an empty roster with held work and an empty roster
+    -- with an allocated high-water mark all persist. WAITING or FAILED leaves
+    -- the existing file exactly as it was.
+    if self.people == nil or not self.people:isReady() then
+        print(string.format("[NPC Favor] Save skipped: person load state is %s; npc_favor.xml left untouched",
+            tostring(self.people and self.people:getLoadState())))
+        self:notifyPersonLoadFailed()
+        return
+    end
+
+    -- RSF-F148: never overwrite the safety copy until the selected favor
+    -- snapshot is installed. A FAILED or still-WAITING load leaves the file
+    -- exactly as it was so the fallback is still there next load. The player
+    -- is told (once per session) that NPC progress is not being saved to XML.
+    if self.favorSystem and self.favorSystem.isFavorLoadReady and not self.favorSystem:isFavorLoadReady() then
+        print(string.format("[NPC Favor] Save skipped: favor load state is %s; npc_favor.xml left untouched",
+            tostring(self.favorSystem:getFavorLoadState())))
+        self:notifyFavorLoadFailed()
         return
     end
 
@@ -4723,134 +6496,46 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
         return
     end
 
+    local state = self:serializeState()
+
     xmlFile:setString(NPC_SAVE_ROOT .. "#version", SAVE_SCHEMA_VERSION)
     xmlFile:setInt(NPC_SAVE_ROOT .. "#npcCount", self.npcCount)
-
-    -- Save each NPC
-    local npcIndex = 0
-    for _, npc in ipairs(self.activeNPCs) do
-        if npc.isActive then
-            local npcKey = string.format(NPC_SAVE_ROOT .. ".npcs.npc(%d)", npcIndex)
-
-            -- Identity
-            xmlFile:setString(npcKey .. "#uniqueId", encodeXMLValue(npc.uniqueId or ""))
-            xmlFile:setString(npcKey .. "#name", encodeXMLValue(npc.name or ""))
-            xmlFile:setString(npcKey .. "#personality", encodeXMLValue(npc.personality or ""))
-            xmlFile:setInt(npcKey .. "#age", npc.age or 30)
-
-            -- Position
-            xmlFile:setFloat(npcKey .. ".position#x", npc.position.x or 0)
-            xmlFile:setFloat(npcKey .. ".position#y", npc.position.y or 0)
-            xmlFile:setFloat(npcKey .. ".position#z", npc.position.z or 0)
-            xmlFile:setFloat(npcKey .. ".rotation#y", npc.rotation.y or 0)
-
-            -- Home position
-            if npc.homePosition then
-                xmlFile:setFloat(npcKey .. ".home#x", npc.homePosition.x or 0)
-                xmlFile:setFloat(npcKey .. ".home#y", npc.homePosition.y or 0)
-                xmlFile:setFloat(npcKey .. ".home#z", npc.homePosition.z or 0)
-            end
-            xmlFile:setString(npcKey .. ".home#buildingName", encodeXMLValue(npc.homeBuildingName or ""))
-
-            -- Relationship & stats
-            xmlFile:setInt(npcKey .. ".stats#relationship", npc.relationship or 50)
-            xmlFile:setInt(npcKey .. ".stats#favorsCompleted", npc.totalFavorsCompleted or 0)
-            xmlFile:setInt(npcKey .. ".stats#favorsFailed", npc.totalFavorsFailed or 0)
-            xmlFile:setFloat(npcKey .. ".stats#favorCooldown", npc.favorCooldown or 0)
-
-            -- AI state
-            xmlFile:setString(npcKey .. ".ai#state", encodeXMLValue(npc.aiState or "idle"))
-            xmlFile:setString(npcKey .. ".ai#action", encodeXMLValue(npc.currentAction or "idle"))
-
-            -- Personality modifiers
-            if npc.aiPersonalityModifiers then
-                xmlFile:setFloat(npcKey .. ".personality#workEthic", npc.aiPersonalityModifiers.workEthic or 1.0)
-                xmlFile:setFloat(npcKey .. ".personality#sociability", npc.aiPersonalityModifiers.sociability or 1.0)
-                xmlFile:setFloat(npcKey .. ".personality#generosity", npc.aiPersonalityModifiers.generosity or 1.0)
-                xmlFile:setFloat(npcKey .. ".personality#punctuality", npc.aiPersonalityModifiers.punctuality or 1.0)
-            end
-
-            -- Visual
-            xmlFile:setInt(npcKey .. ".visual#appearanceSeed", npc.appearanceSeed or 1)
-            xmlFile:setBool(npcKey .. ".visual#isFemale", npc.isFemale or false)
-            xmlFile:setFloat(npcKey .. ".visual#movementSpeed", npc.movementSpeed or 1.0)
-
-            -- Needs system
-            if npc.needs then
-                xmlFile:setFloat(npcKey .. ".needs#energy", npc.needs.energy or 20)
-                xmlFile:setFloat(npcKey .. ".needs#social", npc.needs.social or 30)
-                xmlFile:setFloat(npcKey .. ".needs#hunger", npc.needs.hunger or 10)
-                xmlFile:setFloat(npcKey .. ".needs#workSatisfaction", npc.needs.workSatisfaction or 50)
-            end
-            xmlFile:setString(npcKey .. ".needs#mood", encodeXMLValue(npc.mood or "neutral"))
-
-            -- Encounters (up to 10 recent, with sentiment + partner)
-            if npc.encounters and #npc.encounters > 0 then
-                for ei, encounter in ipairs(npc.encounters) do
-                    if ei > 10 then break end
-                    local eKey = string.format("%s.encounters.encounter(%d)", npcKey, ei - 1)
-                    xmlFile:setString(eKey .. "#type", encodeXMLValue(encounter.type or ""))
-                    xmlFile:setFloat(eKey .. "#time", encounter.time or 0)
-                    xmlFile:setString(eKey .. "#details", encodeXMLValue(encounter.details or ""))
-                    xmlFile:setString(eKey .. "#partner", encodeXMLValue(encounter.partner or ""))
-                    xmlFile:setString(eKey .. "#sentiment", encodeXMLValue(encounter.sentiment or "neutral"))
-                end
-            end
-
-            npcIndex = npcIndex + 1
-        end
+    xmlFile:setInt(NPC_SAVE_ROOT .. "#personSchema", state.personSchema)
+    xmlFile:setInt(NPC_SAVE_ROOT .. "#personIdHighWater", state.personIdHighWater)
+    -- NPC-204 3.10: the next favour number, so none is ever issued twice.
+    if type(state.nextFavorId) == "number" then
+        xmlFile:setInt(NPC_SAVE_ROOT .. "#nextFavorId", state.nextFavorId)
     end
 
-    -- Save active favors from the favor system
-    if self.favorSystem then
-        local activeFavors = self.favorSystem:getActiveFavors()
-        if activeFavors then
-            local favorIndex = 0
-            for _, favor in ipairs(activeFavors) do
-                local favorKey = string.format(NPC_SAVE_ROOT .. ".favors.favor(%d)", favorIndex)
-                xmlFile:setInt(favorKey .. "#npcId", favor.npcId or 0)
-                xmlFile:setString(favorKey .. "#npcName", encodeXMLValue(favor.npcName or ""))
-                xmlFile:setString(favorKey .. "#type", encodeXMLValue(favor.type or ""))
-                xmlFile:setString(favorKey .. "#description", encodeXMLValue(favor.description or ""))
-                xmlFile:setFloat(favorKey .. "#timeRemaining", favor.timeRemaining or 0)
-                xmlFile:setInt(favorKey .. "#progress", favor.progress or 0)
-                xmlFile:setBool(favorKey .. "#awaitingConfirmation", favor.awaitingConfirmation or false)
-                -- Farm-attribution: persist the owning farm and the money idempotency
-                -- flags so a reload never re-pays or pays the wrong farm. ownerFarmId is
-                -- only written when set, so a legacy favor loads as nil and gets migrated.
-                if favor.ownerFarmId then
-                    xmlFile:setInt(favorKey .. "#ownerFarmId", favor.ownerFarmId)
-                end
-                xmlFile:setBool(favorKey .. "#rewardPaid", favor.rewardPaid or false)
-                xmlFile:setBool(favorKey .. "#repaymentCollected", favor.repaymentCollected or false)
-                if favor.taskData then
-                    xmlFile:setBool(favorKey .. "#loanAmountDeducted", favor.taskData.loanAmountDeducted or false)
-                    if favor.taskData.loanAmount then
-                        xmlFile:setFloat(favorKey .. "#loanAmount", favor.taskData.loanAmount)
-                    end
-                end
-                if type(favor.reward) == "table" then
-                    xmlFile:setFloat(favorKey .. "#rewardRelationship", favor.reward.relationship or 0)
-                    xmlFile:setFloat(favorKey .. "#rewardMoney", favor.reward.money or 0)
-                    xmlFile:setFloat(favorKey .. "#rewardXp", favor.reward.xp or 0)
-                else
-                    xmlFile:setFloat(favorKey .. "#rewardMoney", tonumber(favor.reward) or 0)
-                end
-                favorIndex = favorIndex + 1
-            end
-        end
+    -- Every retained person, live and waiting, through the shared row shape.
+    for npcIndex, d in ipairs(state.npcs) do
+        NPCSystem.writePersonRowXML(xmlFile, string.format(NPC_SAVE_ROOT .. ".npcs.npc(%d)", npcIndex - 1), d)
+    end
+    for i, raw in ipairs(state.opaquePeople or {}) do
+        writeOpaqueRowXML(xmlFile, string.format(NPC_SAVE_ROOT .. ".opaquePeople.row(%d)", i - 1), raw)
     end
 
-    -- Save NPC-NPC relationships
-    if self.relationshipManager and self.relationshipManager.npcRelationships then
-        local relIndex = 0
-        for key, rel in pairs(self.relationshipManager.npcRelationships) do
-            local relKey = string.format(NPC_SAVE_ROOT .. ".npcRelationships.rel(%d)", relIndex)
-            xmlFile:setString(relKey .. "#key", encodeXMLValue(key))
-            xmlFile:setFloat(relKey .. "#value", rel.value or 50)
-            xmlFile:setFloat(relKey .. "#lastInteraction", rel.lastInteraction or 0)
-            xmlFile:setInt(relKey .. "#interactionCount", rel.interactionCount or 0)
-            relIndex = relIndex + 1
+    -- Save favors from the favor system (RSF-F148 schema 1). Ordinary rows
+    -- keep the .favors.favor(i) location; paused / inspect-only rows go to
+    -- .recoveryFavors.favor(i). Both arrays are captured from the same owner
+    -- state and written through one flat record shape.
+    for favorIndex, flat in ipairs(state.favors or {}) do
+        NPCSystem.writeFavorRecordXML(xmlFile, string.format(NPC_SAVE_ROOT .. ".favors.favor(%d)", favorIndex - 1), flat)
+    end
+    for favorIndex, flat in ipairs(state.recoveryFavors or {}) do
+        NPCSystem.writeFavorRecordXML(xmlFile, string.format(NPC_SAVE_ROOT .. ".recoveryFavors.favor(%d)", favorIndex - 1), flat)
+    end
+
+    -- NPC-NPC ties: reconnected ties carry the durable endpoint mark; legacy
+    -- ties are re-emitted as they were, without it.
+    for relIndex, r in ipairs(state.relationships or {}) do
+        local relKey = string.format(NPC_SAVE_ROOT .. ".npcRelationships.rel(%d)", relIndex - 1)
+        xmlFile:setString(relKey .. "#key", encodeXMLValue(r.key or ""))
+        xmlFile:setFloat(relKey .. "#value", r.value or 50)
+        xmlFile:setFloat(relKey .. "#lastInteraction", r.lastInteraction or 0)
+        xmlFile:setInt(relKey .. "#interactionCount", r.interactionCount or 0)
+        if r.endpointKind ~= nil then
+            xmlFile:setString(relKey .. "#endpointKind", encodeXMLValue(r.endpointKind))
         end
     end
 
@@ -4868,7 +6553,7 @@ function NPCSystem:_doSaveToXMLFile(missionInfo)
     end
 
     if self.settings.debugMode then
-        print(string.format("[NPC Favor] Saved %d NPCs to %s", npcIndex, filePath))
+        print(string.format("[NPC Favor] Saved %d people to %s", #state.npcs, filePath))
     end
 end
 
@@ -4900,184 +6585,358 @@ end
 -- save. Mirrors the saveToXMLFile/_doSaveToXMLFile split above.
 -- @param missionInfo  FS25 missionInfo table (has savegameDirectory)
 function NPCSystem:loadFromXMLFile(missionInfo)
-    local ok, err = pcall(function()
-        self:_doLoadFromXMLFile(missionInfo)
-    end)
-    if not ok then
-        print(string.format("[NPC Favor] Load error (non-fatal): %s", tostring(err)))
+    -- RSF-F357: every load entry point (first-frame init, onStartMission, an
+    -- explicit call, a repeated service callback) goes through the one
+    -- selected-load procedure, which does nothing after the first selection.
+    self:runPersonLoad(missionInfo)
+end
+
+--- RSF-F357: the second startup path, appended to Mission00.onStartMission by
+--- main.lua. Protected the same way as the first-frame init.
+function NPCSystem:onStartMissionLoad(missionInfo)
+    if not self.isInitialized or not self.isServer then return end
+    self:runPersonLoad(missionInfo)
+end
+
+--- RSF-F357: tell the player, once, that the saved people could not be read
+--- and are being left untouched on disk.
+function NPCSystem:notifyPersonLoadFailed()
+    if self.people == nil or not self.people:isFailed() then return end
+    if self._personLoadFailedNotified then return end
+    self._personLoadFailedNotified = true
+    local key = "npc_person_load_failed_notice"
+    local fallback = "NPC Favor: saved neighbours could not be read and were left untouched on disk. "
+        .. "The town is unavailable and nothing is saved this session."
+    local text = (g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key))
+        and g_i18n:getText(key) or fallback
+    print("[NPC Favor] " .. text)
+    if g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
+        local typ = (FSBaseMission and FSBaseMission.INGAME_NOTIFICATION_CRITICAL) or 1
+        pcall(function() g_currentMission:addIngameNotification(typ, text) end)
     end
 end
 
-function NPCSystem:_doLoadFromXMLFile(missionInfo)
+--- RSF-F148: tell the player, once, that saved favors could not be read and
+--- are being left untouched on disk.
+function NPCSystem:notifyFavorLoadFailed()
+    if self._favorLoadFailedNotified then return end
+    self._favorLoadFailedNotified = true
+    -- Which notice: on the XML route the whole save is skipped, and on the
+    -- ledger route an aborted apply hands the delivered block back unchanged,
+    -- so in both cases NPC progress is not saved either. Only a ledger load
+    -- that read the table in full and refused a favor record still saves NPC
+    -- progress.
+    local key = "npc_recovery_load_failed_notice"
+    local fallback = "NPC Favor: saved favors could not be read and were left untouched on disk. "
+        .. "Favors are unavailable, and NPC progress and favors are not saved this session."
+    if self:isFavorLoadFailureFavorsOnly() then
+        key = "npc_recovery_load_failed_notice_favors_only"
+        fallback = "NPC Favor: saved favors could not be read and were left untouched on disk. "
+            .. "Favors are unavailable and not saved this session. NPC progress still saves."
+    end
+    local text = (g_i18n ~= nil and g_i18n.hasText ~= nil and g_i18n:hasText(key))
+        and g_i18n:getText(key) or fallback
+    print("[NPC Favor] " .. text)
+    if g_currentMission ~= nil and g_currentMission.addIngameNotification ~= nil then
+        local typ = (FSBaseMission and FSBaseMission.INGAME_NOTIFICATION_CRITICAL) or 1
+        pcall(function() g_currentMission:addIngameNotification(typ, text) end)
+    end
+end
+
+--- True when the ledger owns this load, delivered a block, and the failure
+--- was a refused favor record rather than an abort: live NPC progress is then
+--- still written around the copied-back favor blocks (see serializeState).
+function NPCSystem:isFavorLoadFailureFavorsOnly()
+    if self.favorSystem == nil or self.favorSystem.getFavorLoadFailOrigin == nil then return false end
+    if self.favorSystem:getFavorLoadFailOrigin() ~= NPCFavorRecovery.FAIL_ORIGIN_RECORD then return false end
+    if self._ledgerOriginalState == nil then return false end
+    return NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.hasLedgerState ~= nil
+        and NPCStateLedgerBridge.hasLedgerState() == true
+end
+
+--- RSF-F357: read npc_favor.xml into the same table shape the ledger delivers
+--- (people rows, opaque rows, both favour blocks as flat records, ties). Returns
+--- nil when there is no file. Raises on an unreadable file; the caller's
+--- protected call makes that FAILED.
+function NPCSystem:readSavedStateFromXML(missionInfo)
     local savegameDirectory = missionInfo and missionInfo.savegameDirectory
     if not savegameDirectory then
-        return
+        return nil
     end
-
     local filePath = savegameDirectory .. "/" .. NPC_SAVE_FILE
-
-    -- loadIfExists returns nil for new games (no save file yet)
     local xmlFile = XMLFile.loadIfExists("npcFavorXML", filePath, NPC_SAVE_ROOT)
     if xmlFile == nil then
         if self.settings.debugMode then
             print("[NPC Favor] No save file found (new game)")
         end
-        return
+        return nil
     end
 
-    local savedVersion = xmlFile:getString(NPC_SAVE_ROOT .. "#version", "0.0.0.0")
-    local savedNpcCount = xmlFile:getInt(NPC_SAVE_ROOT .. "#npcCount", 0)
-
-    if self.settings.debugMode then
-        print(string.format("[NPC Favor] Loading save file v%s with %d NPCs", savedVersion, savedNpcCount))
+    local data = { npcs = {}, opaquePeople = {}, favors = {}, recoveryFavors = {}, relationships = {} }
+    data.schemaVersion = xmlFile:getString(NPC_SAVE_ROOT .. "#version", "0.0.0.0")
+    if xmlFile:hasProperty(NPC_SAVE_ROOT .. "#personSchema") then
+        data.personSchema = xmlFile:getInt(NPC_SAVE_ROOT .. "#personSchema", nil)
+    end
+    if xmlFile:hasProperty(NPC_SAVE_ROOT .. "#personIdHighWater") then
+        data.personIdHighWater = xmlFile:getInt(NPC_SAVE_ROOT .. "#personIdHighWater", nil)
+    end
+    if xmlFile:hasProperty(NPC_SAVE_ROOT .. "#nextFavorId") then
+        data.nextFavorId = xmlFile:getInt(NPC_SAVE_ROOT .. "#nextFavorId", nil)
+    end
+    if schemaVersionLessThan(data.schemaVersion, SAVE_SCHEMA_VERSION) then
+        self:migrateSaveData(xmlFile, data.schemaVersion)
     end
 
-    if schemaVersionLessThan(savedVersion, SAVE_SCHEMA_VERSION) then
-        self:migrateSaveData(xmlFile, savedVersion)
-    end
-
-    -- Build lookup tables for matching saved NPCs to spawned ones
-    local npcByUniqueId = {}
-    local npcByName = {}
-    for _, npc in ipairs(self.activeNPCs) do
-        if npc.uniqueId then
-            npcByUniqueId[npc.uniqueId] = npc
-        end
-        if npc.name then
-            npcByName[npc.name] = npc
-        end
-    end
-
-    local restoredCount = 0
-
-    -- Iterate saved NPCs and restore state
     xmlFile:iterate(NPC_SAVE_ROOT .. ".npcs.npc", function(_, npcKey)
-        local uniqueId = xmlFile:getString(npcKey .. "#uniqueId", "")
-        local name = xmlFile:getString(npcKey .. "#name", "")
-
-        -- Match to existing NPC: prefer uniqueId, fall back to name
-        local npc = npcByUniqueId[uniqueId] or npcByName[name]
-
-        if npc then
-            -- Restore position
-            npc.position.x = xmlFile:getFloat(npcKey .. ".position#x", npc.position.x)
-            npc.position.y = xmlFile:getFloat(npcKey .. ".position#y", npc.position.y)
-            npc.position.z = xmlFile:getFloat(npcKey .. ".position#z", npc.position.z)
-            npc.rotation.y = xmlFile:getFloat(npcKey .. ".rotation#y", npc.rotation.y)
-
-            -- Restore home position
-            if xmlFile:hasProperty(npcKey .. ".home#x") then
-                npc.homePosition = npc.homePosition or {}
-                npc.homePosition.x = xmlFile:getFloat(npcKey .. ".home#x", 0)
-                npc.homePosition.y = xmlFile:getFloat(npcKey .. ".home#y", 0)
-                npc.homePosition.z = xmlFile:getFloat(npcKey .. ".home#z", 0)
+        data.npcs[#data.npcs + 1] = NPCSystem.readPersonRowXML(xmlFile, npcKey)
+    end)
+    xmlFile:iterate(NPC_SAVE_ROOT .. ".opaquePeople.row", function(_, key)
+        if xmlFile:hasProperty(key .. "#value") then
+            local raw = xmlFile:getString(key .. "#value", "")
+            local valueType = xmlFile:getString(key .. "#valueType", "string")
+            if valueType == "number" then raw = tonumber(raw) or raw
+            elseif valueType == "boolean" then raw = (raw == "true") end
+            data.opaquePeople[#data.opaquePeople + 1] = raw
+        else
+            -- A table row: every primitive field packed by the writer comes back.
+            local row = {}
+            local packed = xmlFile:getString(key .. "#fields", "")
+            for pair in tostring(packed):gmatch("[^;]+") do
+                local k, ty, enc = pair:match("^([^=]+)=(%a+):(.*)$")
+                if k ~= nil then
+                    local unescape = function(s) return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)) end
+                    local name = unescape(k)
+                    local v = unescape(enc)
+                    if ty == "number" then row[name] = tonumber(v)
+                    elseif ty == "boolean" then row[name] = (v == "true")
+                    else row[name] = v end
+                end
             end
-            npc.homeBuildingName = xmlFile:getString(npcKey .. ".home#buildingName", npc.homeBuildingName or "")
-
-            -- Restore relationship & stats (most important!)
-            npc.relationship = xmlFile:getInt(npcKey .. ".stats#relationship", npc.relationship)
-            npc.totalFavorsCompleted = xmlFile:getInt(npcKey .. ".stats#favorsCompleted", 0)
-            npc.totalFavorsFailed = xmlFile:getInt(npcKey .. ".stats#favorsFailed", 0)
-            npc.favorCooldown = xmlFile:getFloat(npcKey .. ".stats#favorCooldown", 0)
-
-            -- Restore AI state
-            npc.aiState = xmlFile:getString(npcKey .. ".ai#state", "idle")
-            npc.currentAction = xmlFile:getString(npcKey .. ".ai#action", "idle")
-
-            -- Restore personality modifiers
-            if npc.aiPersonalityModifiers then
-                npc.aiPersonalityModifiers.workEthic = xmlFile:getFloat(npcKey .. ".personality#workEthic", npc.aiPersonalityModifiers.workEthic)
-                npc.aiPersonalityModifiers.sociability = xmlFile:getFloat(npcKey .. ".personality#sociability", npc.aiPersonalityModifiers.sociability)
-                npc.aiPersonalityModifiers.generosity = xmlFile:getFloat(npcKey .. ".personality#generosity", npc.aiPersonalityModifiers.generosity)
-                npc.aiPersonalityModifiers.punctuality = xmlFile:getFloat(npcKey .. ".personality#punctuality", npc.aiPersonalityModifiers.punctuality)
-            end
-
-            -- Restore visual properties
-            npc.appearanceSeed = xmlFile:getInt(npcKey .. ".visual#appearanceSeed", npc.appearanceSeed)
-            npc.isFemale = xmlFile:getBool(npcKey .. ".visual#isFemale", npc.isFemale or false)
-            npc.movementSpeed = xmlFile:getFloat(npcKey .. ".visual#movementSpeed", npc.movementSpeed)
-
-            -- Restore needs system
-            if npc.needs then
-                npc.needs.energy = xmlFile:getFloat(npcKey .. ".needs#energy", npc.needs.energy)
-                npc.needs.social = xmlFile:getFloat(npcKey .. ".needs#social", npc.needs.social)
-                npc.needs.hunger = xmlFile:getFloat(npcKey .. ".needs#hunger", npc.needs.hunger)
-                npc.needs.workSatisfaction = xmlFile:getFloat(npcKey .. ".needs#workSatisfaction", npc.needs.workSatisfaction)
-            end
-            npc.mood = xmlFile:getString(npcKey .. ".needs#mood", npc.mood or "neutral")
-
-            -- Restore encounters (up to 10, with sentiment + partner)
-            npc.encounters = {}
-            pcall(function()
-                xmlFile:iterate(npcKey .. ".encounters.encounter", function(_, eKey)
-                    if #npc.encounters >= 10 then return end
-                    local encounter = {
-                        type = xmlFile:getString(eKey .. "#type", ""),
-                        time = xmlFile:getFloat(eKey .. "#time", 0),
-                        details = xmlFile:getString(eKey .. "#details", ""),
-                        partner = xmlFile:getString(eKey .. "#partner", ""),
-                        sentiment = xmlFile:getString(eKey .. "#sentiment", "neutral"),
-                    }
-                    if encounter.partner == "" then encounter.partner = nil end
-                    table.insert(npc.encounters, encounter)
-                end)
-            end)
-
-            -- Update entity position to match restored data
-            self.entityManager:updateNPCEntity(npc, 0)
-
-            restoredCount = restoredCount + 1
+            if row.name == nil then row.name = xmlFile:getString(key .. "#name", "") end
+            data.opaquePeople[#data.opaquePeople + 1] = row
         end
     end)
-
-    -- Restore active favors
-    if self.favorSystem and self.favorSystem.restoreFavor then
-        xmlFile:iterate(NPC_SAVE_ROOT .. ".favors.favor", function(_, favorKey)
-            local favor = {
-                npcId = xmlFile:getInt(favorKey .. "#npcId", 0),
-                npcName = xmlFile:getString(favorKey .. "#npcName", ""),
-                type = xmlFile:getString(favorKey .. "#type", ""),
-                description = xmlFile:getString(favorKey .. "#description", ""),
-                timeRemaining = xmlFile:getFloat(favorKey .. "#timeRemaining", 0),
-                progress = xmlFile:getInt(favorKey .. "#progress", 0),
-                awaitingConfirmation = xmlFile:getBool(favorKey .. "#awaitingConfirmation", false),
-                -- ownerFarmId stays nil for legacy saves (guarded by hasProperty) so
-                -- restoreFavor migrates it; 0 would be the spectator farm and truthy.
-                ownerFarmId = (xmlFile:hasProperty(favorKey .. "#ownerFarmId") and xmlFile:getInt(favorKey .. "#ownerFarmId", 0)) or nil,
-                rewardPaid = xmlFile:getBool(favorKey .. "#rewardPaid", false),
-                repaymentCollected = xmlFile:getBool(favorKey .. "#repaymentCollected", false),
-                loanAmountDeducted = xmlFile:getBool(favorKey .. "#loanAmountDeducted", false),
-                loanAmount = xmlFile:getFloat(favorKey .. "#loanAmount", nil),
-                reward = {
-                    relationship = xmlFile:getFloat(favorKey .. "#rewardRelationship", 0),
-                    money = xmlFile:getFloat(favorKey .. "#rewardMoney", xmlFile:getFloat(favorKey .. "#reward", 0)),
-                    xp = xmlFile:getFloat(favorKey .. "#rewardXp", 0)
-                }
-            }
-            self.favorSystem:restoreFavor(favor)
-        end)
-    end
-
-    -- Restore NPC-NPC relationships
-    if self.relationshipManager then
-        pcall(function()
-            xmlFile:iterate(NPC_SAVE_ROOT .. ".npcRelationships.rel", function(_, relKey)
-                local key = xmlFile:getString(relKey .. "#key", "")
-                if key ~= "" then
-                    self.relationshipManager.npcRelationships[key] = {
-                        value = xmlFile:getFloat(relKey .. "#value", 50),
-                        lastInteraction = xmlFile:getFloat(relKey .. "#lastInteraction", 0),
-                        interactionCount = xmlFile:getInt(relKey .. "#interactionCount", 0),
-                    }
-                end
-            end)
-        end)
-    end
-
+    xmlFile:iterate(NPC_SAVE_ROOT .. ".favors.favor", function(_, favorKey)
+        data.favors[#data.favors + 1] = NPCSystem.readFavorRecordXML(xmlFile, favorKey)
+    end)
+    xmlFile:iterate(NPC_SAVE_ROOT .. ".recoveryFavors.favor", function(_, favorKey)
+        data.recoveryFavors[#data.recoveryFavors + 1] = NPCSystem.readFavorRecordXML(xmlFile, favorKey)
+    end)
+    xmlFile:iterate(NPC_SAVE_ROOT .. ".npcRelationships.rel", function(_, relKey)
+        local r = {
+            key = xmlFile:getString(relKey .. "#key", ""),
+            value = xmlFile:getFloat(relKey .. "#value", 50),
+            lastInteraction = xmlFile:getFloat(relKey .. "#lastInteraction", 0),
+            interactionCount = xmlFile:getInt(relKey .. "#interactionCount", 0),
+        }
+        if xmlFile:hasProperty(relKey .. "#endpointKind") then
+            r.endpointKind = xmlFile:getString(relKey .. "#endpointKind", nil)
+        end
+        data.relationships[#data.relationships + 1] = r
+    end)
     xmlFile:delete()
+    return data
+end
 
-    if self.settings.debugMode then
-        print(string.format("[NPC Favor] Restored %d/%d NPCs from save", restoredCount, savedNpcCount))
+-- =========================================================
+-- RSF-F357: the selected person load
+-- =========================================================
+
+--- Select the save source once and apply it. A registered StateLedger that has
+--- not delivered keeps WAITING (XML is never chosen because the provider is
+--- late); a delivered non-nil block owns the load; a delivered nil block or an
+--- absent service permits the own XML; no file is a new career. Every entry
+--- point reaches this, and it does nothing after the first selection. SERVER
+--- ONLY: a pure client keeps its receive-only state.
+function NPCSystem:runPersonLoad(missionInfo)
+    if not self.isServer or self.people == nil then return false end
+    if not self.people:isWaiting() then return false end
+
+    local source, block = nil, nil
+    if NPCStateLedgerBridge ~= nil and NPCStateLedgerBridge.active == true then
+        if NPCStateLedgerBridge.delivered ~= true then
+            self.people:noteWaitingOnLedger()
+            print("[NPC Favor] Person load WAITING: StateLedger is registered but has not delivered a block yet")
+            return false
+        end
+        block = NPCStateLedgerBridge.pendingState
+        if block ~= nil then source = "ledger" end
+    end
+
+    if source == nil then
+        local ok, result = pcall(function() return self:readSavedStateFromXML(missionInfo) end)
+        if not ok then
+            self.people:selectSource("xml", nil)
+            self:_failSelectedLoad("npc_favor.xml load aborted: " .. tostring(result))
+            return false
+        end
+        block = result
+        source = (block ~= nil) and "xml" or "new"
+    end
+
+    return self:applySelectedSnapshot(source, block)
+end
+
+--- Reduce a delivered or read table to what the roster stages: the person
+--- schema and high-water mark, the person rows, the opaque rows, the favour
+--- references of both blocks and the tie rows with their endpoints.
+function NPCSystem:normalizeSavedState(data)
+    local selected = { rows = {}, opaqueRows = {}, favourRefIds = {}, tieRows = {} }
+    if type(data) ~= "table" then return selected end
+    selected.personSchema = data.personSchema
+    selected.highWater = data.personIdHighWater
+    if type(data.npcs) == "table" then
+        for _, row in ipairs(data.npcs) do selected.rows[#selected.rows + 1] = row end
+    elseif data.npcs ~= nil then
+        error("saved people block is not a table")
+    end
+    if type(data.opaquePeople) == "table" then
+        for _, raw in ipairs(data.opaquePeople) do selected.opaqueRows[#selected.opaqueRows + 1] = raw end
+    end
+    for _, blockName in ipairs({"favors", "recoveryFavors"}) do
+        if type(data[blockName]) == "table" then
+            for _, f in ipairs(data[blockName]) do
+                if type(f) == "table" then selected.favourRefIds[#selected.favourRefIds + 1] = f.npcId end
+            end
+        end
+    end
+    if type(data.relationships) == "table" then
+        for _, r in ipairs(data.relationships) do
+            if type(r) == "table" then
+                local a, b = nil, nil
+                if type(r.key) == "string" then
+                    local sa, sb = r.key:match("^(%d+):(%d+)$")
+                    a, b = tonumber(sa), tonumber(sb)
+                end
+                selected.tieRows[#selected.tieRows + 1] = {
+                    key = r.key, a = a, b = b, endpointKind = r.endpointKind,
+                    value = r.value, lastInteraction = r.lastInteraction, interactionCount = r.interactionCount,
+                }
+            end
+        end
+    end
+    return selected
+end
+
+function NPCSystem:_failSelectedLoad(reason)
+    if self.people ~= nil and not self.people:isFailed() then
+        self.people:fail(NPCPersonRoster.REASON_FAILED, reason)
+    end
+    -- The favour blocks were never reached: FAILED with origin abort, so the
+    -- existing copy-back guarantee hands the original delivered block back.
+    if self.favorSystem and self.favorSystem.getFavorLoadState
+        and self.favorSystem:getFavorLoadState() ~= NPCFavorRecovery.LOAD_READY then
+        self.favorSystem:failFavorLoad("person load failed: " .. tostring(reason), NPCFavorRecovery.FAIL_ORIGIN_ABORT)
+    end
+    self:notifyPersonLoadFailed()
+    self:notifyFavorLoadFailed()
+end
+
+--- Apply the selected snapshot once: reserve, stage and commit the people;
+--- fill the town; expose person READY; then reconnect ties and restore the
+--- favour blocks through the F148 staged seam. A throw or a refused structure
+--- sets FAILED with the original preserved and no live mutation.
+--- @return true when the people are READY after this call
+function NPCSystem:applySelectedSnapshot(source, block)
+    local people = self.people
+    if people == nil or not people:isWaiting() then return people ~= nil and people:isReady() end
+    people:selectSource(source, block)
+    if source == "ledger" and self._ledgerOriginalState == nil then
+        self._ledgerOriginalState = block
+    end
+
+    local committed = false
+    local ok, err = pcall(function()
+        local selected = self:normalizeSavedState(block)
+        local applied, why = people:applySelected(selected)
+        if not applied then
+            error(tostring(why))
+        end
+        committed = true
+        self:initializeNPCs()
+        people:markReady()
+    end)
+    if not ok or not people:isReady() then
+        if committed then
+            -- The throw came from the town fill, after newcomers, bodies and
+            -- vehicles may have been made: a FAILED session makes no live
+            -- person mutation, so everything the fill built goes with it.
+            pcall(function() self:clearAllNPCs() end)
+        end
+        self:_failSelectedLoad(tostring(err))
+        return false
+    end
+
+    self:_onPersonReady(block)
+    return true
+end
+
+--- What follows person READY on the server, on either timing: ties, the
+--- favour restore from the same block (or the valid empty snapshot of a new
+--- career), then the contractor presences. Companion claims come later and
+--- never gate readiness.
+function NPCSystem:_onPersonReady(block)
+    self:restoreTies()
+    self:restoreFavorsFromState(block)
+    if self.contractorBridge ~= nil and self.contractorBridge.initialize ~= nil then
+        pcall(function() self.contractorBridge:initialize() end)
+    end
+    self.syncDirty = true
+end
+
+--- Reconnected ties enter the relationship manager's pair graph; legacy ties
+--- stay retained evidence on the roster.
+function NPCSystem:restoreTies()
+    if self.relationshipManager == nil or self.people == nil then return end
+    local rm = self.relationshipManager
+    rm.npcRelationships = rm.npcRelationships or {}
+    for _, tie in ipairs(self.people.reconnectTies or {}) do
+        local key = rm.getNPCPairKey and rm:getNPCPairKey(tie.a, tie.b) or tie.key
+        rm.npcRelationships[key] = {
+            value = tie.value or 50,
+            lastInteraction = tie.lastInteraction or 0,
+            interactionCount = tie.interactionCount or 0,
+        }
+    end
+    self.people.reconnectTies = nil
+end
+
+--- RSF-F148: one selected initial application of both favour blocks. Rows are
+--- classified into a staging pair and swapped in once. A repeated call after
+--- READY returns without clearing, appending or re-resolving anything. Legacy
+--- ledger rows carry no f148Schema and no presence flags; restoreFavor reads
+--- their key presence directly. A new career (nil block) installs the valid
+--- empty snapshot.
+function NPCSystem:restoreFavorsFromState(data)
+    local fav = self.favorSystem
+    if fav == nil or fav.restoreFavor == nil or fav.beginFavorLoad == nil then return end
+    local staging = fav:beginFavorLoad()
+    if staging == nil then return end
+    -- NPC-204 3.10: the saved favour-number high-water, when it is usable.
+    if type(data) == "table" and NPCFarmIdentity.isInteger(data.nextFavorId) and data.nextFavorId >= 1 then
+        staging.savedNextId = data.nextFavorId
+    end
+    local ok, err = pcall(function()
+        if type(data) == "table" then
+            for _, f in ipairs(data.favors or {}) do
+                if not staging.failed and type(f) == "table" then
+                    fav:restoreFavor(f, staging)
+                end
+            end
+            for _, f in ipairs(data.recoveryFavors or {}) do
+                if not staging.failed and type(f) == "table" then
+                    fav:restoreFavor(f, staging)
+                end
+            end
+        end
+    end)
+    if not ok then
+        staging.failed = true
+        staging.failReason = tostring(err)
+        staging.failOrigin = NPCFavorRecovery.FAIL_ORIGIN_ABORT
+    end
+    if not fav:installFavorSnapshot(staging) then
+        self:notifyFavorLoadFailed()
     end
 end
 
@@ -5091,79 +6950,74 @@ end
 -- calls these when the ledger is present.
 
 function NPCSystem:serializeState()
-    local state = { schemaVersion = SAVE_SCHEMA_VERSION, npcs = {}, favors = {}, relationships = {} }
+    -- RSF-F357: while the person load is WAITING or FAILED, the delivered
+    -- block goes back unchanged (nil omits the module when nothing was
+    -- delivered): no unfinished or refused load ever writes a new
+    -- authoritative person set.
+    if self.people == nil or not self.people:isReady() then
+        return self._ledgerOriginalState
+    end
 
-    for _, npc in ipairs(self.activeNPCs) do
-        if npc.isActive then
-            local pm = npc.aiPersonalityModifiers or {}
-            local nd = npc.needs or {}
-            local d = {
-                uniqueId = npc.uniqueId or "",
-                name = npc.name or "",
-                personality = npc.personality or "",
-                age = npc.age or 30,
-                px = npc.position.x or 0, py = npc.position.y or 0, pz = npc.position.z or 0,
-                ry = npc.rotation.y or 0,
-                relationship = npc.relationship or 50,
-                favorsCompleted = npc.totalFavorsCompleted or 0,
-                favorsFailed = npc.totalFavorsFailed or 0,
-                favorCooldown = npc.favorCooldown or 0,
-                aiState = npc.aiState or "idle",
-                currentAction = npc.currentAction or "idle",
-                workEthic = pm.workEthic or 1.0, sociability = pm.sociability or 1.0,
-                generosity = pm.generosity or 1.0, punctuality = pm.punctuality or 1.0,
-                appearanceSeed = npc.appearanceSeed or 1,
-                isFemale = npc.isFemale or false,
-                movementSpeed = npc.movementSpeed or 1.0,
-                energy = nd.energy or 20, social = nd.social or 30,
-                hunger = nd.hunger or 10, workSatisfaction = nd.workSatisfaction or 50,
-                mood = npc.mood or "neutral",
-                homeBuildingName = npc.homeBuildingName or "",
-                encounters = {},
-            }
-            if npc.homePosition then
-                d.hasHome = true
-                d.hx = npc.homePosition.x or 0
-                d.hy = npc.homePosition.y or 0
-                d.hz = npc.homePosition.z or 0
-            end
-            if npc.encounters then
-                for ei, e in ipairs(npc.encounters) do
-                    if ei > 10 then break end
-                    d.encounters[#d.encounters + 1] = {
-                        type = e.type or "", time = e.time or 0, details = e.details or "",
-                        partner = e.partner or "", sentiment = e.sentiment or "neutral",
-                    }
-                end
-            end
-            state.npcs[#state.npcs + 1] = d
+    -- RSF-F148: while the favor load is WAITING, APPLYING or FAILED, the favor
+    -- blocks are copied back from the unmodified delivered table (nil omits
+    -- the whole block when nothing was delivered), so a bad or unfinished load
+    -- never writes a new empty authoritative favor set. Live NPC and
+    -- relationship progress is still written below in that case.
+    local favorLoadReady = true
+    if self.favorSystem and self.favorSystem.isFavorLoadReady and not self.favorSystem:isFavorLoadReady() then
+        favorLoadReady = false
+        if self._ledgerOriginalState == nil then
+            return nil
+        end
+        -- An aborted apply (a throw, not a refused favor record) stopped at
+        -- an unknown point in the delivered table, so no live reconstruction
+        -- is trusted: the whole delivered block goes back unchanged, NPC data
+        -- included.
+        if self.favorSystem.getFavorLoadFailOrigin
+            and self.favorSystem:getFavorLoadFailOrigin() == NPCFavorRecovery.FAIL_ORIGIN_ABORT then
+            return self._ledgerOriginalState
         end
     end
 
-    if self.favorSystem and self.favorSystem.getActiveFavors then
-        local favors = self.favorSystem:getActiveFavors() or {}
-        for _, favor in ipairs(favors) do
-            local reward = favor.reward
-            state.favors[#state.favors + 1] = {
-                npcId = favor.npcId or 0,
-                npcName = favor.npcName or "",
-                type = favor.type or "",
-                description = favor.description or "",
-                timeRemaining = favor.timeRemaining or 0,
-                progress = favor.progress or 0,
-                awaitingConfirmation = favor.awaitingConfirmation or false,
-                ownerFarmId = favor.ownerFarmId,
-                rewardPaid = favor.rewardPaid or false,
-                repaymentCollected = favor.repaymentCollected or false,
-                loanAmountDeducted = (favor.taskData and favor.taskData.loanAmountDeducted) or false,
-                loanAmount = favor.taskData and favor.taskData.loanAmount or nil,
-                rewardRelationship = (type(reward) == "table" and (reward.relationship or 0)) or 0,
-                rewardMoney = (type(reward) == "table" and (reward.money or 0)) or (tonumber(reward) or 0),
-                rewardXp = (type(reward) == "table" and (reward.xp or 0)) or 0,
-            }
+    local state = {
+        schemaVersion = SAVE_SCHEMA_VERSION,
+        personSchema = NPCPersonRoster.SCHEMA,
+        personIdHighWater = self.people:getHighWater(),
+        npcs = {}, opaquePeople = {}, favors = {}, relationships = {},
+    }
+    if not favorLoadReady then
+        state.favors = self._ledgerOriginalState.favors
+        state.recoveryFavors = self._ledgerOriginalState.recoveryFavors
+        state.nextFavorId = self._ledgerOriginalState.nextFavorId
+    end
+
+    -- Every retained person, live and waiting, in number order; presences are
+    -- never written. Opaque rows round-trip as the evidence they are.
+    for _, person in ipairs(self.people.roster) do
+        state.npcs[#state.npcs + 1] = NPCPersonRoster.exportPersonRow(person)
+    end
+    for _, raw in ipairs(self.people.opaque) do
+        state.opaquePeople[#state.opaquePeople + 1] = raw
+    end
+
+    -- RSF-F148: both favor arrays through the same flat record shape as XML.
+    if favorLoadReady and self.favorSystem and self.favorSystem.exportFavorRecord then
+        for _, favor in ipairs(self.favorSystem:getActiveFavors() or {}) do
+            -- NPC-204 3.10: a companion's pending offer is not saved.
+            if not (NPCCompanion ~= nil and NPCCompanion.isContributed(favor) and favor.status == "pending") then
+                state.favors[#state.favors + 1] = self.favorSystem:exportFavorRecord(favor)
+            end
+        end
+        state.nextFavorId = self.favorSystem._nextFavorId
+        state.recoveryFavors = {}
+        for _, favor in ipairs(self.favorSystem:getRecoveryFavors() or {}) do
+            state.recoveryFavors[#state.recoveryFavors + 1] = self.favorSystem:exportFavorRecord(favor)
         end
     end
 
+    -- Ties in the pair graph are between durable people (only reconnected or
+    -- newly made ties enter it) and carry the mark; legacy ties re-emit as
+    -- they were.
     if self.relationshipManager and self.relationshipManager.npcRelationships then
         for key, rel in pairs(self.relationshipManager.npcRelationships) do
             state.relationships[#state.relationships + 1] = {
@@ -5171,99 +7025,35 @@ function NPCSystem:serializeState()
                 value = rel.value or 50,
                 lastInteraction = rel.lastInteraction or 0,
                 interactionCount = rel.interactionCount or 0,
+                endpointKind = NPCPersonRoster.REF_DURABLE,
             }
         end
+    end
+    for _, tie in ipairs(self.people.legacyTies or {}) do
+        state.relationships[#state.relationships + 1] = {
+            key = tie.key, value = tie.value, lastInteraction = tie.lastInteraction,
+            interactionCount = tie.interactionCount, endpointKind = tie.endpointKind,
+        }
     end
 
     return state
 end
 
+--- RSF-F357: the ledger route's apply. The delivered table is the selected
+--- source; the same staged apply as the XML route runs once and never again
+--- after READY or FAILED. Returns false when the load ended FAILED.
 function NPCSystem:deserializeState(data)
-    if type(data) ~= "table" then return end
+    if type(data) ~= "table" then return false end
 
-    -- Match saved NPCs to spawned ones by uniqueId, then name (same as loadFromXMLFile).
-    local byId, byName = {}, {}
-    for _, npc in ipairs(self.activeNPCs) do
-        if npc.uniqueId then byId[npc.uniqueId] = npc end
-        if npc.name then byName[npc.name] = npc end
+    -- RSF-F148: keep the delivered table separately from live reconstruction.
+    if self._ledgerOriginalState == nil then
+        self._ledgerOriginalState = data
     end
 
-    for _, d in ipairs(data.npcs or {}) do
-        local npc = byId[d.uniqueId] or byName[d.name]
-        if npc then
-            npc.position.x = d.px or npc.position.x
-            npc.position.y = d.py or npc.position.y
-            npc.position.z = d.pz or npc.position.z
-            npc.rotation.y = d.ry or npc.rotation.y
-            if d.hasHome then
-                npc.homePosition = npc.homePosition or {}
-                npc.homePosition.x = d.hx or 0
-                npc.homePosition.y = d.hy or 0
-                npc.homePosition.z = d.hz or 0
-            end
-            npc.homeBuildingName = d.homeBuildingName or npc.homeBuildingName or ""
-            npc.relationship = d.relationship or npc.relationship
-            npc.totalFavorsCompleted = d.favorsCompleted or 0
-            npc.totalFavorsFailed = d.favorsFailed or 0
-            npc.favorCooldown = d.favorCooldown or 0
-            npc.aiState = d.aiState or "idle"
-            npc.currentAction = d.currentAction or "idle"
-            if npc.aiPersonalityModifiers then
-                npc.aiPersonalityModifiers.workEthic = d.workEthic or npc.aiPersonalityModifiers.workEthic
-                npc.aiPersonalityModifiers.sociability = d.sociability or npc.aiPersonalityModifiers.sociability
-                npc.aiPersonalityModifiers.generosity = d.generosity or npc.aiPersonalityModifiers.generosity
-                npc.aiPersonalityModifiers.punctuality = d.punctuality or npc.aiPersonalityModifiers.punctuality
-            end
-            npc.appearanceSeed = d.appearanceSeed or npc.appearanceSeed
-            npc.isFemale = d.isFemale
-            npc.movementSpeed = d.movementSpeed or npc.movementSpeed
-            if npc.needs then
-                npc.needs.energy = d.energy or npc.needs.energy
-                npc.needs.social = d.social or npc.needs.social
-                npc.needs.hunger = d.hunger or npc.needs.hunger
-                npc.needs.workSatisfaction = d.workSatisfaction or npc.needs.workSatisfaction
-            end
-            npc.mood = d.mood or npc.mood or "neutral"
-            npc.encounters = {}
-            for _, e in ipairs(d.encounters or {}) do
-                if #npc.encounters >= 10 then break end
-                local enc = {
-                    type = e.type or "", time = e.time or 0, details = e.details or "",
-                    partner = e.partner or "", sentiment = e.sentiment or "neutral",
-                }
-                if enc.partner == "" then enc.partner = nil end
-                table.insert(npc.encounters, enc)
-            end
-            if self.entityManager then
-                self.entityManager:updateNPCEntity(npc, 0)
-            end
-        end
+    if self.people ~= nil and self.people:isWaiting() then
+        self:applySelectedSnapshot("ledger", data)
     end
-
-    if self.favorSystem and self.favorSystem.restoreFavor then
-        for _, f in ipairs(data.favors or {}) do
-            self.favorSystem:restoreFavor({
-                npcId = f.npcId, npcName = f.npcName, type = f.type, description = f.description,
-                timeRemaining = f.timeRemaining, progress = f.progress,
-                awaitingConfirmation = f.awaitingConfirmation,
-                ownerFarmId = f.ownerFarmId, rewardPaid = f.rewardPaid, repaymentCollected = f.repaymentCollected,
-                loanAmountDeducted = f.loanAmountDeducted, loanAmount = f.loanAmount,
-                reward = { relationship = f.rewardRelationship or 0, money = f.rewardMoney or 0, xp = f.rewardXp or 0 },
-            })
-        end
-    end
-
-    if self.relationshipManager and self.relationshipManager.npcRelationships then
-        for _, r in ipairs(data.relationships or {}) do
-            if r.key and r.key ~= "" then
-                self.relationshipManager.npcRelationships[r.key] = {
-                    value = r.value or 50,
-                    lastInteraction = r.lastInteraction or 0,
-                    interactionCount = r.interactionCount or 0,
-                }
-            end
-        end
-    end
+    return not (self.people ~= nil and self.people:isFailed())
 end
 
 -- =========================================================
@@ -5386,6 +7176,15 @@ function NPCSystem:updateEventScheduler(hour, day, weatherFactor)
     -- -------------------------------------------------------
     -- End expired events first
     -- -------------------------------------------------------
+    -- [RSF-F206] item 7: a MID-EVENT land refusal, not an end-of-event one. A parcel
+    -- bought during a gathering would otherwise keep helpers on the farmer's crop for
+    -- the rest of the event.
+    if scheduler.activeEvent and self:reviewActiveEventLand() then
+        scheduler.activeEvent = nil
+        scheduler.eventParticipants = {}
+        return
+    end
+
     if scheduler.activeEvent then
         local ev = scheduler.activeEvent
         local shouldEnd = false
@@ -5539,6 +7338,18 @@ end
 function NPCSystem:startHarvestGatheringEvent()
     local ownerNPC, field = self:findHarvestReadyNPC()
     if not ownerNPC or not field then
+        return
+    end
+
+    -- [RSF-F206] item 6. This door selects a target through findHarvestReadyNPC and
+    -- could enter WORKING and take a reservation with no ownership read at all. It must
+    -- refuse BEFORE the pattern is taken, because the eviction sweep cannot reach these
+    -- helpers: the sweep judges each NPC by that NPC's OWN assignedField, and a helper
+    -- is walking the EVENT OWNER's field, so a helper on refused ground is never
+    -- evicted for it and keeps working until the event ends.
+    local status = self:admitFieldRecord(field)
+    if status ~= NPCLandAdmission.ALLOW then
+        self:_logLandRefusal(ownerNPC, "startHarvestGatheringEvent", status)
         return
     end
 
@@ -5755,6 +7566,45 @@ end
 
 --- End an active event: restore NPC states to idle.
 -- @param event  The active event table to end
+--- [RSF-F206] item 7. Re-admit the ground an ACTIVE event is working, and on a refusal
+--- apply the terminal pair to every participant.
+--- THE STATE TEST IS NOT `aiState == WORKING`. The harvest branch splits: when
+--- getWorkPattern returns a pattern it sets WORKING with a reservation and a path, and
+--- when it does not it calls walkFieldRows, which sets WALKING with a plain path and no
+--- reservation. A leave that fired only on WORKING would miss every helper on the
+--- second branch, which is the eviction sweep's own blindness reproduced one layer
+--- down. endEvent already sets IDLE from any state, so the existing precedent is
+--- state-agnostic and this matches it. The release helper is idempotent for the WALKING
+--- half, which took no reservation, so applying the pair uniformly is safe and simpler
+--- than branching on which half a helper landed on.
+--- @return boolean  true when the event was refused and torn down
+function NPCSystem:reviewActiveEventLand()
+    local scheduler = self.eventScheduler
+    local ev = scheduler and scheduler.activeEvent
+    if ev == nil or ev.field == nil then return false end
+
+    local status = self:admitFieldRecord(ev.field)
+    if status == NPCLandAdmission.ALLOW then return false end
+
+    for _, npc in ipairs(scheduler.eventParticipants or {}) do
+        if npc ~= nil and npc.isActive then
+            if npc._originalSpeed then
+                npc.movementSpeed = npc._originalSpeed
+                npc._originalSpeed = nil
+            end
+            npc.currentAction = "idle"
+            self:endAttemptOnLandRefusal(npc, "event:" .. tostring(ev.type), status)
+        end
+    end
+
+    if self.settings.debugMode then
+        print(string.format("[NPC Favor] Event '%s' stopped: land refused (%s)",
+            tostring(ev.type), tostring(status)))
+    end
+
+    return true
+end
+
 function NPCSystem:endEvent(event)
     if not event then
         return
@@ -5804,17 +7654,28 @@ end
 function NPCSystem:delete()
     print("[NPC Favor] Shutting down")
 
-    -- Drop AI job message subscription
-    if self._aiJobMsgSubscribed and g_messageCenter then
+    -- Drop AI job and farm lifecycle message subscriptions
+    if (self._aiJobMsgSubscribed or self._farmMsgSubscribed) and g_messageCenter then
         pcall(function() g_messageCenter:unsubscribeAll(self) end)
         self._aiJobMsgSubscribed = false
+        self._farmMsgSubscribed = false
+    end
+
+    -- RSF-F148: tokens, request cache and the load state are mission-local.
+    if self.favorSystem and self.favorSystem.resetFavorLoadState then
+        pcall(function() self.favorSystem:resetFavorLoadState() end)
     end
 
     -- Restore any temporary field-ownership flips on shutdown.
     pcall(function() self:restoreAllOwnershipFlips() end)
 
-    -- Clean up NPCs
-    self:clearAllNPCs()
+    -- Clean up NPCs. RSF-F357: the population, its reservations, the session
+    -- maps and the snapshot receive state are mission-local.
+    self:teardownTown(false)
+    self._ledgerOriginalState = nil
+    self._personLoadFailedNotified = nil
+    if self.clearDialogSession ~= nil then self:clearDialogSession(nil) end
+    if self.clearPrivateViews ~= nil then self:clearPrivateViews() end
 
     -- Clean up subsystems
     if self.interactionUI and self.interactionUI.delete then

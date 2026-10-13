@@ -147,13 +147,14 @@
 		<text name="input_FAVOR_MENU" text="Menu laskavostí" />
 		<text name="input_NPC_LIST" text="Seznam NPC" />
 			<text name="npc_schedule_plans" text="Moje plány:" />
-		<text name="input_HUD_EDIT_MODE" text="Přepnout úpravy HUD" />
+		<text name="input_NPC_HUD_EDIT" text="Přepnout úpravy HUD" />
+		<text name="input_NPC_TOGGLE_HUD" text="Toggle Favors HUD" />
 		<text name="npc_hud_drag_hint" text="Přetáhněte pro přesun | Rohy pro změnu velikosti" />
 		<text name="npc_hud_locked_short" text="Zamknout HUD laskavostí" />
 		<text name="npc_hud_locked_long" text="Když je zamknutý, seznam laskavostí nelze přesunout ani změnit velikost" />
 		<text name="npc_hud_scale_short" text="Velikost HUD laskavostí" />
 		<text name="npc_panel_scale_short" text="[EN] Settings Panel Scale"/>
-		<text name="npc_panel_scale_long" text="[EN] Size of the F5 settings panel (independent of the favor HUD)"/>
+		<text name="npc_panel_scale_long" text="[EN] Size of the NPC Settings settings panel (independent of the favor HUD)"/>
 		<text name="npc_hud_scale_long" text="Velikost seznamu aktivních laskavostí na obrazovce" />
 		<text name="npc_admin_title" text="Admin panel NPC" />
 		<text name="npc_admin_subtitle_fmt" text="%d aktivních NPC  |  Klikněte Upravit pro úpravu" />
@@ -209,7 +210,7 @@
 		<text name="npc_panel_hdr_admin_actions"    text="Admin Actions" />
 		<!-- UI strings -->
 		<text name="npc_panel_btn_back"             text="Back" />
-		<text name="npc_panel_btn_close_hint"       text="F5 to close" />
+		<text name="npc_panel_btn_close_hint"       text="NPC Settings to close" />
 		<text name="npc_panel_btn_open"             text="Open" />
 		<text name="npc_panel_btn_configure"        text="Configure" />
 		<text name="npc_panel_btn_reset"            text="Reset Category" />
@@ -310,7 +311,7 @@
 		<text name="npc_schedule_now_marker" text="&lt;- NYNÍ" />
 
 		<!-- Esc RF PDA NPC Favor densify 2026-08-05 -->
-		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. When a favor is waiting on you, the line above the table names who and how urgent it is. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
+		<text name="rf_pda_side_info_npc_favor" text="[EN] This pause page is your neighbor standing roster. Each row is someone you have met: how strong the relationship is, which tier you are in, what benefits that tier unlocks, and how your favor history with them looks. The groups under the table name what is available, what is current and how many are completed. Esc does not finish favors or claim rewards - do that in the world with the NPC Favor tools (F6 / F7 / talk). Nothing here tells you in advance whether a neighbor will say yes; that stays a conversation. Open those tools if you want the same story one person at a time." />
 		<text name="npc_rf_pda_module_title" text="[EN] NPC Favor" />
 		<text name="npc_rf_pda_blurb" text="[EN] Neighbor standing roster: score, tier, benefits, favor history. Active favors on the header line. Read-only." />
 		<text name="npc_rf_pda_col_who" text="[EN] Who" />
@@ -323,13 +324,166 @@
 		<text name="npc_rf_pda_active_none" text="[EN] Active favors: none" />
 		<text name="npc_rf_pda_active_one" text="[EN] Active: %s · %s · %s" />
 		<text name="npc_rf_pda_active_more" text="[EN] and %d more" />
+		<text name="npc_rf_pda_fav_col_group" text="[EN] Group" />
+		<text name="npc_rf_pda_fav_col_who" text="[EN] Who" />
+		<text name="npc_rf_pda_fav_col_what" text="[EN] What" />
+		<text name="npc_rf_pda_fav_col_urgency" text="[EN] Urgency" />
+		<text name="npc_rf_pda_urg_done" text="[EN] done" />
+		<text name="npc_rf_pda_fav_empty" text="[EN] no favors yet" />
 		<text name="npc_rf_pda_showing_of" text="[EN] showing %d of %d" />
 		<text name="npc_rf_pda_more" text="[EN] and %d more" />
 		<text name="npc_rf_pda_hint_sort" text="[EN] %d neighbors · sorted by standing (best first)" />
+		<text name="npc_rf_pda_avail_none" text="[EN] Available: none" />
+		<text name="npc_rf_pda_avail_one" text="[EN] Available: %s · %s" />
+		<text name="npc_rf_pda_current_none" text="[EN] Current: none" />
+		<text name="npc_rf_pda_current_one" text="[EN] Current: %s · %s · %s" />
+		<text name="npc_rf_pda_done_none" text="[EN] Completed: none" />
+		<text name="npc_rf_pda_done_fmt" text="[EN] Completed: %d" />
 		<text name="npc_rf_pda_trend_warming" text="[EN] warming" />
 		<text name="npc_rf_pda_trend_cooling" text="[EN] cooling" />
 		<text name="npc_rf_pda_urg_min" text="[EN] &lt;1h" />
 		<text name="npc_rf_pda_urg_hot" text="[EN] Urgent" />
 		<text name="npc_rf_pda_urg_warn" text="[EN] Soon" />
+		<text name="npc_notice_loaded" text="NPC Favor v%s připraven. Vaši sousedé se zabydlují." />
+		<text name="npc_recovery_title" text="Obnova laskavostí (%d)"/>
+		<text name="npc_recovery_subtitle" text="Pozastavené a obnovené laskavosti. Nic zde neběží ani neplatí, dokud to neobnovíš."/>
+		<text name="npc_recovery_btn_recovery" text="Obnova (%d)"/>
+		<text name="npc_recovery_btn_active" text="Aktivní laskavosti"/>
+		<text name="npc_recovery_btn_resume" text="Obnovit"/>
+		<text name="npc_recovery_btn_assign" text="Přiřadit"/>
+		<text name="npc_recovery_page" text="Strana %d / %d"/>
+		<text name="npc_recovery_empty" text="Žádné pozastavené ani obnovené laskavosti."/>
+		<text name="npc_recovery_footer" text="Obnovení zachová uložený postup a platby. Přiřazení je pro úkol smazané farmy a vyžaduje výslovně zvolenou cílovou farmu."/>
+		<text name="npc_recovery_unavailable" text="Obnova není dostupná, dokud se hra znovu nenačte."/>
+		<text name="npc_recovery_tag_paused" text="Pozastaveno"/>
+		<text name="npc_recovery_tag_resumed" text="Obnoveno"/>
+		<text name="npc_recovery_tag_pending" text="Nabídka"/>
+		<text name="npc_recovery_time" text="Zbývá: %s (%d%% hotovo)"/>
+		<text name="npc_recovery_time_unknown" text="Zbývající čas není k dispozici"/>
+		<text name="npc_recovery_field_unknown" text="pole neznámé, bez ochrany pole"/>
+		<text name="npc_recovery_owner" text="Vlastník: "/>
+		<text name="npc_recovery_owner_unknown" text="vlastník neznámý"/>
+		<text name="npc_recovery_loan" text="Půjčka %s, vyplacena: %s, splacena: %s"/>
+		<text name="npc_recovery_reward_paid" text="Odměna vyplacena: %s"/>
+		<text name="npc_recovery_yes" text="ano"/>
+		<text name="npc_recovery_no" text="ne"/>
+		<text name="npc_recovery_unknown" text="neznámé"/>
+		<text name="npc_recovery_reason_legacy_acceptance_unknown" text="Uloženo dříve, než bylo zaznamenáno přijetí"/>
+		<text name="npc_recovery_reason_owner_unresolved" text="Farmu vlastníka se nepodařilo určit"/>
+		<text name="npc_recovery_reason_invalid_record" text="Uložený záznam je neúplný nebo rozporný"/>
+		<text name="npc_recovery_reason_owner_farm_deleted" text="Farma vlastníka byla smazána"/>
+		<text name="npc_recovery_reason_unknown_token" text="Nerozpoznaný záznam"/>
+		<text name="npc_recovery_unavail_type" text="Tento typ laskavosti už není dostupný"/>
+		<text name="npc_recovery_unavail_facts" text="Údaje o platbách jsou neúplné, pouze k nahlédnutí"/>
+		<text name="npc_recovery_unavail_reason" text="Uchováno pouze k nahlédnutí"/>
+		<text name="npc_recovery_unavail_owner" text="Žádná farma nemůže tento záznam obnovit"/>
+		<text name="npc_recovery_picker_choose" text="Přiřadit: Vyber farmu"/>
+		<text name="npc_recovery_picker_selected" text="Přiřadit: %s (#%d)"/>
+		<text name="npc_recovery_pick_farm_first" text="Nejprve vyber cílovou farmu."/>
+		<text name="npc_recovery_confirm_title" text="Obnova laskavosti"/>
+		<text name="npc_recovery_confirm_resume" text="Obnovit tuto laskavost pro tvou farmu?"/>
+		<text name="npc_recovery_confirm_assign" text="Přiřadit tuto laskavost farmě %s (#%d) a obnovit ji?"/>
+		<text name="npc_recovery_confirm_complete" text="Požádat souseda o uzavření této obnovené laskavosti?"/>
+		<text name="npc_recovery_confirm_abandon" text="Zrušit tuto obnovenou laskavost? Uplatní se postih za opuštění."/>
+		<text name="npc_recovery_confirm_no_money" text="Samotné obnovení nepřesouvá žádné peníze."/>
+		<text name="npc_recovery_ok_resumed" text="Laskavost obnovena."/>
+		<text name="npc_recovery_ok_completed" text="Laskavost dokončena."/>
+		<text name="npc_recovery_ok_abandoned" text="Laskavost zrušena."/>
+		<text name="npc_recovery_no_longer_paused" text="Tato laskavost už není pozastavená."/>
+		<text name="npc_recovery_refused_stale" text="Tento záznam se změnil. Seznam byl obnoven."/>
+		<text name="npc_recovery_refused_operation" text="Tato akce není povolena."/>
+		<text name="npc_recovery_refused_request_reuse" text="Tento požadavek už byl použit."/>
+		<text name="npc_recovery_refused_not_resumable" text="Tento záznam nemůže jeho farma obnovit."/>
+		<text name="npc_recovery_refused_not_owner" text="S touto laskavostí může nakládat jen farma, která ji přijala."/>
+		<text name="npc_recovery_refused_not_admin" text="Laskavost může přiřadit jen hostitel nebo administrátor."/>
+		<text name="npc_recovery_refused_not_assignable" text="Tento záznam nelze přiřadit."/>
+		<text name="npc_recovery_refused_owner_valid" text="Tato laskavost má stále platného vlastníka."/>
+		<text name="npc_recovery_refused_target" text="Vyber existující farmu jako cíl."/>
+		<text name="npc_recovery_refused_view" text="Seznam farem se změnil. Vyber farmu znovu."/>
+		<text name="npc_recovery_refused_live_job" text="Tento soused už má probíhající laskavost. Nejprve ji dokonči."/>
+		<text name="npc_recovery_refused_not_live" text="Tato laskavost není probíhající obnovená laskavost."/>
+		<text name="npc_recovery_no_local_farm" text="Pro přijetí laskavosti musíš patřit k farmě."/>
+		<text name="npc_recovery_dialog_use_view" text="Toto je obnovená laskavost. Dokonči ji nebo zruš v nabídce laskavostí."/>
+		<text name="npc_recovery_dialog_complete_sent" text="Nech mě porovnat tento obnovený úkol s mými poznámkami."/>
+		<text name="npc_recovery_unavail_time" text="Zbývající čas neznámý, pouze k nahlédnutí"/>
+		<text name="npc_recovery_unavail_npc" text="Tento soused už tu není, pouze k nahlédnutí"/>
+		<text name="npc_recovery_load_failed_notice" text="NPC Favor: uložené laskavosti se nepodařilo načíst a zůstaly na disku beze změny. Laskavosti jsou nedostupné a postup NPC ani laskavosti se v této relaci neukládají."/>
+		<text name="npc_recovery_load_failed_notice_favors_only" text="NPC Favor: uložené laskavosti se nepodařilo načíst a zůstaly na disku beze změny. Laskavosti jsou nedostupné a v této relaci se neukládají. Postup NPC se nadále ukládá."/>
+		<text name="npc_mgmt_title_active" text="Aktivní laskavosti (%d)"/>
+		<text name="npc_mgmt_subtitle_active" text="Spravuj své aktivní laskavosti"/>
+		<text name="npc_mgmt_game_time" text="Herní čas: %02d:%02d"/>
+		<text name="npc_mgmt_footer_active" text="Zrušit uplatní postih za opuštění  |  Hotovo požádá souseda o uzavření laskavosti"/>
+		<text name="npc_mgmt_footer_paging" text="Zobrazeno %d z %d laskavostí  |  Zrušit uplatní postih za opuštění"/>
+		<text name="npc_mgmt_btn_view" text="Zobrazit"/>
+		<text name="npc_mgmt_btn_goto" text="Jít"/>
+		<text name="npc_mgmt_btn_cancel" text="Zrušit"/>
+		<text name="npc_mgmt_btn_done" text="Hotovo"/>
+		<text name="npc_person_loading" text="Vaši sousedé se stále načítají."/>
+		<text name="npc_person_failed" text="Uložené sousedy se nepodařilo načíst; na disku zůstali beze změny."/>
+		<text name="npc_person_waiting_count" text="Čeká: obec je při současném počtu sousedů plná."/>
+		<text name="npc_person_waiting_home" text="Čeká na domov."/>
+		<text name="npc_person_waiting_companion" text="Čeká na doprovodný mod poradce."/>
+		<text name="npc_person_kept_legacy" text="Zachováno z doby před aktualizací; zatím neověřený soused."/>
+		<text name="npc_person_identity_conflict" text="Konflikt identity: tuto osobu si nárokuje více než jeden uložený záznam."/>
+		<text name="npc_person_presence" text="Najatý pracovník, pouze pozorovaný."/>
+		<text name="npc_person_presence_unavailable" text="Najatý pracovník, naposledy viděn zde; seznam pracovníků nyní nelze přečíst."/>
+		<text name="npc_person_opaque" text="Uložený záznam ponechaný jako doklad; neoznačuje žádného souseda."/>
+		<text name="npc_person_exhausted" text="Nelze vytvořit nového souseda: čísla identity jsou vyčerpána."/>
+		<text name="npc_person_snapshot_too_large" text="Seznam sousedů je příliš velký na odeslání ostatním hráčům."/>
+		<text name="npc_person_snapshot_partial" text="Seznam sousedů dorazil neúplný; zobrazuje se poslední potvrzený."/>
+		<text name="npc_person_names_exhausted" text="Pro nového souseda nezbylo žádné nepoužité jméno; místo zůstává prázdné."/>
+		<text name="npc_person_load_failed_notice" text="NPC Favor: uložené sousedy se nepodařilo načíst; na disku zůstali beze změny. Obec není k dispozici a v této relaci se nic neukládá."/>
+		<text name="npc_person_consultant_absent" text="Není přítomen žádný poradce."/>
+		<text name="npc_recovery_unavail_person" text="Tuto práci nelze propojit se stejným sousedem; ponecháno pouze k nahlédnutí."/>
+		<text name="npc_recovery_unavail_waiting" text="Tento soused je uložen, ale momentálně není přítomen; práce čeká."/>
+		<text name="npc_recovery_reason_neighbour_unavailable" text="Soused uložen, ale nepřítomen"/>
+		<text name="npc_recovery_reason_person_unproven" text="Nelze propojit se stejným sousedem"/>
+		<text name="npc_person_server_only" text="Poradce může zaregistrovat pouze hostitel."/>
+		<text name="npc_person_bad_claim" text="Žádost o poradce byla odmítnuta: jméno nebo pozice nebyly použitelné."/>
+		<text name="npc_dialog_pending" text="Ptáme se souseda..."/>
+		<text name="npc_dialog_unavailable" text="Momentálně nedostupné."/>
+		<text name="npc_dialog_refused_person" text="Tento soused tu není, aby si s vámi promluvil."/>
+		<text name="npc_dialog_refused_far" text="Na to jste příliš daleko."/>
+		<text name="npc_dialog_refused_farm" text="K tomu musíte být na farmě."/>
+		<text name="npc_dialog_refused_stale" text="Tato nabídka se změnila. Podívám se znovu."/>
+		<text name="npc_dialog_refused_request_reuse" text="Na tento požadavek už byla dána jiná odpověď."/>
+		<text name="npc_dialog_refused_relationship" text="Tento soused vás ještě nezná dost dobře."/>
+		<text name="npc_dialog_refused_not_ready" text="Tuto práci ještě nelze uzavřít."/>
+		<text name="npc_dialog_refused_operation" text="To tady nejde."/>
+		<text name="npc_dialog_talk_ok" text="Díky za rozhovor."/>
+		<text name="npc_dialog_talk_limit" text="(Dnes už jsme mluvili, vztah beze změny)"/>
+		<text name="npc_dialog_tone_warm" text="Vždycky rád vás vidím."/>
+		<text name="npc_dialog_tone_cold" text="Hm. Zase vy."/>
+		<text name="npc_dialog_tone_cool" text="Ó. Ahoj."/>
+		<text name="npc_dialog_declined" text="Zatím to zvládám, ale díky."/>
+		<text name="npc_dialog_no_work" text="Teď nic nepotřebuji, ale díky za optání!"/>
+		<text name="npc_dialog_offer" text="Mám pro vás něco."/>
+		<text name="npc_dialog_offer_waiting" text="Mám pro vás něco: %s"/>
+		<text name="npc_dialog_accepted" text="Díky! Vaši pomoc opravdu potřebuji."/>
+		<text name="npc_dialog_accepted_short" text="Díky! Vaši pomoc opravdu potřebuji."/>
+		<text name="npc_dialog_completed" text="Moc díky za pomoc! Tady je vaše odměna."/>
+		<text name="npc_dialog_abandoned" text="Dobře, tak to nechme."/>
+		<text name="npc_dialog_busy" text="S tím už pomáhám jiné farmě. Přijďte později!"/>
+		<text name="npc_dialog_come_find_me" text="Přijďte za mnou domů. Musím vás vidět osobně, abychom to uzavřeli!"/>
+		<text name="npc_dialog_btn_favor_busy" text="Zaneprázdněn jinou farmou"/>
+		<text name="npc_dialog_gift_ok" text="Díky za dárek!"/>
+		<text name="npc_dialog_gift_refused" text="Dárek se nepodařilo předat."/>
+		<text name="npc_dialog_ok" text="Hotovo."/>
+		<text name="npc_work_view_unavailable" text="Váš seznam prací je momentálně nedostupný."/>
+		<text name="npc_work_view_last_confirmed" text="Zobrazuje se poslední potvrzený seznam prací; soused ještě neodpověděl."/>
+		<text name="npc_work_view_last_confirmed_short" text="naposledy potvrzeno"/>
+		<text name="npc_rf_pda_completed_count" text="%d dokončeno pro tuto farmu"/>
+		<text name="npc_admin_edit_unavailable_remote" text="Zde nedostupné: souseda může upravit pouze hostitel."/>
+		<text name="npc_contrib_generic_title" text="Žádost souseda" />
+		<text name="npc_contrib_generic_desc" text="Soused požádal tvou farmu o pomoc" />
+		<text name="npc_contrib_step_report" text="Udělat práci" />
+		<text name="npc_contrib_step_talk" text="Promluvit si se sousedem" />
+		<text name="npc_contrib_hold_work_off" text="Pozastaveno: tento druh práce je vypnutý. Uvolnění ji ukončí bez nákladů." />
+		<text name="npc_contrib_hold_companion_missing" text="Pozastaveno: mod, který o tuto práci požádal, není načten. Uvolnění ji ukončí bez nákladů." />
+		<text name="npc_contrib_hold_companion_incompatible" text="Pozastaveno: mod, který o tuto práci požádal, ji změnil. Uvolnění ji ukončí bez nákladů." />
+		<text name="npc_contrib_let_go" text="Uvolnit" />
+		<text name="rf_live_key_unbound" text="Nepřiřazeno"/>
+		<text name="rf_live_key_keyboard_unbound" text="Klávesnice nepřiřazena"/>
+		<text name="rf_live_key_unavailable" text="nedostupné"/>
 </texts>
 </l10n>

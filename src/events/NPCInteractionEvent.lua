@@ -4,41 +4,50 @@
 -- ACTION TYPES:
 -- [x] Favor accept, complete, and abandon actions
 -- [x] Gift giving action with value and data payload
--- [x] Relationship change action with reason tracking
+-- [x] RSF-F357: the remote relationship action is refused (arbitrary client trust
+--     changes never reach the model); Talk goes through the dialog request path
 -- [ ] Trade/barter action for NPC-to-player item exchange
 -- [ ] Conversation action with dialogue tree state tracking
 -- [ ] Hire/dismiss action for temporary NPC worker contracts
 --
 -- SECURITY & VALIDATION:
 -- [x] Action type whitelist with MIN/MAX range check
--- [x] Farm ownership verification via userManager
+-- [x] Farm ownership verification via g_currentMission:getFarmId(connection) (RSF-F148)
 -- [x] NaN and infinity checks on numeric value field
 -- [x] NPC existence validation before dispatch
+-- [x] RSF-F357: the exact acting player (getPlayerByConnection or g_localPlayer),
+--     15 m from THAT player, no farm-mate surrogate, no fail-open
+-- [x] RSF-F357: work actions bind to the work shown (requestId|token|recordRevision)
 -- [ ] Per-action rate limiting (max N interactions per minute per player)
--- [x] Interaction distance check (reject if player too far from NPC)
 -- [ ] Action-specific value range validation (gift value caps, etc.)
 --
 -- MULTIPLAYER:
 -- [x] Client-to-server routing with sendToServer pattern
--- [x] Direct execution in single-player / on server
+-- [x] RSF-F357: host/SP goes through the same verified local-host entry
 -- [x] Data string truncation to 256 characters
--- [ ] Interaction result callback to originating client
+-- [x] RSF-F357: result reply to the originating requester only
 -- [ ] Spectator mode support (observe but cannot interact)
--- [ ] Interaction queue for conflicting simultaneous requests
 -- =========================================================
 
 --[[
     FS25_NPCFavor - NPC Interaction Event
 
     Client-to-server routing for player interactions with NPCs.
-    Handles favor accept/complete/abandon, gifts, and relationship changes.
+    Handles favor accept/complete/abandon and gifts.
 
     Pattern from: SetPaymentConfigEvent sendToServer + execute
     OWASP: Input validation, farm ownership verification, action whitelist,
-           NaN/infinity checks, rate limiting via cooldown.
+           NaN/infinity checks.
+
+    RSF-F357: the verified actor rides from run() into execute(). The distance
+    is measured from the exact acting player, never from the closest farm-mate,
+    and an unknown position refuses. ACCEPT, COMPLETE and ABANDON carry a
+    strictly parsed `requestId|token|recordRevision` binding to the record the
+    UI showed, share the dialog request high-water per connection, and answer
+    through NPCPersonDialogReplyEvent to the requester only.
 ]]
 
-NPCInteractionEvent = {}
+NPCInteractionEvent = NPCInteractionEvent or {}
 local NPCInteractionEvent_mt = Class(NPCInteractionEvent, Event)
 
 InitEventClass(NPCInteractionEvent, "NPCInteractionEvent")
@@ -52,6 +61,8 @@ NPCInteractionEvent.ACTION_RELATIONSHIP = 5
 
 NPCInteractionEvent.MIN_ACTION = 1
 NPCInteractionEvent.MAX_ACTION = 5
+
+NPCInteractionEvent.MAX_INTERACTION_DISTANCE = 15  -- metres, from the exact acting player
 
 function NPCInteractionEvent.emptyNew()
     local self = Event.new(NPCInteractionEvent_mt)
@@ -75,18 +86,37 @@ end
 
 --[[
     Static function to send interaction from client to server.
-    In single-player/server, executes directly. In multiplayer client, routes via network.
+    RSF-F357: a host or single player goes through the SAME verified local-host
+    entry as a remote request (resolveActor(nil) refuses a dedicated server's
+    nil local player); the result is dispatched to the local adapter exactly as
+    a remote reply would be. A multiplayer client sends the event.
 ]]
 function NPCInteractionEvent.sendToServer(actionType, npcId, farmId, value, data)
     if g_server ~= nil then
-        -- Single-player or server - execute directly
-        NPCInteractionEvent.execute(actionType, npcId, farmId, value, data)
-    else
-        -- Multiplayer client - send to server
-        g_client:getServerConnection():sendEvent(
-            NPCInteractionEvent.new(actionType, npcId, farmId, value, data)
-        )
+        local actor = NPCFarmIdentity.resolveActor(nil)
+        if actor == nil then
+            print("[NPCFavor SECURITY] Rejected local interaction: no verified local actor")
+            return false
+        end
+        if actor.farmId == nil or actor.farmId ~= farmId then
+            print(string.format("[NPCFavor SECURITY] Rejected local interaction: farm %s is not the acting farm %s",
+                tostring(farmId), tostring(actor.farmId)))
+            return false
+        end
+        local ok, reply = NPCInteractionEvent.execute(actionType, npcId, farmId, value, data, actor)
+        if reply ~= nil and NPCPersonDialogReplyEvent ~= nil then
+            NPCPersonDialogReplyEvent.dispatch(reply)
+            -- The reply has already told the adapter the outcome, refused or not:
+            -- "issued" here means exactly what a remote send means.
+            return true
+        end
+        return ok
     end
+    if g_client == nil then return false end
+    g_client:getServerConnection():sendEvent(
+        NPCInteractionEvent.new(actionType, npcId, farmId, value, data)
+    )
+    return true
 end
 
 function NPCInteractionEvent:writeStream(streamId, connection)
@@ -119,131 +149,259 @@ function NPCInteractionEvent:run(connection)
         return
     end
 
-    -- OWASP Layer 2: Verify farm ownership
-    if connection ~= nil then
-        -- Connection is from a client, verify authorization
-        local user = nil
-        if g_currentMission and g_currentMission.userManager then
-            user = g_currentMission.userManager:getUserByConnection(connection)
-        end
-
-        if user == nil then
-            print(string.format("[NPCFavor SECURITY] Rejected interaction: no user for connection"))
-            return
-        end
-
-        -- Check farm ownership
-        local userFarmId = user.farmId
-        if userFarmId ~= self.farmId then
-            print(string.format("[NPCFavor SECURITY] Rejected interaction: farmId mismatch (claimed %d, actual %d)",
-                self.farmId, userFarmId or -1))
-            return
-        end
+    -- OWASP Layer 2: Verify the acting farm (RSF-F148).
+    -- Native User carries no farmId field, so the old user.farmId comparison
+    -- read nil and rejected every remote client. The real acting farm comes
+    -- from g_currentMission:getFarmId(connection) through the verified actor
+    -- resolver, must be an ordinary live farm, and must equal the claim. A nil
+    -- connection on a dedicated server has no actor and is refused; no
+    -- administrator bypass exists here.
+    local actor = NPCFarmIdentity.resolveActor(connection)
+    if actor == nil then
+        print("[NPCFavor SECURITY] Rejected interaction: no verified actor for connection")
+        return
+    end
+    if actor.farmId == nil then
+        print(string.format("[NPCFavor SECURITY] Rejected interaction: acting farm %s is not an ordinary farm",
+            tostring(actor.rawFarmId)))
+        return
+    end
+    if actor.farmId ~= self.farmId then
+        print(string.format("[NPCFavor SECURITY] Rejected interaction: farmId mismatch (claimed %d, actual %d)",
+            self.farmId, actor.farmId))
+        return
     end
 
-    -- OWASP Layer 3: Delegate to execute with full input validation
-    NPCInteractionEvent.execute(self.actionType, self.npcId, self.farmId, self.value, self.data)
+    -- OWASP Layer 3: Delegate to execute with the verified actor; the result
+    -- goes back to this connection only.
+    local _, reply = NPCInteractionEvent.execute(self.actionType, self.npcId, self.farmId, self.value, self.data, actor)
+    if reply ~= nil and connection ~= nil and NPCPersonDialogReplyEvent ~= nil then
+        connection:sendEvent(NPCPersonDialogReplyEvent.new(reply))
+    end
+end
+
+--- RSF-F357: the exact acting player's position, or nil when it cannot be
+--- established. A remote actor is playerSystem:getPlayerByConnection; the
+--- verified local host is g_localPlayer. Player:getPosition follows a player
+--- in a vehicle (the state machine's own getter); the root node is the
+--- fallback only when the getter is absent. Non-finite coordinates are nil.
+function NPCInteractionEvent.actorPosition(actor)
+    if actor == nil then return nil end
+    local player = nil
+    if actor.isLocal then
+        player = g_localPlayer
+    elseif actor.connection ~= nil and g_currentMission ~= nil and g_currentMission.playerSystem ~= nil
+        and type(g_currentMission.playerSystem.getPlayerByConnection) == "function" then
+        player = g_currentMission.playerSystem:getPlayerByConnection(actor.connection)
+    end
+    if player == nil then return nil end
+    local x, y, z = nil, nil, nil
+    if type(player.getPosition) == "function" then
+        local ok, px, py, pz = pcall(player.getPosition, player)
+        if ok then x, y, z = px, py, pz end
+    elseif player.rootNode ~= nil and player.rootNode ~= 0 then
+        local ok, px, py, pz = pcall(getWorldTranslation, player.rootNode)
+        if ok then x, y, z = px, py, pz end
+    end
+    local function finite(v) return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge end
+    if not (finite(x) and finite(z)) then return nil end
+    return x, (finite(y) and y or 0), z
+end
+
+--- Ground distance from the exact acting player to the person, or nil when
+--- the actor's position cannot be established (never "far", never "near").
+function NPCInteractionEvent.actorDistanceTo(actor, npc)
+    if npc == nil or npc.position == nil then return nil end
+    local px, _, pz = NPCInteractionEvent.actorPosition(actor)
+    if px == nil then return nil end
+    local nx, nz = npc.position.x, npc.position.z
+    if type(nx) ~= "number" or type(nz) ~= "number" or nx ~= nx or nz ~= nz then return nil end
+    local dx, dz = px - nx, pz - nz
+    return math.sqrt(dx * dx + dz * dz)
+end
+
+--- Strictly parse `requestId|token|recordRevision`: three bounded decimal
+--- wire numbers, the token strictly positive. Nothing else is accepted and
+--- nothing is evaluated.
+function NPCInteractionEvent.parseSelection(data)
+    if type(data) ~= "string" then return nil end
+    local a, b, c = data:match("^(%d+)|(%d+)|(%d+)$")
+    if a == nil then return nil end
+    if not NPCFarmIdentity.validWireNumber(a) or not NPCFarmIdentity.validToken(b)
+        or not NPCFarmIdentity.validWireNumber(c) then
+        return nil
+    end
+    return { requestId = a, token = tonumber(b), recordRevision = tonumber(c) }
 end
 
 --[[
-    Execute the interaction logic. All input validation happens here.
-    @return boolean success
+    Execute the interaction logic for a verified actor. All input validation
+    happens here.
+    @return boolean success, table|nil reply (for the requester only)
 ]]
-function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data)
-    -- Validate NPCSystem exists
-    if g_NPCSystem == nil then
-        return false
+function NPCInteractionEvent.execute(actionType, npcId, farmId, value, data, actor)
+    local sys = g_NPCSystem
+    if sys == nil then
+        return false, nil
     end
 
-    -- OWASP Input Validation: Validate NPC exists
-    local npc = g_NPCSystem:getNPCById(npcId)
-    if npc == nil then
-        print(string.format("[NPCFavor SECURITY] NPC not found: %d", npcId))
-        return false
+    -- The actor is not optional (RSF-F357): no verified actor, no mutation.
+    if actor == nil or actor.farmId == nil or actor.farmId ~= farmId then
+        print("[NPCFavor SECURITY] Rejected interaction: no verified actor for the acting farm")
+        return false, nil
     end
 
-    -- OWASP Input Validation: Validate farm exists
-    if g_farmManager then
-        local farm = g_farmManager:getFarmById(farmId)
-        if farm == nil then
-            print(string.format("[NPCFavor SECURITY] Farm not found: %d", farmId))
-            return false
-        end
+    -- OWASP Input Validation: the acting farm must be an ordinary live farm.
+    -- Spectator (0), guided tour (14) and invalid (15) are refused even when
+    -- their farm objects exist (RSF-F148).
+    if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+        print(string.format("[NPCFavor SECURITY] Farm is not an ordinary farm: %s", tostring(farmId)))
+        return false, nil
+    end
+
+    -- The remote relationship action is not a trust writer any more: Talk goes
+    -- through the dialog request path with the owner's own day and mood rules.
+    if actionType == NPCInteractionEvent.ACTION_RELATIONSHIP then
+        print("[NPCFavor SECURITY] Rejected client-supplied relationship change")
+        return false, nil
     end
 
     -- OWASP Input Validation: NaN and bounds check on value
     if value ~= value then -- NaN check
         print("[NPCFavor SECURITY] Rejected NaN value")
-        return false
+        return false, nil
     end
     if math.abs(value) >= 1e9 then
         print("[NPCFavor SECURITY] Rejected out-of-bounds value")
-        return false
+        return false, nil
     end
 
-    -- OWASP Layer 4: Interaction distance validation
-    -- Reject if the NPC is too far from any player on the requesting farm.
-    -- FS25 PlayerSystem has getPlayerCount/getPlayerByIndex (no getPlayers).
-    if npc.position and g_currentMission and g_currentMission.playerSystem then
-        local maxInteractionDist = 15  -- meters
-        local closestDist = math.huge
-        local playerSystem = g_currentMission.playerSystem
-        local playerCount = 0
-        if type(playerSystem.getPlayerCount) == "function" then
-            playerCount = playerSystem:getPlayerCount() or 0
+    local isWorkAction = actionType == NPCInteractionEvent.ACTION_FAVOR_ACCEPT
+        or actionType == NPCInteractionEvent.ACTION_FAVOR_COMPLETE
+        or actionType == NPCInteractionEvent.ACTION_FAVOR_ABANDON
+
+    -- Work actions bind to the work that was shown, and share the dialog
+    -- request gate of this connection (stale, changed and replayed ids).
+    local selection = nil
+    if isWorkAction then
+        selection = NPCInteractionEvent.parseSelection(data)
+        if selection == nil then
+            print("[NPCFavor SECURITY] Rejected work action: malformed selection")
+            return false, nil
         end
-        if playerCount > 0 and type(playerSystem.getPlayerByIndex) == "function" then
-            for i = 1, playerCount do
-                local player = playerSystem:getPlayerByIndex(i)
-                if player ~= nil and player.farmId == farmId and player.rootNode then
-                    local px, py, pz = getWorldTranslation(player.rootNode)
-                    local dx = px - npc.position.x
-                    local dz = pz - npc.position.z
-                    local dist = math.sqrt(dx * dx + dz * dz)
-                    if dist < closestDist then
-                        closestDist = dist
-                    end
-                end
-            end
-        else
-            -- Fail-open fallback for SP/host: local player only (never crash on odd APIs)
-            local localPlayer = g_localPlayer
-            if localPlayer == nil and type(playerSystem.getLocalPlayer) == "function" then
-                localPlayer = playerSystem:getLocalPlayer()
-            end
-            if localPlayer ~= nil and localPlayer.rootNode then
-                if localPlayer.farmId == nil or localPlayer.farmId == farmId then
-                    local px, py, pz = getWorldTranslation(localPlayer.rootNode)
-                    local dx = px - npc.position.x
-                    local dz = pz - npc.position.z
-                    closestDist = math.sqrt(dx * dx + dz * dz)
-                end
-            end
+    end
+
+    local function reply(result, key, personId)
+        return {
+            requestId = selection and selection.requestId or "",
+            kind = NPCPersonDialog and NPCPersonDialog.KIND_ACTION or 3,
+            op = actionType,
+            personId = personId or npcId,
+            farmId = farmId,
+            result = result,
+            messageKey = key or "",
+            text = "",
+            rows = {},
+        }
+    end
+
+    local gate, cached = nil, nil
+    if isWorkAction and sys.dialogRequestGate ~= nil then
+        local fingerprint = table.concat({ "work", tostring(actionType), tostring(npcId),
+            tostring(selection.token), tostring(selection.recordRevision) }, "|")
+        gate, cached = sys:dialogRequestGate(actor, selection.requestId, fingerprint)
+        if gate == "replay" then
+            local okResult = cached ~= nil and (cached.result == NPCPersonDialog.RESULT_OK or cached.result == NPCPersonDialog.RESULT_ACCEPTED)
+            return okResult, cached
+        elseif gate == "stale" then
+            return false, nil
+        elseif gate == "changed" then
+            return false, reply(NPCPersonDialog.RESULT_REFUSED, "npc_dialog_refused_request_reuse")
+        elseif gate == "exhausted" then
+            return false, reply(NPCPersonDialog.RESULT_UNAVAILABLE, "npc_dialog_unavailable")
         end
-        -- If we still have no distance reading, fail open so Complete/Abandon work
-        if closestDist < math.huge and closestDist > maxInteractionDist then
-            print(string.format("[NPCFavor SECURITY] Rejected interaction: player too far from NPC %d (%.1fm)", npcId, closestDist))
-            return false
+    end
+
+    local function finish(ok, r)
+        if isWorkAction and sys.dialogRequestRecord ~= nil and r ~= nil then
+            sys:dialogRequestRecord(actor, selection.requestId, r)
         end
+        return ok, r
+    end
+
+    -- OWASP Input Validation: the person must be a unique live durable person.
+    local npc = sys:getNPCById(npcId)
+    if npc == nil or (sys.isPersonActionable ~= nil and not sys:isPersonActionable(npc)) then
+        print(string.format("[NPCFavor SECURITY] Person not actionable: %d", npcId))
+        return finish(false, isWorkAction and reply(NPCPersonDialog.RESULT_REFUSED, "npc_dialog_refused_person") or nil)
+    end
+
+    -- OWASP Layer 4: the exact acting player's distance. An unknown position
+    -- refuses; another player on the farm is never borrowed.
+    local dist = NPCInteractionEvent.actorDistanceTo(actor, npc)
+    if dist == nil or dist > NPCInteractionEvent.MAX_INTERACTION_DISTANCE then
+        print(string.format("[NPCFavor SECURITY] Rejected interaction: acting player %s NPC %d",
+            dist == nil and "position unknown for" or string.format("too far (%.1fm) from", dist), npcId))
+        return finish(false, isWorkAction and reply(NPCPersonDialog.RESULT_REFUSED, "npc_dialog_refused_far") or nil)
+    end
+
+    -- A refused work action names its reason: STALE only when the selection no
+    -- longer matches (the dialog refreshes its view on that one), REFUSED with
+    -- the reason key for everything else (not ready, not the owner, no person).
+    local function resultFor(ok, okResult, key)
+        if ok then return okResult end
+        if key == "npc_dialog_refused_stale" then return NPCPersonDialog.RESULT_STALE end
+        return NPCPersonDialog.RESULT_REFUSED
     end
 
     -- Dispatch to appropriate handler
-    if actionType == NPCInteractionEvent.ACTION_FAVOR_ACCEPT then
-        return g_NPCSystem:serverAcceptFavor(npc, farmId)
-
-    elseif actionType == NPCInteractionEvent.ACTION_FAVOR_COMPLETE then
-        return g_NPCSystem:serverCompleteFavor(npc, farmId)
-
-    elseif actionType == NPCInteractionEvent.ACTION_FAVOR_ABANDON then
-        return g_NPCSystem:serverAbandonFavor(npc, farmId)
-
-    elseif actionType == NPCInteractionEvent.ACTION_GIFT then
-        return g_NPCSystem:serverGiveGift(npc, farmId, value, data)
-
-    elseif actionType == NPCInteractionEvent.ACTION_RELATIONSHIP then
-        return g_NPCSystem:serverUpdateRelationship(npc, farmId, value, data)
+    -- NPC-204: resolve the selection's record first; a record carrying a
+    -- contribution block has its own accept and its own TALK completion.
+    local contributed = false
+    if (actionType == NPCInteractionEvent.ACTION_FAVOR_ACCEPT or actionType == NPCInteractionEvent.ACTION_FAVOR_COMPLETE)
+        and NPCCompanion ~= nil and sys._selectedWorkRecord ~= nil then
+        contributed = NPCCompanion.isContributed((sys:_selectedWorkRecord(npc, selection)))
     end
 
-    return false
-end
+    if actionType == NPCInteractionEvent.ACTION_FAVOR_ACCEPT then
+        local ok, key, record
+        if contributed then
+            ok, key, record = sys:serverAcceptContributedFavor(npc, farmId, selection)
+        else
+            ok, key, record = sys:serverAcceptFavor(npc, farmId, selection)
+        end
+        local r = reply(resultFor(ok, NPCPersonDialog.RESULT_ACCEPTED, key), key)
+        -- The accepted row rides with the answer so the dialog shows the work
+        -- without a second request.
+        if ok and record ~= nil and sys.describeWorkRow ~= nil then
+            r.rows = { sys:describeWorkRow(record, actor) }
+        end
+        return finish(ok, r)
 
+    elseif actionType == NPCInteractionEvent.ACTION_FAVOR_COMPLETE then
+        local ok, key
+        if contributed then
+            ok, key = sys:serverCompleteContributedFavor(npc, farmId, selection)
+        else
+            ok, key = sys:serverCompleteFavor(npc, farmId, selection)
+        end
+        return finish(ok, reply(resultFor(ok, NPCPersonDialog.RESULT_OK, key), key))
+
+    elseif actionType == NPCInteractionEvent.ACTION_FAVOR_ABANDON then
+        local ok, key = sys:serverAbandonFavor(npc, farmId, selection)
+        return finish(ok, reply(resultFor(ok, NPCPersonDialog.RESULT_OK, key), key))
+
+    elseif actionType == NPCInteractionEvent.ACTION_GIFT then
+        local ok = sys:serverGiveGift(npc, farmId, value, data)
+        local r = {
+            requestId = "", kind = NPCPersonDialog and NPCPersonDialog.KIND_ACTION or 3, op = actionType,
+            personId = npcId, farmId = farmId,
+            result = ok and NPCPersonDialog.RESULT_OK or NPCPersonDialog.RESULT_REFUSED,
+            messageKey = ok and "npc_dialog_gift_ok" or "npc_dialog_gift_refused", text = "", rows = {},
+            trustPresent = ok and type(npc.relationship) == "number", trust = ok and npc.relationship or 0,
+        }
+        return ok, r
+    end
+
+    return false, nil
+end

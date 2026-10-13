@@ -36,7 +36,7 @@
 -- Time conversion and formatting utilities
 -- =========================================================
 
-TimeHelper = {}
+TimeHelper = TimeHelper or {}
 
 -- Convert milliseconds to hours, minutes, seconds
 function TimeHelper.msToHMS(ms)

@@ -1,6 +1,48 @@
-# NPC Favor -- Changelog
+﻿# NPC Favor -- Changelog
 
 All notable changes to the FS25_NPCFavor mod are documented below, organized by version. This changelog is derived from the actual git history and issue tracker.
+
+---
+
+## Unreleased
+
+## [1.3.0.0] - 2026-10-12
+
+> **This is not a final release.** It gives everyone, testers and players, new or returning, everything we have built so far, so nobody has to wait on an old version any longer. The Realistic Farming suite is far from done: we are still building and expanding every mod, and completing it could take months, possibly a year. Expect changes and rough edges along the way, and please report anything that looks wrong.
+
+### Fixed
+- **Multiplayer:** neighbours stand where the server says, show their real names and personalities on every player's screen, and every button (talk, offer help, accept, complete, abandon) acts through the host on the exact person and job shown, by the player who pressed it.
+- Saved neighbours stay the same people after a reload, with their homes, trust and work, and a saved favour keeps its remaining destinations.
+- Neighbours work land they are actually allowed to work, and are no longer thrown off a field the farmer owns over and over. They work the whole field and stay on it, and a neighbour inspecting a field's edges follows the field's real shape.
+- An expiring favour no longer deletes a different, still valid favour, and accepted favours survive a deleted or reused farm: orphaned ones appear in the favour menu's Recovery view.
+- A favour number used before a save is never reused after loading.
+- The NPC Favor menu key no longer collides with Dashboard Live's map orientation, the favours HUD key is registered, keyboard defaults are bound, and the interact key shows the live key.
+- Translations: the page legend shows a plain dot between page names, and the title and description read correctly in the mod manager in nine languages.
+
+### Added
+- The NPC Favor page on the Realistic Farming Esc menu: scrollable tables with a details card for each neighbour.
+- A favours HUD show/hide toggle in the Control Center, Control Center actions, and a HUD that follows the base game's theme and can be resized in width.
+- **Experimental (off by default):** an Experimental Systems switch saved with the game, and the first groundwork for companion mods to bring their own neighbours and jobs (offered to one farm, finished face to face, paid once, saved with the game, and free to let go). No companion mod uses it yet.
+
+### Fixed
+- **Neighbours work the whole field instead of circling a 20 m patch, stay on narrow and odd-shaped fields, and the roster shows what they are doing.** A neighbour on a tractor drew a figure of 8 in the middle of every field because the size of the field was read from a value the game does not provide, so every field counted as one square metre. The field's real area now comes from the game, the work rows fill the field and are kept inside its actual shape (a long strip or an L-shaped field no longer sends the tractor onto the road or the neighbour's land), and the older walking patterns are held to the field as well. Since fields now have their real size, two neighbours may share a large field, which was always the intent. The neighbour roster also stopped showing the schedule's label (for example "working indoors") while a neighbour was actually out on field work; it shows the field work until the job ends. Single player and multiplayer; nothing to configure.
+- **Talk, Offer help, Accept, Complete and Cancel work for every player, and only on the neighbour and the job you are looking at (RSF-F357, actions and private views).** On a multiplayer client the face-to-face buttons used to change trust or create offers on the client's own copy, which the host never saw; now every button sends a request the host answers, and the host measures the 15 m distance from you, never from a farm-mate who happens to stand near the neighbour. Accept, Complete and Cancel name the exact job the screen showed, so a job that changed or was taken in the meantime is refused and the view refreshed instead of acting on whatever the neighbour has now, and a repeated click cannot pay or charge twice. The generation cooldown no longer refuses an offer that was already made. Talk keeps its once-a-day rule on the host; Offer help keeps its threshold, decline and reward rules on the host and reads your farm's own balance for a money requirement. Your favour list on the HUD, in the Favor menu and on the Neighbours PDA page is a farm-private page the host supplies (your accepted work and the open offers, never another farm's work), refreshed every two seconds while shown and marked last-confirmed when a refresh is late; a host that has not finished loading shows it unavailable rather than empty. Another farm's accepted work reads busy, never its details. The neighbour list, the admin list and npcGoto resolve a neighbour by her number, never by the row she sits in, and the direct trust adjustment in the admin editor is host-only (a client sees it unavailable). Multiplayer, dedicated servers and single player; nothing to configure.
+- **Saved neighbours are the same people after a reload (RSF-F357, host core).** Every neighbour now carries a durable number that only the host issues and never reuses. On load the saved people are restored before any town is created, so a changed neighbour count or a rebuilt house never hands one neighbour's trust or work to another: people above the count wait (saved, no body) and return before any newcomer is created, a saved house that still stands keeps its occupant, and a new neighbour never takes a saved neighbour's name. Accepted work saved before this update cannot be proved to belong to the same person any more, so it is kept in the Recovery view under its saved name, frozen, with no payment or penalty, instead of being attached to a namesake; new work is linked to its neighbour by number and pauses while she waits. Hired ContractorMod workers appear as observed workers only, with no trust, gifts or favours. Other players receive the whole neighbour list in pages and show it only once it is complete. A save that cannot be read is left untouched on disk and the town is unavailable for that session. Saves from before this update load; nothing to configure.
+- **NPC ambient work now respects farm ownership in multiplayer (RSF-F206).** NPC helpers no longer pick up ambient work on fields or yards owned by another farm, whether or not anyone from that farm is currently online. On a shared or mostly-player-owned map, if your neighbours' farms stop getting NPC help, that is this fix working as intended, not a bug. Multiplayer and dedicated-server only; nothing to configure.
+- **A favor belongs to the farm that accepted it, and only to that farm (RSF-F148).** Reloading a save no longer turns an unanswered neighbour request into an accepted job on a running clock: favor status now round-trips through both save paths, and a saved row whose acceptance an old save cannot prove is paused in a new Recovery view instead of being silently attached to a farm. Deleting a farm invalidates its accepted jobs (they stop, release their field, pay and charge nobody), and a new farm reusing the same number inherits neither the job nor its rewards. A host or administrator can deliberately assign such a job to an explicitly chosen current farm; a farm can resume its own paused job. Resuming preserves saved progress, remaining time and payment facts and moves no money by itself.
+- **A saved favor block that cannot be read is left exactly as it was (RSF-F148).** When the favor load fails, no favors are installed, a notice says so once, and the saved data is never overwritten by an empty set. On the npc_favor.xml route nothing is written that session, NPC progress included. On the StateLedger route an aborted apply hands the delivered block back unchanged, and only a load that read the whole block but refused one favor record still saves live NPC progress around the untouched favor rows.
+- Remote clients could never complete or abandon a favor: the interaction event compared a field the native user object does not have. The acting farm is now resolved from the requesting connection and must match the claim; ordinary completion and abandonment require the owning farm.
+- The management dialog's Cancel now goes through the server like Done, so a client's cancel is real and the host no longer takes a second relationship penalty.
+- The published `hasActiveFavorOfType(favorType, farmId)` query compared a field nothing writes; it now compares the record's owner, and a farm id that does not resolve always answers false.
+- The favor restore body did its neighbour and step work twice; it now does it once.
+- **A saved favor's remaining destinations no longer move on reload (RSF-F221).** Both save paths now keep each step's resolved destination and completion flag, so a materials pile, a fence point, a field or a co-op is restored where the neighbour first sent you instead of being rebuilt from wherever the neighbour lives, works or stands today, or rolled fresh at random. Restore replaces each step location with its own saved copy, so the neighbour's home and field records are never moved by a restore, and progress is derived from the saved step flags so the bar and the arrow agree. A save from before this change loads exactly as before; a job whose neighbour is gone keeps its saved destinations too.
+
+### Changed
+- **Favor menu default key** is now Right Shift + apostrophe. Right Shift + 9 is Dashboard Live map orientation, a widely used cab overlay, so the suite default was moved to avoid that clash.
+
+### Added
+- **Control Center actions** (suite Control Center, requires SettingsHub): `FAVOR_MENU`, `NPC_LIST`, `NPC_SETTINGS`.
+- **Playtest fixes:** NpcRfPdaGuest (Esc neighbor-table pager), NPCFavorHUD, NPC_HUD_EDIT (RShift+Z), translation sync.
 
 ---
 
@@ -66,8 +108,8 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 
 ### HUD Edit Mode & Resize System (NEW)
 - **Right-click toggle** replaces F8 keybind for entering HUD edit mode
-- **Corner resize handles**: Drag any corner to uniformly scale the HUD (0.5x–2.0x)
-- **Edge resize handles**: Drag left/right edges to adjust width independently (0.5x–2.0x width multiplier)
+- **Corner resize handles**: Drag any corner to uniformly scale the HUD (0.5xâ€“2.0x)
+- **Edge resize handles**: Drag left/right edges to adjust width independently (0.5xâ€“2.0x width multiplier)
 - **Camera lock**: Camera rotation freezes during edit mode to prevent accidental camera spin while dragging
 - **Smart guards**: Edit mode blocked when player is in a vehicle, GUI/dialog is open, or HUD is locked in settings
 - **Auto-exit**: Exiting to vehicle or opening a dialog automatically closes edit mode
@@ -78,7 +120,7 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - **Pixel-art compass needle** on each favor row points toward the target NPC relative to camera facing
 - Arrow rotates smoothly via 2D rotation matrix on per-frame grid dots
 - Uses `localDirectionToWorld` camera forward vector for reliable camera-relative angles (avoids `getRotation` sign convention issues)
-- **Distance + cardinal direction text** (e.g., "NE 250m") with color coding: green (<100m), yellow (100–500m), gray (>500m)
+- **Distance + cardinal direction text** (e.g., "NE 250m") with color coding: green (<100m), yellow (100â€“500m), gray (>500m)
 - **Proximity dot**: When within 3m of NPC, arrow replaced with centered dot to avoid erratic `atan2` behavior at near-zero distance
 - 8-direction compass labels (N, NE, E, SE, S, SW, W, NW) localized in all 10 languages
 
@@ -147,16 +189,16 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 **Issues Fixed:** #15 (Settings reset when exiting savegame)
 
 ### Settings Persistence (fixes #15)
-- **Save path fix**: `NPCSettings:saveToXMLFile(missionInfo)` now writes to `missionInfo.savegameDirectory` (tempsavegame during save), matching the UsedPlus pattern. Previously wrote directly to `savegame5/` which got overwritten when the game swapped tempsavegame → savegame5.
+- **Save path fix**: `NPCSettings:saveToXMLFile(missionInfo)` now writes to `missionInfo.savegameDirectory` (tempsavegame during save), matching the UsedPlus pattern. Previously wrote directly to `savegame5/` which got overwritten when the game swapped tempsavegame â†’ savegame5.
 - **Load fix**: Replaced unreliable `g_fileIO:fileExists()` with `XMLFile.loadIfExists` (proven FS25 API). Previously silently fell back to defaults every load.
 - **No orphan writes**: ESC menu, console commands, and sync events now update settings in-memory only. Disk persistence happens exclusively via the `FSCareerMissionInfo.saveToXMLFile` hook (UsedPlus pattern).
 - **Diagnostic logging**: Settings load/save now prints messages to game log to help debug persistence issues.
 
-### Expanded ESC Menu Settings (6 → 13 controls)
+### Expanded ESC Menu Settings (6 â†’ 13 controls)
 - 7 new controls: Show Favor List, Show Relationship Bars, Show Map Markers, Enable Gifts, Allow Multiple Favors, Max Active Favors (dropdown: 1/2/3/5/8/10), Relationship Decay
 - All 13 controls grouped under single "NPC Favor System" section header for easy identification in multi-mod setups
 - New `showMapMarkers` setting with instant toggle via `NPCEntity:toggleAllMapHotspots()`
-- 170 new i18n strings (17 entries × 10 languages)
+- 170 new i18n strings (17 entries Ã— 10 languages)
 
 ### Dialog & Icon ZIP Fixes
 - Eagerly load all 3 dialogs (NPCDialog, NPCListDialog, NPCFavorManagementDialog) during `loadMission00Finished` while the mod's ZIP filesystem context is active. Previously lazy loading failed on second session with "Failed to open xml file".
@@ -172,8 +214,8 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 
 ### HUD Overlay & Name Tags
 - Suppress NPC HUD rendering during pause, full-screen map, ESC menu, and dialogs
-- Dynamic name tag Y scaling based on distance (1.8m close → 2.6m at 15m)
-- Lower speech bubble Y offset (2.8 → 2.3) and interaction hint (2.5 → 2.0)
+- Dynamic name tag Y scaling based on distance (1.8m close â†’ 2.6m at 15m)
+- Lower speech bubble Y offset (2.8 â†’ 2.3) and interaction hint (2.5 â†’ 2.0)
 
 ### Female NPC Clothing & Camera Fix
 - Fix female NPCs getting male clothing by force-loading `playerF` XML config
@@ -192,23 +234,23 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 
 ### Map Hotspots & NPC Name Labels (fixes #12)
 - Convert map hotspots from abstract `MapHotspot` (invisible) to `PlaceableHotspot` with icon overlay and fallback icon type
-- Remove hotspot when NPC sleeps, recreate on wakeup — fixes icons persisting at night
+- Remove hotspot when NPC sleeps, recreate on wakeup â€” fixes icons persisting at night
 - Add `drawMapLabels()` method rendering NPC names above map icons via `IngameMap.drawFields` hook
 
 ### NPCFieldWork Module (new)
 - Realistic boustrophedon (serpentine) row traversal replacing simplistic rectangular patterns
 - Multi-worker coordination (max 2 per field with size-based caps)
 - Smooth Bezier headland turns
-- Personality-driven pattern selection (grumpy → perimeter, lazy → spot check)
+- Personality-driven pattern selection (grumpy â†’ perimeter, lazy â†’ spot check)
 - Legacy `initFieldWork` preserved as fallback
 
 ### NPC Clothing Overhaul
 - Curate PRESET_POOL: remove beekeeper, horsebackRider, longHaulTrucker, wetwork
 - Use clone-and-modify pattern for male presets (game's `applyCustomWorkStyle` approach)
 - Post-apply headgear sanitization (removes helmets, veils, motorcycle gear)
-- Fix property names: `selectedIndex` → `selectedItemIndex`, `selectedColor` → `selectedColorIndex`
+- Fix property names: `selectedIndex` â†’ `selectedItemIndex`, `selectedColor` â†’ `selectedColorIndex`
 - Use `getItemNameIndex()` API for proper item lookup
-- Expand outfit tables: 7 → 12 male, 6 → 12 female (all farm-appropriate)
+- Expand outfit tables: 7 â†’ 12 male, 6 â†’ 12 female (all farm-appropriate)
 - Add "working" to `isWalking` check to fix animation sliding during field work
 
 ### Favor Management Dialog
@@ -234,7 +276,7 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - Relocated `NPCFavorManagementDialog.lua` from `gui/` to `src/gui/` (consistent with other dialog files)
 - Rewrote dialog XML from custom `npc*` profiles to proper FS25 dialog patterns (`fs25_dialogBg`, `fs25_dialogContentContainer`, `buttonOK`, etc.)
 - Added defensive nil-checks on all GUI element access (`if elem and elem.setText then`)
-- Fixed relationship method name (`modifyRelationship` → `updateRelationship`)
+- Fixed relationship method name (`modifyRelationship` â†’ `updateRelationship`)
 - Added support for both scalar (`favor.reward = 500`) and table (`favor.reward = {amount=500}`) reward formats
 - Reduced max visible favors from 10 to 5 (matching the 5-row dialog layout)
 
@@ -258,7 +300,7 @@ Farmer NPCs now do real, game-AI-driven field work with their own equipment, mat
 - Both keybinds registered with full RVB pattern, localized in all 10 languages
 
 ### Teleport Improvements
-- **Face-NPC rotation** (fixes #5): After all teleports (npcGoto, NPC List, Favor dialog), player now rotates 180° to face the NPC instead of having NPC behind them
+- **Face-NPC rotation** (fixes #5): After all teleports (npcGoto, NPC List, Favor dialog), player now rotates 180Â° to face the NPC instead of having NPC behind them
 - **UI stabilization** (fixes #6): Added `lastTeleportTime` tracking with 0.5 game-minute cooldown to prevent HUD text jank after teleporting
 
 ### Documentation
@@ -505,20 +547,20 @@ The original upload establishing the mod's architecture and vision:
 | 1 | Not Showing Ingame | Tankieboy | Closed | Fixed in v1.0.0.1 (stub objects replaced with real constructors, descVersion corrected) |
 | 2 | No visual markers at the map | Dueesberch | Closed | Fixed in v1.2.2.2 (PlaceableHotspot with icon overlay, sleep/wake hotspot management) |
 | 4 | erreur lua (renderOverlay in update callback) | squall39 | Closed | Fixed in v1.0.1.0 commit `2f79a7a` (moved rendering to draw callback) |
-| 5 | NPC on player backside after teleport | Dueesberch | Closed | Fixed in v1.2.2.0 (player rotates 180° to face NPC after teleport) |
+| 5 | NPC on player backside after teleport | Dueesberch | Closed | Fixed in v1.2.2.0 (player rotates 180Â° to face NPC after teleport) |
 | 6 | Floating text after teleport | TisonK | Closed | Fixed in v1.2.2.0 (lastTeleportTime cooldown prevents HUD jank) |
 | 7 | Animations and Progress | | Open | Partially fixed in v1.2.2.2 (field work animation); walk animation sliding still occurs |
 | 8 | Won't load due to ZIP packaging | Wreyth | Closed | Fixed in v1.2.2.2 (build.sh creates properly structured ZIP) |
 | 9 | Interaction with active favor | TisonK | Closed | Fixed in v1.2.2.0 (Favor Management Dialog with view/cancel/goto/complete) |
 | 10 | Keybinding the npcList UI | TisonK | Closed | Fixed in v1.2.2.0 (F7 keybind opens NPC roster) |
-| 11 | Couple of issues and a suggestion | crisischrissy | Open | Partial — #14 split out and closed |
+| 11 | Couple of issues and a suggestion | crisischrissy | Open | Partial â€” #14 split out and closed |
 | 12 | NPC Map Hotspot Icons Not Appearing | | Closed | Fixed in v1.2.2.2 (PlaceableHotspot with icon overlay) |
 | 14 | Borrow tractor favor has no interaction | XelaNull | Closed | Split from #11; vehicle spawning not yet functional |
 | 15 | Settings reset when exiting savegame | XelaNull | Closed | Fixed in v1.2.2.4 (UsedPlus save pattern, XMLFile.loadIfExists) |
 | 18 | attempt to index nil with 'width' | TisonK | Closed | Mitigated in v1.2.2.5 (nil-guard on hotspot overlay); PlaceableHotspot init issue |
 | 19 | Favor UI bugged | TisonK | Closed | Caused by merge conflicts (#20); resolved by codebase restore |
 | 20 | Merge conflicted files committed | Dueesberch | Closed | Fixed in v1.2.2.5 (PR #24 restored clean codebase) |
-| 21 | Mod integration (ContractorMod) | skynyrd47 | Open | Feature request — hire/manage NPCs as workers |
+| 21 | Mod integration (ContractorMod) | skynyrd47 | Open | Feature request â€” hire/manage NPCs as workers |
 | 22 | Game freezes after a while | Siamajor | Closed | Related to PlaceableHotspot crash (#18); mitigated by nil-guard |
 | 25 | Keybind issue (F6/F7 not working) | TisonK | Open | F6 Favor Menu and F7 NPC List keybinds reported non-functional |
 | 26 | Error pile d'appel lua (map hotspot crash) | squall39 | Closed | Same root cause as #18; mitigated in v1.2.2.5 |

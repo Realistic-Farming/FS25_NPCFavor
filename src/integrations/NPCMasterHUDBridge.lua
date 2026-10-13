@@ -30,10 +30,10 @@
 -- independent and happens at Mission00.loadMission00Finished.
 -- =========================================================
 
-NPCMasterHUDBridge = {}
+NPCMasterHUDBridge = NPCMasterHUDBridge or {}
 
 NPCMasterHUDBridge.HUD_ID = "NPCFavor_HUD"
-NPCMasterHUDBridge.active = false   -- MasterHUD present and we registered
+NPCMasterHUDBridge.active = NPCMasterHUDBridge.active or false   -- survives reload; register() re-derives it
 
 -- The NPC HUD draw body. Resolves the system from the canonical global so it can be
 -- driven either by MasterHUD or by NPCFavor's own FSBaseMission.draw hook. NPCSystem:draw
@@ -80,7 +80,10 @@ function NPCMasterHUDBridge.register()
                     local sys = g_NPCSystem
                     if sys ~= nil and sys.favorHUD ~= nil and sys.favorHUD.editMode
                         and sys.favorHUD.exitEditMode ~= nil then
+                        -- suite-owned exit: the HUD ignores every other exit while suite edit is ON
+                        sys.favorHUD._suiteExiting = true
                         sys.favorHUD:exitEditMode()
+                        sys.favorHUD._suiteExiting = false
                     end
                 end,
             })
@@ -88,4 +91,16 @@ function NPCMasterHUDBridge.register()
     else
         print(string.format("[NPC Favor] MasterHUD registration failed: %s (using own draw hook)", tostring(err)))
     end
+end
+
+-- =========================================================
+-- Hot-reload delivery (2026-08-22): register() only runs at mission load, so a
+-- push of this file alone would define the new listener without registering it.
+-- NOT gated on .active (the gated shape skips silently when the boot-time bridge
+-- predates the flag). register() is idempotent - subscribe and
+-- registerEditListener both replace by id - so every live source pass may fire it;
+-- on a cold pass the mission handle does not exist yet and this is a no-op.
+local __hud = (g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD
+if __hud ~= nil then
+    pcall(function() NPCMasterHUDBridge.register() end)
 end

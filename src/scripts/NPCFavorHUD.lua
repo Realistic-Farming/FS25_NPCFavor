@@ -13,8 +13,16 @@
 -- Drag/resize state is runtime-only — never persisted.
 -- =========================================================
 
-NPCFavorHUD = {}
+-- BUILD 17:57 + ATTN 18:02 (Wizard hot-reload law, FS25-HotReload-Guide.md Part 1):
+-- reuse the existing class table on Ctrl+R reload so updated methods land on the
+-- table live metatables already reference, instead of orphaning it.
+NPCFavorHUD = NPCFavorHUD or {}
 NPCFavorHUD_mt = Class(NPCFavorHUD)
+
+local function getBaseGameRenderer()
+    local hud = (g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD
+    return hud ~= nil and hud.renderer or nil
+end
 
 -- =========================================================
 -- Constructor
@@ -26,11 +34,15 @@ function NPCFavorHUD.new(npcSystem)
     self.npcSystem = npcSystem
 
     -- Position (normalized 0–1, top-left anchor of the HUD box)
-    self.posX = 0.02
-    self.posY = 0.7
+    -- BUILD 12:25 (Sam DESIGN 12:23): Active Favors factory default is
+    -- Middle-Left-Top in the suite's non-overlap layout. Saved drag XML wins.
+    -- Wizard 2026-08-21: factory home is the suite layout Wizard arranged
+    -- in-game (left column). Saved settings still win on load.
+    self.posX = 0.598125
+    self.posY = 0.303333
 
     -- Scale multiplier applied to all dimensions and text
-    self.scale = 1.0
+    self.scale = 0.962974   -- factory suite layout (Wizard 2026-08-22 21:xx capture)
 
     -- Edit/drag state (runtime only, never persisted)
     self.editMode = false
@@ -50,7 +62,7 @@ function NPCFavorHUD.new(npcSystem)
     self.MAX_SCALE = 2.0
 
     -- Width multiplier (adjusted by edge-drag, independent of scale)
-    self.widthMult = 1.0
+    self.widthMult = 0.517187   -- factory suite layout (Wizard 2026-08-22)
     self.MIN_WIDTH_MULT = 0.5
     self.MAX_WIDTH_MULT = 2.0
     self.edgeDragging = nil  -- nil, "left", or "right"
@@ -126,10 +138,10 @@ end
 
 function NPCFavorHUD:loadFromSettings(settings)
     if not settings then return end
-    self.posX = settings.favorHudPosX or 0.02
-    self.posY = settings.favorHudPosY or 0.7
-    self.scale = settings.favorHudScale or 1.0
-    self.widthMult = settings.favorHudWidthMult or 1.0
+    self.posX = settings.favorHudPosX or 0.598125
+    self.posY = settings.favorHudPosY or 0.303333
+    self.scale = settings.favorHudScale or 0.962974
+    self.widthMult = settings.favorHudWidthMult or 0.517187
     self:clampPosition()
 end
 
@@ -173,6 +185,14 @@ function NPCFavorHUD:enterEditMode()
 end
 
 function NPCFavorHUD:exitEditMode()
+    -- 2026-08-22 (Wizard): while MasterHUD suite edit is ON, the suite owns this
+    -- session - only the suite exit (bridge sets _suiteExiting) may end it. The
+    -- in-vehicle auto-exit in main.lua used to kill the favor HUD's edit one frame
+    -- after the suite entered it (log 18:45:07.588 enabled -> .599 disabled).
+    local mh = (g_currentMission ~= nil and g_currentMission.masterHUD) or g_masterHUD
+    if mh ~= nil and mh.isLayoutEditMode ~= nil and mh:isLayoutEditMode() and not self._suiteExiting then
+        return
+    end
     self.editMode = false
     self.dragging = false
     self.resizing = false
@@ -310,11 +330,9 @@ function NPCFavorHUD:getHUDRect()
     local pad = self.BASE_PADDING * s
 
     local favorCount = 0
-    if self.npcSystem and self.npcSystem.favorSystem then
-        local favors = self.npcSystem.favorSystem:getActiveFavors()
-        if favors then
-            favorCount = math.min(#favors, self.MAX_FAVORS)
-        end
+    local favors = self:visibleWork()
+    if favors then
+        favorCount = math.min(#favors, self.MAX_FAVORS)
     end
 
     if favorCount == 0 and self.editMode then
@@ -326,11 +344,8 @@ function NPCFavorHUD:getHUDRect()
     local contentShift = 0.005 * s
     local h = headerH + contentShift + favorCount * favorBlockH + pad * 2
 
-    if self.npcSystem and self.npcSystem.favorSystem then
-        local favors = self.npcSystem.favorSystem:getActiveFavors()
-        if favors and #favors > self.MAX_FAVORS then
-            h = h + self.BASE_LINE_HEIGHT * s
-        end
+    if favors and #favors > self.MAX_FAVORS then
+        h = h + self.BASE_LINE_HEIGHT * s
     end
 
     local x = self.posX - pad
@@ -572,8 +587,38 @@ end
 -- Update (per-frame logic, dt in seconds)
 -- =========================================================
 
+--- RSF-F357 section 9b: the rows this HUD draws are the owner's copied work
+--- page (the acting farm's accepted work and the public offers), never the
+--- local favour collections. Each row carries the saved name, status,
+--- description, the next step text and location, progress and the server's
+--- last-sampled remaining time.
+function NPCFavorHUD:visibleWork()
+    local sys = self.npcSystem
+    if sys == nil or sys.getPersonalWorkView == nil then return {} end
+    local view = sys:getPersonalWorkView()
+    if view == nil or (view.state ~= "CURRENT" and view.state ~= "LAST_CONFIRMED") then return {} end
+    local rows = {}
+    for _, r in ipairs(view.rows or {}) do
+        if r.status == "pending" or r.status == "active" or r.status == "in_progress" then
+            rows[#rows + 1] = r
+        end
+    end
+    return rows
+end
+
 function NPCFavorHUD:update(dt)
     self.animTimer = self.animTimer + dt
+
+    -- RSF-F357: watch the shared work page while the favour list is shown.
+    local wantWatch = self.npcSystem ~= nil and self.npcSystem.settings ~= nil
+        and self.npcSystem.settings.showFavorList == true and self.npcSystem.watchPersonalWork ~= nil
+    if wantWatch and not self._watchingWork then
+        self._watchingWork = true
+        self.npcSystem:watchPersonalWork(true)
+    elseif not wantWatch and self._watchingWork then
+        self._watchingWork = false
+        if self.npcSystem and self.npcSystem.watchPersonalWork then self.npcSystem:watchPersonalWork(false) end
+    end
 
     -- Per-frame edit mode enforcement
     if self.editMode then
@@ -646,10 +691,7 @@ function NPCFavorHUD:draw()
         return
     end
 
-    local favors = {}
-    if self.npcSystem.favorSystem then
-        favors = self.npcSystem.favorSystem:getActiveFavors() or {}
-    end
+    local favors = self:visibleWork()
 
     if #favors == 0 and not self.editMode then
         return
@@ -682,22 +724,25 @@ function NPCFavorHUD:draw()
     local bgY = self.posY - bgH + pad
     local bgW = w + pad * 2
 
-    -- Drop shadow (offset slightly down-right for depth)
-    local shadowOff = 0.002 * s
-    setOverlayColor(self.bgOverlay, self.COLORS.SHADOW[1], self.COLORS.SHADOW[2], self.COLORS.SHADOW[3], self.COLORS.SHADOW[4])
-    renderOverlay(self.bgOverlay, bgX + shadowOff, bgY - shadowOff, bgW, bgH)
+    local renderer = getBaseGameRenderer()
+    local usedNativePanel = renderer ~= nil and renderer.renderPanel ~= nil
+        and renderer:renderPanel(bgX, bgY, bgW, bgH, self.COLORS.BG[4])
+    if not usedNativePanel then
+        -- Standalone fallback: retain the original graph_pixel shadow, fill and border.
+        local shadowOff = 0.002 * s
+        setOverlayColor(self.bgOverlay, self.COLORS.SHADOW[1], self.COLORS.SHADOW[2], self.COLORS.SHADOW[3], self.COLORS.SHADOW[4])
+        renderOverlay(self.bgOverlay, bgX + shadowOff, bgY - shadowOff, bgW, bgH)
 
-    -- Main background fill
-    setOverlayColor(self.bgOverlay, self.COLORS.BG[1], self.COLORS.BG[2], self.COLORS.BG[3], self.COLORS.BG[4])
-    renderOverlay(self.bgOverlay, bgX, bgY, bgW, bgH)
+        setOverlayColor(self.bgOverlay, self.COLORS.BG[1], self.COLORS.BG[2], self.COLORS.BG[3], self.COLORS.BG[4])
+        renderOverlay(self.bgOverlay, bgX, bgY, bgW, bgH)
 
-    -- Permanent subtle border (always visible)
-    local bwNormal = 0.001
-    setOverlayColor(self.bgOverlay, self.COLORS.BORDER_NORMAL[1], self.COLORS.BORDER_NORMAL[2], self.COLORS.BORDER_NORMAL[3], self.COLORS.BORDER_NORMAL[4])
-    renderOverlay(self.bgOverlay, bgX, bgY + bgH - bwNormal, bgW, bwNormal)       -- top
-    renderOverlay(self.bgOverlay, bgX, bgY, bgW, bwNormal)                         -- bottom
-    renderOverlay(self.bgOverlay, bgX, bgY, bwNormal, bgH)                         -- left
-    renderOverlay(self.bgOverlay, bgX + bgW - bwNormal, bgY, bwNormal, bgH)        -- right
+        local bwNormal = 0.001
+        setOverlayColor(self.bgOverlay, self.COLORS.BORDER_NORMAL[1], self.COLORS.BORDER_NORMAL[2], self.COLORS.BORDER_NORMAL[3], self.COLORS.BORDER_NORMAL[4])
+        renderOverlay(self.bgOverlay, bgX, bgY + bgH - bwNormal, bgW, bwNormal)       -- top
+        renderOverlay(self.bgOverlay, bgX, bgY, bgW, bwNormal)                         -- bottom
+        renderOverlay(self.bgOverlay, bgX, bgY, bwNormal, bgH)                         -- left
+        renderOverlay(self.bgOverlay, bgX + bgW - bwNormal, bgY, bwNormal, bgH)        -- right
+    end
 
     -- Edit mode: pulsing border + resize handles
     if self.editMode then
@@ -779,7 +824,7 @@ function NPCFavorHUD:draw()
             local line1Y = baseY
             local line2Y = baseY - lineH
 
-            local timeRemaining = favor.timeRemaining or 0
+            local timeRemaining = favor.timeRemainingMs or favor.timeRemaining or 0
             local hours = timeRemaining / (60 * 60 * 1000)
 
             -- Time text
@@ -816,17 +861,13 @@ function NPCFavorHUD:draw()
             -- Active/in_progress: point to first incomplete step; pending: point to NPC
             if playerX then
                 local targetX, targetZ
-                if favor.status ~= "pending" and favor.steps and #favor.steps > 0 then
-                    for _, step in ipairs(favor.steps) do
-                        if not step.completed and step.location then
-                            targetX = step.location.x
-                            targetZ = step.location.z
-                            break
-                        end
-                    end
+                if favor.status ~= "pending" and favor.nextStepLocationPresent then
+                    targetX, targetZ = favor.nextStepX, favor.nextStepZ
                 end
-                if not targetX then
-                    local npc = self.npcSystem:getNPCById(favor.npcId)
+                if not targetX and favor.personIdPresent then
+                    -- Only a live durable person supplies a position; a
+                    -- waiting or unproven row gets no fabricated arrow.
+                    local npc = self.npcSystem:getNPCById(favor.personId)
                     local npcPos = npc and npc.position
                     if npcPos then targetX, targetZ = npcPos.x, npcPos.z end
                 end
@@ -856,14 +897,8 @@ function NPCFavorHUD:draw()
             local desc
             if favor.status == "pending" then
                 desc = "(talk to accept) " .. (favor.description or "")
-            elseif favor.steps and #favor.steps > 0 then
-                for _, step in ipairs(favor.steps) do
-                    if not step.completed then
-                        desc = step.description
-                        break
-                    end
-                end
-                desc = desc or (favor.description or "")
+            elseif favor.nextStepText and favor.nextStepText ~= "" then
+                desc = favor.nextStepText
             else
                 desc = favor.description or ""
             end
@@ -882,15 +917,21 @@ function NPCFavorHUD:draw()
             -- Progress bar (below line 2, only when progress > 0)
             if favor.progress and favor.progress > 0 then
                 local barWidth = w * 0.6
-                local barHeight = 0.004 * s
+                local barHeight = (6 / 1080) * s
                 local barY = line2Y - 0.007 * s
 
-                setOverlayColor(self.bgOverlay, self.COLORS.BAR_BG[1], self.COLORS.BAR_BG[2], self.COLORS.BAR_BG[3], self.COLORS.BAR_BG[4])
-                renderOverlay(self.bgOverlay, self.posX, barY, barWidth, barHeight)
+                local barColor = {textColor[1], textColor[2], textColor[3], 0.8}
+                local usedNativeBar = renderer ~= nil and renderer.renderProgressBar ~= nil
+                    and renderer:renderProgressBar(self.posX, barY, barWidth, barHeight,
+                        favor.progress / 100, barColor)
+                if not usedNativeBar then
+                    setOverlayColor(self.bgOverlay, self.COLORS.BAR_BG[1], self.COLORS.BAR_BG[2], self.COLORS.BAR_BG[3], self.COLORS.BAR_BG[4])
+                    renderOverlay(self.bgOverlay, self.posX, barY, barWidth, barHeight)
 
-                local progressWidth = barWidth * (favor.progress / 100)
-                setOverlayColor(self.bgOverlay, textColor[1], textColor[2], textColor[3], 0.8)
-                renderOverlay(self.bgOverlay, self.posX, barY, progressWidth, barHeight)
+                    local progressWidth = barWidth * (favor.progress / 100)
+                    setOverlayColor(self.bgOverlay, textColor[1], textColor[2], textColor[3], 0.8)
+                    renderOverlay(self.bgOverlay, self.posX, barY, progressWidth, barHeight)
+                end
 
                 setTextAlignment(RenderText.ALIGN_LEFT)
                 setTextColor(self.COLORS.TEXT_DIM[1], self.COLORS.TEXT_DIM[2], self.COLORS.TEXT_DIM[3], self.COLORS.TEXT_DIM[4])
@@ -1018,4 +1059,16 @@ function NPCFavorHUD:delete()
         self.bgOverlay = nil
     end
 
+end
+
+-- =========================================================
+-- BUILD 17:57 + ATTN 18:02 (hot-reload guide Part 2): force-patch the live
+-- instance after a Ctrl+R reload - mission.npcFavorSystem published in main.lua; holds .favorHUD.
+if g_currentMission ~= nil and g_currentMission.npcFavorSystem ~= nil and g_currentMission.npcFavorSystem.favorHUD ~= nil then
+    local inst = g_currentMission.npcFavorSystem.favorHUD
+    for k, v in pairs(NPCFavorHUD) do
+        if type(v) == "function" then
+            inst[k] = v
+        end
+    end
 end
