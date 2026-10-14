@@ -178,3 +178,9 @@ This list is expected to evolve as FS25 modding constraints and design ideas cha
 
 - [x] `modDesc.xml`: FAVOR_MENU on Right Shift + 6, NPC_INTERACT on Right Ctrl + N, NPC_TOGGLE_HUD on KEY_backquote; `src/scripts/NPCInteractionUI.lua` reads the live key through `src/utils/NpcLiveKeyLabel.lua` (new, sourced in `main.lua`); the 26 translation files.
 - [~] In game (owed): TESTING row 536.
+
+## 2026-10-14 (Fred (via Desk)): build packaging (MAINTENANCE row 311)
+
+- [x] `build.py`: keeps `.git`, `.github/`, `docs/`, the Markdown files and the Python helpers under `translations/` out of the zip. Every build shipped the repo's docs and tooling to players; nothing in the mod loads any of them.
+- [x] Built from a worktree before and after this change: development's zip had 114 entries, 23 of them `.git`, `.github/`, `docs/`, the Markdown files and `translations/*.py`; this branch's has 91, with exactly those 23 removed, every other entry byte-identical (CRC), nothing added.
+- Build tooling only, no in-game check (TESTING row 573).

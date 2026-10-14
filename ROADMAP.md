@@ -197,3 +197,8 @@ Every item here should make NPCs feel **noticed**, **persistent**, and **sociall
 
 - [x] Favor Menu moves from Right Shift + 9 to Right Shift + 6, and NPC Interact from E to Right Ctrl + N. Toggle NPC HUD's default is respelled from KEY_grave, which is not an engine key define and so never bound, to KEY_backquote, the same physical key. The world interaction hint fills '[E]' with the live Interact key when one is bound, and otherwise shows the action's name and its status (`src/utils/NpcLiveKeyLabel.lua`); no locale sentence is edited. (Wizard's #132, merged at f15cddd4 on 2026-10-11, one PR of his keyboard-defaults wave.)
 - The in-game check is TESTING row 536. Docs by Fred's catch-up (R-51), on Tyson's word of 2026-10-14.
+
+## 2026-10-14 (Fred (via Desk)): the build script packs only the mod (MAINTENANCE row 311)
+
+- [x] `build.py` keeps `.git`, `.github/`, `docs/`, the Markdown files and the Python helpers under `translations/` out of the zip. Every build shipped the repo's docs and tooling to players; nothing in the mod loads any of them.
+- Build tooling only, no in-game check (TESTING row 573). Found by a fleet sweep that built every mod once from development in a throwaway worktree, on Tyson's word of 2026-10-14.
