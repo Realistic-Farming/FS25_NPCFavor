@@ -32,14 +32,18 @@ from pathlib import Path
 ZIP_NAME = "FS25_NPCFavor.zip"
 
 # Exclusion lists — keep in sync with build.sh
-EXCLUDE_DIRS = {".git", ".claude", ".vscode", ".idea", "node_modules", "tools"}
+EXCLUDE_DIRS = {".git", ".github", ".claude", ".vscode", ".idea", "node_modules", "tools", "docs"}
 EXCLUDE_FILES = {
+    # ".git" is a FILE, not a directory, in a git worktree (it points at the main
+    # clone's git dir), so EXCLUDE_DIRS alone does not keep it out of the zip.
+    ".git",
     "build.sh", "build.py",
     "find_unused_code.sh", "find_unused_code.py",
     "lang_sync.js", "lang_sync.py",
     "CLAUDE.md", "Thumbs.db", ".DS_Store", ".gitignore", "nul",
 }
-EXCLUDE_EXTS = {".zip", ".swp", ".swo"}
+# Docs and helper scripts never load in game (translations/ carries Python helpers).
+EXCLUDE_EXTS = {".zip", ".swp", ".swo", ".md", ".py"}
 
 
 def build_zip(source_dir: Path, output_path: Path) -> int:
