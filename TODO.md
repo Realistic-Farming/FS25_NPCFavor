@@ -173,3 +173,8 @@ This list is expected to evolve as FS25 modding constraints and design ideas cha
 
 - [x] 14 garbled title and description lines decoded back to the text already decided; nothing else touched.
 - [~] In game (owed): TESTING row 480.
+
+## 2026-10-14 (Fred (via Desk)): keyboard defaults (Wizard, #132)
+
+- [x] `modDesc.xml`: FAVOR_MENU on Right Shift + 6, NPC_INTERACT on Right Ctrl + N, NPC_TOGGLE_HUD on KEY_backquote; `src/scripts/NPCInteractionUI.lua` reads the live key through `src/utils/NpcLiveKeyLabel.lua` (new, sourced in `main.lua`); the 26 translation files.
+- [~] In game (owed): TESTING row 536.
