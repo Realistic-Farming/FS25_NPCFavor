@@ -4414,9 +4414,16 @@ function NPCSystem:update(dt)
         -- Sync entity visuals + map hotspot positions from server-synced NPC data.
         -- Without this, entities stay at their client-local init positions and
         -- map Visit teleport targets are never refreshed.
+        -- [#137] The client also rebuilds its list of neighbours in talking range,
+        -- as the server's updateNPCs does: the talk key (main.lua) is active only
+        -- while this list holds someone, and picks the nearest from it.
+        self.nearbyNPCs = {}
         for _, npc in ipairs(self.activeNPCs) do
             self.entityManager:updateNPCEntity(npc, dt)
             self:checkPlayerProximity(npc)
+            if npc.canInteract then
+                table.insert(self.nearbyNPCs, npc)
+            end
         end
     end
 
