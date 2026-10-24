@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-10-22T12:32:59Z
-**Days tracked:** 175 | **Download snapshots:** 870 (hourly)
+**Last updated:** 2026-10-24T12:15:48Z
+**Days tracked:** 176 | **Download snapshots:** 875 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 258 | 147 |
-| Git Clones | 368 | 148 |
+| Page Views | 199 | 133 |
+| Git Clones | 390 | 155 |
 
-> **Engagement:** 1.7 pages per visitor (14-day avg)
+> **Engagement:** 1.4 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 1266 of 147 visitors cloned or downloaded (**861.2%**)
+> **14-day conversion:** 1278 of 133 visitors cloned or downloaded (**960.9%**)
 >
-> Unique cloners: 148 | Release downloads: 1118
+> Unique cloners: 155 | Release downloads: 1123
 
 ---
 
@@ -42,9 +42,9 @@
 
 | Channel | Count |
 |---------|-------|
-| Zip Downloads | 1118 |
-| Git Clones (14-day) | 368 |
-| **Total Acquisitions** | **1486** |
+| Zip Downloads | 1123 |
+| Git Clones (14-day) | 390 |
+| **Total Acquisitions** | **1513** |
 
 ---
 
@@ -54,12 +54,11 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| Google | 54 | 42 |
-| github.com | 41 | 35 |
+| Google | 38 | 30 |
+| github.com | 37 | 33 |
 | kingmods.net | 9 | 6 |
 | realisticfarming.com | 8 | 8 |
 | yandex.ru | 2 | 2 |
-| chatgpt.com | 2 | 1 |
 | Bing | 1 | 1 |
 | ya.ru | 1 | 1 |
 
@@ -81,16 +80,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/Realistic-Farming/FS25_NPCFavor` | 134 | 100 |
-| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.3.0.0` | 19 | 18 |
-| `/Realistic-Farming/FS25_NPCFavor/releases` | 18 | 17 |
-| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 18 | 12 |
-| `/Realistic-Farming/FS25_NPCFavor/issues` | 13 | 8 |
+| `/Realistic-Farming/FS25_NPCFavor` | 111 | 90 |
+| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.3.0.0` | 21 | 20 |
+| `/Realistic-Farming/FS25_NPCFavor/releases` | 16 | 15 |
 | `/Realistic-Farming/FS25_NPCFavor/blob/main/icon_source.png` | 11 | 5 |
-| `/Realistic-Farming/FS25_NPCFavor/tree/development` | 6 | 3 |
-| `/Realistic-Farming/FS25_NPCFavor/wiki` | 5 | 5 |
-| `/Realistic-Farming/FS25_NPCFavor/issues/71` | 5 | 2 |
-| `/Realistic-Farming/FS25_NPCFavor/blob/main/docs/relationship-system.md` | 3 | 3 |
+| `/Realistic-Farming/FS25_NPCFavor/issues` | 8 | 7 |
+| `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.2.7.1` | 5 | 4 |
+| `/Realistic-Farming/FS25_NPCFavor/wiki` | 4 | 4 |
+| `/Realistic-Farming/FS25_NPCFavor/tree/development` | 3 | 2 |
+| `/Realistic-Farming/FS25_NPCFavor/blob/main/docs/relationship-system.md` | 2 | 2 |
+| `/Realistic-Farming/FS25_NPCFavor/issues/137` | 2 | 1 |
 
 ---
 
