@@ -7439,5 +7439,47 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-10-27": [
+    {
+      "referrer": "github.com",
+      "count": 41,
+      "uniques": 35
+    },
+    {
+      "referrer": "Google",
+      "count": 34,
+      "uniques": 26
+    },
+    {
+      "referrer": "realisticfarming.com",
+      "count": 13,
+      "uniques": 12
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 12,
+      "uniques": 8
+    },
+    {
+      "referrer": "yandex.ru",
+      "count": 3,
+      "uniques": 3
+    },
+    {
+      "referrer": "Bing",
+      "count": 2,
+      "uniques": 2
+    },
+    {
+      "referrer": "search.brave.com",
+      "count": 1,
+      "uniques": 1
+    },
+    {
+      "referrer": "ya.ru",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
