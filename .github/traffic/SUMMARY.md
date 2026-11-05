@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-11-04T18:54:23Z
-**Days tracked:** 183 | **Download snapshots:** 908 (hourly)
+**Last updated:** 2026-11-05T12:48:16Z
+**Days tracked:** 184 | **Download snapshots:** 909 (hourly)
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 342 | 199 |
-| Git Clones | 302 | 110 |
+| Page Views | 358 | 204 |
+| Git Clones | 308 | 111 |
 
 > **Engagement:** 1.7 pages per visitor (14-day avg)
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 1282 of 199 visitors cloned or downloaded (**644.2%**)
+> **14-day conversion:** 1284 of 204 visitors cloned or downloaded (**629.4%**)
 >
-> Unique cloners: 110 | Release downloads: 1172
+> Unique cloners: 111 | Release downloads: 1173
 
 ---
 
@@ -42,9 +42,9 @@
 
 | Channel | Count |
 |---------|-------|
-| Zip Downloads | 1172 |
-| Git Clones (14-day) | 302 |
-| **Total Acquisitions** | **1474** |
+| Zip Downloads | 1173 |
+| Git Clones (14-day) | 308 |
+| **Total Acquisitions** | **1481** |
 
 ---
 
@@ -55,11 +55,11 @@
 | Source | Views | Unique |
 |--------|-------|--------|
 | aocr.org | 58 | 58 |
-| github.com | 38 | 29 |
-| Google | 36 | 29 |
+| github.com | 43 | 34 |
+| Google | 37 | 29 |
 | kingmods.net | 11 | 5 |
 | realisticfarming.com | 8 | 7 |
-| Bing | 6 | 4 |
+| Bing | 7 | 5 |
 | yandex.ru | 6 | 4 |
 | search.brave.com | 1 | 1 |
 
@@ -81,9 +81,9 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/Realistic-Farming/FS25_NPCFavor` | 160 | 101 |
+| `/Realistic-Farming/FS25_NPCFavor` | 168 | 105 |
 | `/Realistic-Farming/FS25_NPCFavor/releases/tag/v1.3.0.0` | 30 | 27 |
-| `/Realistic-Farming/FS25_NPCFavor/releases` | 23 | 19 |
+| `/Realistic-Farming/FS25_NPCFavor/releases` | 24 | 20 |
 | `/Realistic-Farming/FS25_NPCFavor/issues` | 10 | 7 |
 | `/Realistic-Farming/FS25_NPCFavor/pull/53` | 6 | 6 |
 | `/Realistic-Farming/FS25_NPCFavor/issues/64` | 5 | 5 |
