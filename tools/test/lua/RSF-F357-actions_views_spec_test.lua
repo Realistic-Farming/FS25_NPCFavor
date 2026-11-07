@@ -1043,6 +1043,63 @@ do
         whereLine(detailFor(placed)), "location recorded, your own position is not")
     client.playerPositionValid = true
 
+    -- =====================================================
+    -- W: a RECOVERY row's View (Mike's RF-2033 finding)
+    -- =====================================================
+    -- A recovery row is a DIFFERENT shape from a work row: it carries timeKnown
+    -- plus timeRemaining and NO timeRemainingMs, and rewardPaid as a tri-state
+    -- with no amount at all. The first version read only the work-row fields, so
+    -- a known 3h recovery row rendered "No time limit" and invented "Reward: $0"
+    -- while the recovery LIST beside it showed the right thing. These rows pin
+    -- the recovery shape directly.
+    local function recoveryDetail(row)
+        mdlg.favorIndices[1] = row
+        shownInfo = nil
+        NPCFavorManagementDialog.onClickFavor1View(mdlg)
+        return (shownInfo and shownInfo.text) or ""
+    end
+    local recRow = { type = "help_harvest", npcName = "Ada", description = "recovered job",
+                     status = "paused", progress = 50,
+                     timeKnown = true, timeRemaining = 3 * 3600000,
+                     rewardPaid = -1, recoveryReason = "owner_unresolved" }
+    local recText = recoveryDetail(recRow)
+    T.ok("W1 a known 3h recovery row shows the time, not 'No time limit'",
+        recText:find("3h 00m", 1, true) ~= nil and recText:find("No time limit", 1, true) == nil)
+    T.ok("W2 an unknown paid status reads as unknown and invents NO amount",
+        recText:find("Reward paid: unknown", 1, true) ~= nil
+        and recText:find("Reward: $", 1, true) == nil)
+    T.ok("W3 and the recovery reason is still shown", recText:find("Reason: ", 1, true) ~= nil)
+
+    local recPaid = {}
+    for k, v in pairs(recRow) do recPaid[k] = v end
+    recPaid.rewardPaid = 1
+    T.ok("W4 a paid recovery row says so", recoveryDetail(recPaid):find("Reward paid: yes", 1, true) ~= nil)
+    recPaid.rewardPaid = 0
+    T.ok("W5 an unpaid one says so too", recoveryDetail(recPaid):find("Reward paid: no", 1, true) ~= nil)
+
+    -- the fallback Mike asked for: an unknown remaining time
+    local recUnknown = {}
+    for k, v in pairs(recRow) do recUnknown[k] = v end
+    recUnknown.timeKnown = false
+    recUnknown.timeRemaining = nil
+    T.ok("W6 a recovery row with UNKNOWN remaining time says so, not 'No time limit'",
+        (function() local t = recoveryDetail(recUnknown)
+           return t:find("Remaining time unavailable", 1, true) ~= nil
+              and t:find("No time limit", 1, true) == nil end)())
+
+    -- CONTROL: the work-row path is unchanged, amount and all
+    local workRow = { type = "help_harvest", npcName = "Ada", description = "active job",
+                      status = "active", progress = 10, timeKnown = true,
+                      -- deliberately different, so preferring the wrong field is visible
+                      timeRemainingMs = 2 * 3600000, timeRemaining = 9 * 3600000,
+                      reward = 1234, nextStepText = "Drive to the field" }
+    local workText = recoveryDetail(workRow)
+    T.ok("W7 CONTROL: a work row still reads timeRemainingMs FIRST, and its reward amount",
+        workText:find("2h 00m", 1, true) ~= nil and workText:find("9h 00m", 1, true) == nil
+        and workText:find("Reward: $1234", 1, true) ~= nil)
+    T.ok("W8 CONTROL: and carries no paid tri-state line",
+        workText:find("Reward paid:", 1, true) == nil)
+
     -- The remaining row shapes the handler has to render.
     local pending = {}
     for k, v in pairs(placed) do pending[k] = v end

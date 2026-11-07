@@ -642,8 +642,20 @@ function NPCFavorManagementDialog:getTimeRemainingText(favor, sys)
     -- timeKnown and timeRemainingMs (describeWorkRow, NPCPersonDialog.lua:214-216)
     -- and no expirationGameTime at all. Without this branch the first test below
     -- read nil and every active row painted "No time limit".
-    if favor.timeKnown == true and type(favor.timeRemainingMs) == "number" then
-        return string.format(getModText("npc_mgmt_time_left", "%s left"), formatMs(favor.timeRemainingMs))
+    -- A RECOVERY row is a different shape: NPCFavorRecovery.lua:1241-1242 gives it
+    -- timeKnown plus timeRemaining, and no timeRemainingMs at all, which is why
+    -- fillRecoveryRow below formats formatMs(row.timeRemaining). Both fields are
+    -- milliseconds. Reading only the active field made a known 3h recovery row
+    -- fall through to "No time limit". timeRemainingMs is still preferred, so
+    -- work-row behaviour is unchanged: getPageItems gives an active row both.
+    if favor.timeKnown == true then
+        local ms = favor.timeRemainingMs
+        if type(ms) ~= "number" then
+            ms = favor.timeRemaining
+        end
+        if type(ms) == "number" then
+            return string.format(getModText("npc_mgmt_time_left", "%s left"), formatMs(ms))
+        end
     end
     if favor.timeKnown == false then
         return getModText("npc_recovery_time_unknown", "Remaining time unavailable")
@@ -990,15 +1002,25 @@ function NPCFavorManagementDialog:buildFavorDetailLines(favor, sys)
         math.floor(tonumber(favor.progress) or 0))
     lines[#lines + 1] = string.format(getModText("npc_mgmt_view_time", "Time left: %s"),
         self:getTimeRemainingText(favor, sys))
-    local reward = 0
+    -- An amount is printed only when the row actually carries one. A RECOVERY row
+    -- carries no reward amount at all (NPCFavorRecovery.lua:1230-1255) and instead
+    -- carries rewardPaid as a tri-state, so defaulting to 0 invented a "Reward: $0"
+    -- that contradicted the recovery list's own correct line. The paid line here is
+    -- the same key and the same triText helper fillRecoveryRow already uses.
+    local reward = nil
     if type(favor.reward) == "table" then
-        reward = favor.reward.amount or favor.reward.money or 0
+        reward = favor.reward.amount or favor.reward.money
     elseif type(favor.reward) == "number" then
         reward = favor.reward
     elseif type(favor.rewardMoney) == "number" then
         reward = favor.rewardMoney
     end
-    lines[#lines + 1] = string.format(getModText("npc_mgmt_view_reward", "Reward: $%d"), reward)
+    if type(reward) == "number" then
+        lines[#lines + 1] = string.format(getModText("npc_mgmt_view_reward", "Reward: $%d"), reward)
+    elseif favor.rewardPaid ~= nil then
+        lines[#lines + 1] = string.format(getModText("npc_recovery_reward_paid", "Reward paid: %s"),
+            triText(favor.rewardPaid))
+    end
     -- Recovery rows only: a work row carries neither of these fields.
     if type(favor.recoveryReason) == "string" and favor.recoveryReason ~= "" then
         local reason = self:reasonLabel(favor.recoveryReason)

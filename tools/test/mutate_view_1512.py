@@ -97,11 +97,9 @@ MUTATIONS = [
 
  # ── the numbers ─────────────────────────────────────────────────────────────
  ("M12-time-from-absent-field", MGD,
-  [("    if favor.timeKnown == true and type(favor.timeRemainingMs) == \"number\" then\n"
-    "        return string.format(getModText(\"npc_mgmt_time_left\", \"%s left\"), formatMs(favor.timeRemainingMs))\n"
-    "    end\n",
+  [("    if favor.timeKnown == true then\n        local ms = favor.timeRemainingMs\n        if type(ms) ~= \"number\" then\n            ms = favor.timeRemaining\n        end\n        if type(ms) == \"number\" then\n            return string.format(getModText(\"npc_mgmt_time_left\", \"%s left\"), formatMs(ms))\n        end\n    end\n",
     "", 1)],
-  "the time text goes back to reading the expirationGameTime a work row does not have"),
+  "the time text goes back to expirationGameTime, which no row carries"),
  ("M13-urgency-permanently-calm", MGD,
   [("    if favor.timeKnown == true and type(favor.timeRemainingMs) == \"number\" then\n"
     "        local hours = favor.timeRemainingMs / 3600000\n",
@@ -137,6 +135,23 @@ MUTATIONS = [
     "    if self.mode ~= \"recovery\" and self.workView ~= nil then\n", 1)],
   "a current page is labelled last-confirmed"),
 
+ # ── RF-2033: the recovery row's own shape (anchors taken verbatim) ────
+ ("W01-recovery-time-ignored", MGD,
+  [("    if favor.timeKnown == true then\n        local ms = favor.timeRemainingMs\n        if type(ms) ~= \"number\" then\n            ms = favor.timeRemaining\n        end\n        if type(ms) == \"number\" then\n            return string.format(getModText(\"npc_mgmt_time_left\", \"%s left\"), formatMs(ms))\n        end\n    end\n",
+    "    if favor.timeKnown == true and type(favor.timeRemainingMs) == \"number\" then\n        return string.format(getModText(\"npc_mgmt_time_left\", \"%s left\"), formatMs(favor.timeRemainingMs))\n    end\n", 1)],
+  "a known recovery row falls through to No time limit again"),
+ ("W02-reward-defaults-to-zero", MGD,
+  [("    local reward = nil\n    if type(favor.reward) == \"table\" then\n        reward = favor.reward.amount or favor.reward.money\n    elseif type(favor.reward) == \"number\" then\n        reward = favor.reward\n    elseif type(favor.rewardMoney) == \"number\" then\n        reward = favor.rewardMoney\n    end\n",
+    "    local reward = 0\n    if type(favor.reward) == \"table\" then\n        reward = favor.reward.amount or favor.reward.money or 0\n    elseif type(favor.reward) == \"number\" then\n        reward = favor.reward\n    elseif type(favor.rewardMoney) == \"number\" then\n        reward = favor.rewardMoney\n    end\n", 1)],
+  "a recovery row invents Reward: $0 again"),
+ ("W03-paid-tristate-dropped", MGD,
+  [("    elseif favor.rewardPaid ~= nil then\n        lines[#lines + 1] = string.format(getModText(\"npc_recovery_reward_paid\", \"Reward paid: %s\"),\n            triText(favor.rewardPaid))\n    end\n",
+    "    end\n", 1)],
+  "a recovery row shows no reward information at all"),
+ ("W04-prefers-the-wrong-field", MGD,
+  [("        local ms = favor.timeRemainingMs\n        if type(ms) ~= \"number\" then\n            ms = favor.timeRemaining\n        end\n",
+    "        local ms = favor.timeRemaining\n        if type(ms) ~= \"number\" then\n            ms = favor.timeRemainingMs\n        end\n", 1)],
+  "a work row reads the mapped legacy field instead of its own"),
  # ── the shipped locale ──────────────────────────────────────────────────────
  ("M20-key-missing-from-english", EN,
   [("\t\t<text name=\"npc_mgmt_view_destination\" text=\"Where: %s\" />\n", "", 1)],
