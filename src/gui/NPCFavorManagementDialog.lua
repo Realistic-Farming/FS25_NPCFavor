@@ -638,6 +638,28 @@ end
 
 --- Get time remaining text for a favor (active mode, mission clock)
 function NPCFavorManagementDialog:getTimeRemainingText(favor, sys)
+    -- RSF-F357 moved active mode onto the copied work page, whose rows carry
+    -- timeKnown and timeRemainingMs (describeWorkRow, NPCPersonDialog.lua:214-216)
+    -- and no expirationGameTime at all. Without this branch the first test below
+    -- read nil and every active row painted "No time limit".
+    -- A RECOVERY row is a different shape: NPCFavorRecovery.lua:1241-1242 gives it
+    -- timeKnown plus timeRemaining, and no timeRemainingMs at all, which is why
+    -- fillRecoveryRow below formats formatMs(row.timeRemaining). Both fields are
+    -- milliseconds. Reading only the active field made a known 3h recovery row
+    -- fall through to "No time limit". timeRemainingMs is still preferred, so
+    -- work-row behaviour is unchanged: getPageItems gives an active row both.
+    if favor.timeKnown == true then
+        local ms = favor.timeRemainingMs
+        if type(ms) ~= "number" then
+            ms = favor.timeRemaining
+        end
+        if type(ms) == "number" then
+            return string.format(getModText("npc_mgmt_time_left", "%s left"), formatMs(ms))
+        end
+    end
+    if favor.timeKnown == false then
+        return getModText("npc_recovery_time_unknown", "Remaining time unavailable")
+    end
     if not favor.expirationGameTime then
         return "No time limit"
     end
@@ -656,6 +678,16 @@ end
 
 --- Get time urgency (0-1, where 1 is most urgent)
 function NPCFavorManagementDialog:getTimeUrgency(favor, sys)
+    -- A work row has no startTime either, so without this branch every active
+    -- row returned 0 and painted the calm colour however little time was left.
+    -- The thresholds are the HUD's own (NPCFavorHUD.lua:842-847), stated in
+    -- HOURS derived from milliseconds, not in the legacy minute units below.
+    if favor.timeKnown == true and type(favor.timeRemainingMs) == "number" then
+        local hours = favor.timeRemainingMs / 3600000
+        if hours < 2 then return 1 end
+        if hours < 6 then return 0.5 end
+        return 0
+    end
     if not favor.expirationGameTime or not favor.startTime then
         return 0
     end
@@ -858,34 +890,199 @@ function NPCFavorManagementDialog:onClickFarmPrev() self:cycleFarm(-1) end
 function NPCFavorManagementDialog:onClickFarmNext() self:cycleFarm(1) end
 
 -- =========================================================
+-- Favor detail view (JamesW report 2026-11-05)
+-- =========================================================
+-- Active mode lists the COPIED WORK PAGE (getPageItems above), so a row holds
+-- exactly the wire fields describeWorkRow built for THIS actor
+-- (NPCPersonDialog.lua:203-246) and nothing else. Two consequences drive the
+-- code below. The old View handler printed favor.ownerFarmId and
+-- favor.recoveryReason, neither of which a work row carries, so those lines
+-- could only ever read "nil" and ""; and it printed to the log, where no
+-- player sees it. Reading only the row also means the detail view cannot leak
+-- another farm's work: the server already decided what this farm may see.
+
+--- The step target, chosen the way the HUD chooses it
+--- (NPCFavorHUD.lua:863-872): the next step's own location, else a LIVE
+--- durable person's position, else nothing. A waiting or unproven person
+--- never supplies a fabricated point.
+function NPCFavorManagementDialog:favorTargetPosition(favor, sys)
+    if favor.status ~= "pending" and favor.nextStepLocationPresent == true
+        and type(favor.nextStepX) == "number" and type(favor.nextStepZ) == "number" then
+        return favor.nextStepX, favor.nextStepZ
+    end
+    local personId = nil
+    if favor.personIdPresent == true and type(favor.personId) == "number" then
+        personId = favor.personId
+    elseif type(favor.npcId) == "number" then
+        personId = favor.npcId
+    end
+    if personId ~= nil and personId ~= 0 and sys ~= nil and sys.getNPCById ~= nil then
+        local npc = sys:getNPCById(personId)
+        local pos = npc ~= nil and npc.position or nil
+        if type(pos) == "table" and type(pos.x) == "number" and type(pos.z) == "number" then
+            return pos.x, pos.z
+        end
+    end
+    return nil, nil
+end
+
+--- Readable "where to go" for one row. A missing location and a missing player
+--- position are different sentences, and neither one invents a distance.
+function NPCFavorManagementDialog:favorDestinationText(favor, sys)
+    local tx, tz = self:favorTargetPosition(favor, sys)
+    if tx == nil then
+        return getModText("npc_mgmt_view_dest_none", "no map location recorded for this step")
+    end
+    local px, pz
+    -- The same source the HUD reads its player position from
+    -- (NPCFavorHUD.lua:449-455), so the two cannot disagree.
+    if sys ~= nil and sys.playerPositionValid and type(sys.playerPosition) == "table" then
+        px, pz = sys.playerPosition.x, sys.playerPosition.z
+    end
+    if type(px) ~= "number" or type(pz) ~= "number" then
+        return getModText("npc_mgmt_view_dest_unknown", "location recorded, your own position is not")
+    end
+    local hud = sys.favorHUD
+    if hud ~= nil and type(hud.getDistanceInfo) == "function" then
+        local ok, distText = pcall(hud.getDistanceInfo, hud, px, pz, tx, tz)
+        if ok and type(distText) == "string" and distText ~= "" then
+            return distText
+        end
+    end
+    local dx, dz = tx - px, tz - pz
+    return string.format("%dm", math.floor(math.sqrt(dx * dx + dz * dz)))
+end
+
+--- The current objective, with the qualifiers the row already carries. Mirrors
+--- the HUD's second line (NPCFavorHUD.lua:897-904) so the dialog and the HUD
+--- never tell the player two different things.
+function NPCFavorManagementDialog:favorObjectiveText(favor, npcName)
+    local text
+    if favor.status == "pending" then
+        text = string.format(getModText("npc_mgmt_view_step_accept", "talk to %s to accept this offer"), npcName)
+    elseif type(favor.nextStepText) == "string" and favor.nextStepText ~= "" then
+        text = favor.nextStepText
+    else
+        text = favor.description or favor.type or getModText("npc_recovery_unknown", "unknown")
+    end
+    if favor.awaitingConfirmation == true then
+        text = text .. "  |  " .. getModText("npc_mgmt_view_awaiting", "waiting for the neighbour to confirm")
+    elseif favor.isLoanRepayStep == true and favor.loanAmountPresent == true then
+        text = text .. "  |  " .. string.format(getModText("npc_mgmt_view_step_repay", "repay $%d"),
+            tonumber(favor.loanAmount) or 0)
+    elseif favor.isDialogStep == true then
+        text = text .. "  |  " .. string.format(getModText("npc_mgmt_view_step_talk", "talk to %s"), npcName)
+    end
+    return text
+end
+
+--- Build the player-visible detail block for one row. Active and recovery rows
+--- are different shapes, so every optional line is guarded by the field's own
+--- type rather than by the mode.
+function NPCFavorManagementDialog:buildFavorDetailLines(favor, sys)
+    local npc = (favor.npcId ~= nil and sys ~= nil and sys.getNPCById ~= nil) and sys:getNPCById(favor.npcId) or nil
+    local unknown = getModText("npc_recovery_unknown", "unknown")
+    local npcName = (npc ~= nil and npc.name) or favor.npcName or unknown
+    local lines = { getModText("npc_mgmt_view_title", "Favor details") }
+    local rel = (npc ~= nil) and npc.relationship or nil
+    if type(rel) == "number" then
+        lines[#lines + 1] = string.format(getModText("npc_mgmt_view_npc_rel", "Neighbour: %s (Rel: %d)"), npcName, rel)
+    else
+        lines[#lines + 1] = string.format(getModText("npc_mgmt_view_npc", "Neighbour: %s"), npcName)
+    end
+    lines[#lines + 1] = string.format(getModText("npc_mgmt_view_job", "Job: %s"),
+        favor.description or favor.type or unknown)
+    lines[#lines + 1] = string.format(getModText("npc_mgmt_view_status", "Status: %s"),
+        tostring(favor.status or unknown))
+    lines[#lines + 1] = string.format(getModText("npc_mgmt_view_objective", "Now: %s"),
+        self:favorObjectiveText(favor, npcName))
+    lines[#lines + 1] = string.format(getModText("npc_mgmt_view_destination", "Where: %s"),
+        self:favorDestinationText(favor, sys))
+    lines[#lines + 1] = string.format(getModText("npc_mgmt_view_progress", "Progress: %d%% done"),
+        math.floor(tonumber(favor.progress) or 0))
+    lines[#lines + 1] = string.format(getModText("npc_mgmt_view_time", "Time left: %s"),
+        self:getTimeRemainingText(favor, sys))
+    -- An amount is printed only when the row actually carries one. A RECOVERY row
+    -- carries no reward amount at all (NPCFavorRecovery.lua:1230-1255) and instead
+    -- carries rewardPaid as a tri-state, so defaulting to 0 invented a "Reward: $0"
+    -- that contradicted the recovery list's own correct line. The paid line here is
+    -- the same key and the same triText helper fillRecoveryRow already uses.
+    local reward = nil
+    if type(favor.reward) == "table" then
+        reward = favor.reward.amount or favor.reward.money
+    elseif type(favor.reward) == "number" then
+        reward = favor.reward
+    elseif type(favor.rewardMoney) == "number" then
+        reward = favor.rewardMoney
+    end
+    if type(reward) == "number" then
+        lines[#lines + 1] = string.format(getModText("npc_mgmt_view_reward", "Reward: $%d"), reward)
+    elseif favor.rewardPaid ~= nil then
+        lines[#lines + 1] = string.format(getModText("npc_recovery_reward_paid", "Reward paid: %s"),
+            triText(favor.rewardPaid))
+    end
+    -- Recovery rows only: a work row carries neither of these fields.
+    if type(favor.recoveryReason) == "string" and favor.recoveryReason ~= "" then
+        local reason = self:reasonLabel(favor.recoveryReason)
+        if reason ~= "" then
+            lines[#lines + 1] = string.format(getModText("npc_mgmt_view_reason", "Reason: %s"), reason)
+        end
+    end
+    if favor.contributionHeld == true and NPCCompanion ~= nil and NPCCompanion.holdKey ~= nil then
+        local holdKey = NPCCompanion.holdKey(favor.contributionHoldReason)
+        if holdKey ~= nil then
+            lines[#lines + 1] = getModText(holdKey, tostring(favor.contributionHoldReason or ""))
+        end
+    end
+    if favor.recoveredFromLegacy == true then
+        lines[#lines + 1] = getModText("npc_recovery_tag_resumed", "Resumed")
+    end
+    -- A last-confirmed page is for looking at, and the player should be told
+    -- that is what they are reading rather than wonder why the buttons are gone.
+    if self.mode ~= "recovery" and self.workView ~= nil and self.workView.state ~= "CURRENT" then
+        lines[#lines + 1] = getModText("npc_mgmt_view_stale_page",
+            "This is the last confirmed page; actions wait for a fresh one.")
+    end
+    return table.concat(lines, "\n")
+end
+
+--- The click entry for every row's View button. The row is re-read here rather
+--- than captured, so a page that changed under the player cannot be shown as
+--- current detail. Returns whether a dialog was opened, for the bench.
+function NPCFavorManagementDialog:showFavorDetails(rowNum)
+    local favor = self.favorIndices ~= nil and self.favorIndices[rowNum] or nil
+    local sys = self.npcSystem
+    if favor == nil or sys == nil then
+        self.footerMessage = getModText("npc_mgmt_view_gone", "That favor is no longer on this page.")
+        self:updateDisplay()
+        return false
+    end
+    local text = self:buildFavorDetailLines(favor, sys)
+    -- InfoDialog.show returns nothing and is a silent no-op without its
+    -- INSTANCE (InfoDialog.lua:8-19), so the guard has to be the INSTANCE
+    -- itself. Same fallback shape as the recovery YesNoDialog guard above.
+    if InfoDialog == nil or type(InfoDialog.show) ~= "function" or InfoDialog.INSTANCE == nil then
+        self.footerMessage = getModText("npc_mgmt_view_unavailable",
+            "Details are unavailable until the game is reloaded.")
+        self:updateDisplay()
+        print("[NPC Favor] View details:\n" .. text)
+        return false
+    end
+    -- No callback: acceptDialog closes the dialog before it would call one
+    -- (InfoDialog.lua:70-85), so nil is a clean dismiss.
+    InfoDialog.show(text, nil, nil, nil, getModText("npc_mgmt_view_ok", "Close"))
+    return true
+end
+
+-- =========================================================
 -- Row buttons
 -- =========================================================
 
 -- Generate onClick handlers for View, Cancel, Goto, Complete for each row
 for i = 1, NPCFavorManagementDialog.MAX_FAVORS do
-    -- View Details
+    -- View Details: one shared implementation so five rows cannot drift apart.
     NPCFavorManagementDialog["onClickFavor" .. i .. "View"] = function(self)
-        local favor = self.favorIndices[i]
-        if not favor then return end
-        local npc = self.npcSystem:getNPCById(favor.npcId)
-        local npcName = npc and npc.name or favor.npcName or "Unknown"
-        local reward = 0
-        if type(favor.reward) == "table" then
-            reward = favor.reward.amount or favor.reward.money or 0
-        elseif type(favor.reward) == "number" then
-            reward = favor.reward
-        end
-        local details = string.format(
-            "=== Favor Details ===\nNPC: %s\nType: %s\nDescription: %s\nReward: $%d\nStatus: %s\nOwner: %s\nReason: %s\n",
-            npcName,
-            favor.type or "Unknown",
-            favor.description or "No description",
-            reward,
-            favor.status or "active",
-            tostring(favor.ownerFarmId),
-            tostring(favor.recoveryReason or "")
-        )
-        print("[NPC Favor] " .. details)
+        self:showFavorDetails(i)
     end
 
     -- Cancel Favor: server-routed exactly like Done (RSF-F148). abandonFavor

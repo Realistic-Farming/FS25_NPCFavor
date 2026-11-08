@@ -1,6 +1,7 @@
 -- RSF-F357 actions and private views: remote dialogs carry intent, host state alone mutates.
 --!load: src/utils/NPCFarmIdentity.lua, src/settings/NPCSettings.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCRelationshipManager.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/scripts/NPCFieldWork.lua, src/scripts/NPCAI.lua, src/scripts/ContractorModBridge.lua, src/scripts/NPCInteractionUI.lua, src/events/NPCStateSyncEvent.lua, src/events/NPCInteractionEvent.lua, src/events/NPCPersonDialogEvents.lua, src/integrations/NPCStateLedgerBridge.lua, src/integrations/NPCNetworkSyncBridge.lua, src/NPCSystem.lua, src/scripts/NPCPersonDialog.lua, src/gui/NPCDialog.lua, src/gui/NPCListDialog.lua, src/gui/NPCAdminEditDialog.lua, src/gui/NPCFavorManagementDialog.lua, src/scripts/NPCFavorHUD.lua, src/settings/NPCFavorGUI.lua
 --
+--!text: translations/lang_en.xml, src/gui/NPCFavorManagementDialog.lua
 -- THE ENTRY-POINT BAR. Every request enters where production enters it: a
 -- client's NPCPersonDialogRequestEvent or NPCInteractionEvent goes through
 -- writeStream on a typed mock stream and readStream on the server side with
@@ -931,6 +932,250 @@ do
     local stale = mdlg:getPageItems()[1]
     mdlg:fillFavorRow(1, stale, client)
     T.eq("M3c on a LAST_CONFIRMED page the same row shows no Cancel or Done", mdlg.workView.state .. "/" .. tostring(mdlg.favor1cancel.visible) .. "/" .. tostring(mdlg.favor1complete.visible), "LAST_CONFIRMED/false/false")
+
+    -- =========================================================
+    -- V: the View button (JamesW's report, 2026-11-05)
+    -- =========================================================
+    -- The complaint is that View does nothing. It built a detail string and
+    -- print()ed it, so nothing reached the screen, and two of its lines read
+    -- fields a work row does not carry. These cases run the REAL generated
+    -- handler against the REAL page row, with InfoDialog stubbed at the engine
+    -- boundary, so what is asserted is what a player would read.
+    local function localeTexts(path)
+        local out = {}
+        for name, text in (SOURCE_TEXT[path] or ""):gmatch('<text name="([^"]+)" text="([^"]*)"') do
+            out[name] = text
+        end
+        return out
+    end
+    local EN = localeTexts("translations/lang_en.xml")
+    local DLG_SRC = SOURCE_TEXT["src/gui/NPCFavorManagementDialog.lua"] or ""
+    T.ok("V0 the bar really has the shipped locale and the dialog source in hand",
+        next(EN) ~= nil and #DLG_SRC > 10000)
+
+    -- Regime 1: a language file WITHOUT the new keys. getModText rejects a
+    -- Missing lookup, so the code's own English fallback is what renders.
+    local origGetText = g_i18n.getText
+    g_i18n.getText = function(_, key) return "Missing " .. tostring(key) end
+
+    for _, n in ipairs({ "time", "npc", "desc", "reward", "view", "goto", "viewtxt", "gototxt" }) do
+        mdlg["favor1" .. n] = el()
+    end
+    mdlg:fillFavorRow(1, stale, client)
+    T.ok("V1 the row under test is a real page row", mdlg.favorIndices[1] == stale)
+    T.eq("V1b the row's time comes from the page's own timeRemainingMs, not the absent expirationGameTime",
+        tostring(tostring(mdlg.favor1time.text):find("No time limit") == nil), "true")
+
+    local savedInfo = InfoDialog
+    local shownInfo = nil
+    InfoDialog = { INSTANCE = {}, show = function(text, cb, target, dtype, okText)
+        shownInfo = { text = text, cb = cb, target = target, dtype = dtype, okText = okText }
+    end }
+
+    NPCFavorManagementDialog.onClickFavor1View(mdlg)
+    T.ok("V2 clicking View opens something the player can read", shownInfo ~= nil)
+    T.ok("V3 a last-confirmed page says so inside the detail",
+        shownInfo ~= nil and shownInfo.text:find("last confirmed page", 1, true) ~= nil)
+
+    -- A CURRENT page: the ordinary case.
+    client:requestPersonalWorkView("")
+    exchange(A)
+    local cur = mdlg:getPageItems()[1]
+    mdlg:fillFavorRow(1, cur, client)
+    client.playerPosition = { x = p1.position.x + 60, y = 5, z = p1.position.z + 80 }
+    client.playerPositionValid = true
+    shownInfo = nil
+    NPCFavorManagementDialog.onClickFavor1View(mdlg)
+    local t = (shownInfo and shownInfo.text) or ""
+    T.ok("V4 the detail names the neighbour", t:find(p1.name, 1, true) ~= nil)
+    local expectObjective = cur.nextStepText
+    if expectObjective == nil or expectObjective == "" then expectObjective = cur.description end
+    T.ok("V5 it states the current objective, not only the job title",
+        t:find("Now: ", 1, true) ~= nil and expectObjective ~= "" and t:find(expectObjective, 1, true) ~= nil)
+    T.ok("V6 it states progress and reward",
+        t:find("Progress: ", 1, true) ~= nil and t:find("Reward: %$") ~= nil)
+    T.eq("V7 nothing renders nil, and no Owner line survives (a work row has no ownerFarmId)",
+        tostring(t:find("nil", 1, true) == nil) .. "/" .. tostring(t:find("Owner", 1, true) == nil),
+        "true/true")
+    T.eq("V8 the dialog is dismissable: no callback, and a named close button",
+        tostring(shownInfo.cb) .. "/" .. tostring(shownInfo.okText), "nil/Close")
+    T.eq("V9 a CURRENT page carries no stale-page sentence",
+        tostring(t:find("last confirmed page", 1, true) == nil), "true")
+
+    -- Destination arithmetic, on rows whose coordinates are stated here so the
+    -- expected metres are not read back out of the code under test.
+    local function detailFor(row)
+        mdlg.favorIndices[1] = row
+        shownInfo = nil
+        NPCFavorManagementDialog.onClickFavor1View(mdlg)
+        return (shownInfo and shownInfo.text) or ""
+    end
+    -- Read the destination line on its own. A whole-block search for a
+    -- distance also matches the "3h 00m" time line, which would make the
+    -- "invents no distance" case pass or fail for the wrong reason.
+    local function whereLine(text) return (text:match("Where: ([^\n]*)")) or "" end
+    local placed = { status = "active", npcName = "Ada", description = "job", type = "help_harvest",
+        progress = 40, timeKnown = true, timeRemainingMs = 3 * 3600000, rewardMoney = 1234,
+        nextStepText = "Drive to the far field", nextStepLocationPresent = true,
+        nextStepX = 300, nextStepZ = 400, personIdPresent = false }
+    client.playerPosition = { x = 0, y = 5, z = 0 }
+    T.eq("V10 a step with a location gives the distance to it (300,400 from the origin is 500m)",
+        whereLine(detailFor(placed)), "500m")
+    client.favorHUD = hud
+    T.ok("V10b with the HUD present the same distance comes from the HUD's own helper",
+        whereLine(detailFor(placed)):find("500m", 1, true) ~= nil)
+    client.favorHUD = nil
+    local unplaced = {}
+    for k, v in pairs(placed) do unplaced[k] = v end
+    -- The wire shape matters here. describeWorkRow sets nextStepX = 0 and
+    -- nextStepZ = 0 and only overwrites them when the step really has a
+    -- location (NPCPersonDialog.lua:219-221, :243-245), so a row with NO
+    -- location still carries two numbers. A fixture that put nil there would
+    -- let a reader that ignores nextStepLocationPresent look correct while
+    -- sending the player to map coordinate 0,0.
+    unplaced.nextStepLocationPresent, unplaced.nextStepX, unplaced.nextStepZ = false, 0, 0
+    local unplacedWhere = whereLine(detailFor(unplaced))
+    T.eq("V11 a step with NO location says so on that line and invents no distance",
+        unplacedWhere .. "/" .. tostring(unplacedWhere:find("%d+m") == nil),
+        "no map location recorded for this step/true")
+    client.playerPositionValid = false
+    T.eq("V12 a known step with the player's own position unknown is a different sentence",
+        whereLine(detailFor(placed)), "location recorded, your own position is not")
+    client.playerPositionValid = true
+
+    -- =====================================================
+    -- W: a RECOVERY row's View (Mike's RF-2033 finding)
+    -- =====================================================
+    -- A recovery row is a DIFFERENT shape from a work row: it carries timeKnown
+    -- plus timeRemaining and NO timeRemainingMs, and rewardPaid as a tri-state
+    -- with no amount at all. The first version read only the work-row fields, so
+    -- a known 3h recovery row rendered "No time limit" and invented "Reward: $0"
+    -- while the recovery LIST beside it showed the right thing. These rows pin
+    -- the recovery shape directly.
+    local function recoveryDetail(row)
+        mdlg.favorIndices[1] = row
+        shownInfo = nil
+        NPCFavorManagementDialog.onClickFavor1View(mdlg)
+        return (shownInfo and shownInfo.text) or ""
+    end
+    local recRow = { type = "help_harvest", npcName = "Ada", description = "recovered job",
+                     status = "paused", progress = 50,
+                     timeKnown = true, timeRemaining = 3 * 3600000,
+                     rewardPaid = -1, recoveryReason = "owner_unresolved" }
+    local recText = recoveryDetail(recRow)
+    T.ok("W1 a known 3h recovery row shows the time, not 'No time limit'",
+        recText:find("3h 00m", 1, true) ~= nil and recText:find("No time limit", 1, true) == nil)
+    T.ok("W2 an unknown paid status reads as unknown and invents NO amount",
+        recText:find("Reward paid: unknown", 1, true) ~= nil
+        and recText:find("Reward: $", 1, true) == nil)
+    T.ok("W3 and the recovery reason is still shown", recText:find("Reason: ", 1, true) ~= nil)
+
+    local recPaid = {}
+    for k, v in pairs(recRow) do recPaid[k] = v end
+    recPaid.rewardPaid = 1
+    T.ok("W4 a paid recovery row says so", recoveryDetail(recPaid):find("Reward paid: yes", 1, true) ~= nil)
+    recPaid.rewardPaid = 0
+    T.ok("W5 an unpaid one says so too", recoveryDetail(recPaid):find("Reward paid: no", 1, true) ~= nil)
+
+    -- the fallback Mike asked for: an unknown remaining time
+    local recUnknown = {}
+    for k, v in pairs(recRow) do recUnknown[k] = v end
+    recUnknown.timeKnown = false
+    recUnknown.timeRemaining = nil
+    T.ok("W6 a recovery row with UNKNOWN remaining time says so, not 'No time limit'",
+        (function() local t = recoveryDetail(recUnknown)
+           return t:find("Remaining time unavailable", 1, true) ~= nil
+              and t:find("No time limit", 1, true) == nil end)())
+
+    -- CONTROL: the work-row path is unchanged, amount and all
+    local workRow = { type = "help_harvest", npcName = "Ada", description = "active job",
+                      status = "active", progress = 10, timeKnown = true,
+                      -- deliberately different, so preferring the wrong field is visible
+                      timeRemainingMs = 2 * 3600000, timeRemaining = 9 * 3600000,
+                      reward = 1234, nextStepText = "Drive to the field" }
+    local workText = recoveryDetail(workRow)
+    T.ok("W7 CONTROL: a work row still reads timeRemainingMs FIRST, and its reward amount",
+        workText:find("2h 00m", 1, true) ~= nil and workText:find("9h 00m", 1, true) == nil
+        and workText:find("Reward: $1234", 1, true) ~= nil)
+    T.ok("W8 CONTROL: and carries no paid tri-state line",
+        workText:find("Reward paid:", 1, true) == nil)
+
+    -- The remaining row shapes the handler has to render.
+    local pending = {}
+    for k, v in pairs(placed) do pending[k] = v end
+    pending.status, pending.nextStepText = "pending", ""
+    T.ok("V13 a pending offer's objective is to go and accept it",
+        detailFor(pending):find("to accept this offer", 1, true) ~= nil)
+    local awaiting = {}
+    for k, v in pairs(placed) do awaiting[k] = v end
+    awaiting.awaitingConfirmation = true
+    T.ok("V14 work waiting on the neighbour says so",
+        detailFor(awaiting):find("waiting for the neighbour to confirm", 1, true) ~= nil)
+    local repay = {}
+    for k, v in pairs(placed) do repay[k] = v end
+    repay.isLoanRepayStep, repay.loanAmountPresent, repay.loanAmount = true, true, 5000
+    T.ok("V15 a loan repayment names the amount",
+        detailFor(repay):find("repay $5000", 1, true) ~= nil)
+    T.eq("V16 progress and reward are the row's own numbers",
+        tostring(detailFor(placed):find("Progress: 40%% done") ~= nil) .. "/"
+        .. tostring(detailFor(placed):find("Reward: $1234", 1, true) ~= nil), "true/true")
+    T.ok("V17 three hours left reads as hours and minutes, not as a raw millisecond count",
+        detailFor(placed):find("3h 00m", 1, true) ~= nil)
+
+    -- The row's time COLOUR came from the same absent fields, so it was
+    -- permanently calm however little time was left. The urgency is read
+    -- directly here because the mock element's colour setter is a no-op.
+    local function urgency(ms, known)
+        return tostring(mdlg:getTimeUrgency({ timeKnown = known, timeRemainingMs = ms }, client))
+    end
+    T.eq("V17b urgency comes from the page's own remaining time: 1h urgent, 3h warn, 7h calm",
+        urgency(3600000, true) .. "/" .. urgency(3 * 3600000, true) .. "/" .. urgency(7 * 3600000, true),
+        "1/0.5/0")
+    T.eq("V17c a row whose remaining time is NOT known is calm, never urgent",
+        urgency(nil, false) .. "/" .. urgency(nil, nil), "0/0")
+
+    -- The two refusals: an absent row, and no InfoDialog to show.
+    local updatesBefore = mdlg.updates
+    mdlg.favorIndices[1] = nil
+    shownInfo = nil
+    NPCFavorManagementDialog.onClickFavor1View(mdlg)
+    T.eq("V18 an absent row opens nothing, says so in the footer and repaints",
+        tostring(shownInfo) .. "/" .. tostring(mdlg.footerMessage) .. "/"
+        .. tostring(mdlg.updates > updatesBefore),
+        "nil/That favor is no longer on this page./true")
+    mdlg.favorIndices[1] = placed
+    InfoDialog = { INSTANCE = nil, show = function() error("must not be called") end }
+    local okNoDialog = pcall(NPCFavorManagementDialog.onClickFavor1View, mdlg)
+    T.eq("V19 with no InfoDialog registered the click is safe and explains itself",
+        tostring(okNoDialog) .. "/" .. tostring(mdlg.footerMessage),
+        "true/Details are unavailable until the game is reloaded.")
+
+    -- Regime 2: the SHIPPED English file. Every key the source resolves must
+    -- exist there with the SAME format signature as the code fallback, or
+    -- string.format would fault for a player whose language file has the key.
+    InfoDialog = savedInfo
+    g_i18n.getText = origGetText
+    local function sig(s)
+        local out = ""
+        for spec in tostring(s):gmatch("%%[%-%d%.]*([a-zA-Z%%])") do
+            if spec ~= "%" then out = out .. spec end
+        end
+        return out
+    end
+    local checked, missing, mismatched = 0, {}, {}
+    for key, fb in DLG_SRC:gmatch('getModText%("(npc_mgmt_[%w_]+)",%s*"([^"]*)"') do
+        checked = checked + 1
+        if EN[key] == nil then
+            missing[#missing + 1] = key
+        elseif sig(EN[key]) ~= sig(fb) then
+            mismatched[#mismatched + 1] = key .. " en=" .. sig(EN[key]) .. " code=" .. sig(fb)
+        end
+    end
+    T.ok("V20 the key sweep really examined the dialog's keys", checked >= 22)
+    T.eq("V21 every npc_mgmt key the source resolves is in the shipped English file",
+        table.concat(missing, ","), "")
+    T.eq("V22 and its text takes the same format arguments as the code fallback",
+        table.concat(mismatched, ","), "")
     client:requestPersonalWorkView("")
     exchange(A)
     row = mdlg:getPageItems()[1]

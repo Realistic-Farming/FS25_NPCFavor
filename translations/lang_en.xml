@@ -418,6 +418,28 @@
 		<text name="npc_mgmt_btn_goto" text="Go To" />
 		<text name="npc_mgmt_btn_cancel" text="Cancel" />
 		<text name="npc_mgmt_btn_done" text="Done" />
+		<text name="npc_mgmt_time_left" text="%s left" />
+		<text name="npc_mgmt_view_title" text="Favor details" />
+		<text name="npc_mgmt_view_npc" text="Neighbour: %s" />
+		<text name="npc_mgmt_view_npc_rel" text="Neighbour: %s (Rel: %d)" />
+		<text name="npc_mgmt_view_job" text="Job: %s" />
+		<text name="npc_mgmt_view_status" text="Status: %s" />
+		<text name="npc_mgmt_view_objective" text="Now: %s" />
+		<text name="npc_mgmt_view_destination" text="Where: %s" />
+		<text name="npc_mgmt_view_dest_none" text="no map location recorded for this step" />
+		<text name="npc_mgmt_view_dest_unknown" text="location recorded, your own position is not" />
+		<text name="npc_mgmt_view_progress" text="Progress: %d%% done" />
+		<text name="npc_mgmt_view_time" text="Time left: %s" />
+		<text name="npc_mgmt_view_reward" text="Reward: $%d" />
+		<text name="npc_mgmt_view_reason" text="Reason: %s" />
+		<text name="npc_mgmt_view_step_accept" text="talk to %s to accept this offer" />
+		<text name="npc_mgmt_view_step_talk" text="talk to %s" />
+		<text name="npc_mgmt_view_step_repay" text="repay $%d" />
+		<text name="npc_mgmt_view_awaiting" text="waiting for the neighbour to confirm" />
+		<text name="npc_mgmt_view_stale_page" text="This is the last confirmed page; actions wait for a fresh one." />
+		<text name="npc_mgmt_view_gone" text="That favor is no longer on this page." />
+		<text name="npc_mgmt_view_unavailable" text="Details are unavailable until the game is reloaded." />
+		<text name="npc_mgmt_view_ok" text="Close" />
 		<text name="npc_person_loading" text="Your neighbours are still loading." />
 		<text name="npc_person_failed" text="Saved neighbours could not be read and were left untouched on disk." />
 		<text name="npc_person_waiting_count" text="Waiting: the town is full at the current neighbour count." />
