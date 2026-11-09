@@ -7686,5 +7686,47 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-11-09": [
+    {
+      "referrer": "aocr.org",
+      "count": 97,
+      "uniques": 97
+    },
+    {
+      "referrer": "github.com",
+      "count": 60,
+      "uniques": 38
+    },
+    {
+      "referrer": "Google",
+      "count": 38,
+      "uniques": 29
+    },
+    {
+      "referrer": "kingmods.net",
+      "count": 13,
+      "uniques": 9
+    },
+    {
+      "referrer": "Bing",
+      "count": 7,
+      "uniques": 5
+    },
+    {
+      "referrer": "realisticfarming.com",
+      "count": 6,
+      "uniques": 5
+    },
+    {
+      "referrer": "yandex.ru",
+      "count": 5,
+      "uniques": 3
+    },
+    {
+      "referrer": "duck.ai",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
