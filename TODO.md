@@ -9,6 +9,7 @@ This TODO reflects the **honest current state** of the mod. The "Done" block bel
 
 ## Recently merged
 
+- **2026-11-15** Favor accept binds to the offer shown (RSF-F357 follow-up): a neighbour who holds two pending offers no longer refuses both. In-game owed: with one neighbour holding two pending offers, accept the second one listed, then the first; each accepts without "That offer changed".
 - **2026-08-15** Esc framework table freeze (NPC Favor guest, #87): shared grid restated per show; 1.2.7.66. In-game owed: the table keeps its columns after visiting another Esc guest in the same session.
 
 ---

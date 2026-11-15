@@ -9,6 +9,7 @@
 
 ## Recently merged
 
+- **2026-11-15** Favor accept binds to the offer shown (RSF-F357 follow-up): the host now accepts the exact pending offer the player selected. Before this, every accept was refused with "That offer changed. Let me look again." whenever a neighbour held two pending offers, which the random generator makes once its cooldown has run, so neither offer could be taken. Offers a neighbour holds one at a time are unchanged. In-game check pending.
 - **2026-08-15** Esc framework table freeze (NPC Favor guest, #87): the shared 4-bay column grid is restated on every show so the guest does not inherit the previous module's geometry in the shared Esc door; the table title reset is corrected to the current 10/-8 XML baseline and the empty-hint box is restored before text is set. Merged; 1.2.7.66.
 
 ---

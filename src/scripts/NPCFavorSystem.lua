@@ -1498,8 +1498,12 @@ end
 --        validated by NPCInteractionEvent:run; on a client it is a claim that the
 --        server re-resolves. It must be an ordinary live farm or the accept is
 --        refused; no default farm is ever stamped (RSF-F148).
+-- @param record optional (RSF-F357 dialog path): the exact pending offer to accept. When
+--        given, only that record is accepted, so a person who holds two pending offers
+--        accepts the one the player was shown. When nil, the person's first pending
+--        offer is accepted, as before.
 -- @return the favor table if accepted, nil otherwise
-function NPCFavorSystem:acceptFavorForNPC(npcId, farmId)
+function NPCFavorSystem:acceptFavorForNPC(npcId, farmId, record)
     if self.isFavorLoadReady ~= nil and not self:isFavorLoadReady() then
         return nil
     end
@@ -1517,6 +1521,7 @@ function NPCFavorSystem:acceptFavorForNPC(npcId, farmId)
     end
     for _, favor in ipairs(self.activeFavors) do
         if favor.npcId == npcId and favor.status == "pending"
+            and (record == nil or favor == record)
             and not (NPCCompanion ~= nil and NPCCompanion.isContributed(favor)) then
             favor.status = "active"
             favor.startTime = TimeHelper.getGameTimeMs()

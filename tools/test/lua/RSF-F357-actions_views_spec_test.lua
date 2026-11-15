@@ -688,6 +688,89 @@ do
 end
 
 -- =========================================================
+-- X: two pending offers for one person, and an accept bound to the record shown
+-- =========================================================
+-- The random generator makes a second offer for a person once the cooldown has run
+-- (canNPCRequestFavor lets two stand), and the first is still pending when nobody took
+-- it. Offer help never makes a second one itself, so the second is made here the way
+-- the generator makes it: createFavor, appended to the active list, then its token.
+-- Before this group the host refused every accept for such a person as stale.
+do
+local function twoPending(dir)
+    local server, client, A = world({ dir = dir })
+    local p1 = server:getNPCById(1)
+    standAt(A, p1.position.x, p1.position.z)
+    p1.relationship = 45
+    local fs = server.favorSystem
+    dice({ 0.99, rollFor(fs, p1, "watch_property", 1) })
+    request(A, R.OP_OFFER_HELP, 1, "1")
+    realDice()
+    local first = fs.activeFavors[1]
+    local otherType
+    for _, ft in ipairs(fs.favorTypes) do
+        if otherType == nil and ft.id ~= "watch_property" then otherType = ft end
+    end
+    local second = fs:createFavor(p1, otherType.id)
+    table.insert(fs.activeFavors, second)
+    fs:assignRecoveryToken(second)
+    return server, A, fs, first, second
+end
+local function rowOf(favor) return { token = tostring(favor.recoveryToken), recordRevision = favor.recordRevision or 0 } end
+local function states(a, b) return a.status .. "/" .. b.status .. "/" .. tostring(a.ownerFarmId) .. "/" .. tostring(b.ownerFarmId) end
+
+do
+    local server, A, fs, first, second = twoPending("x1")
+    T.eq("X0 [reached] one person holds two pending, unowned offers, with different tokens",
+        #fs.activeFavors .. "/" .. states(first, second) .. "/" .. tostring(first.recoveryToken ~= second.recoveryToken), "2/pending/pending/nil/nil/true")
+    local accepted = workAction(A, IE.ACTION_FAVOR_ACCEPT, 1, 1, sel("2", rowOf(second)))
+    T.eq("X1 NAMED [entry point]: with two pending offers the one shown is accepted, here the second in the list, and the first is untouched",
+        accepted.result .. "/" .. accepted.messageKey .. "/" .. states(first, second),
+        R.RESULT_ACCEPTED .. "/npc_dialog_accepted/pending/active/nil/1")
+    local again = workAction(A, IE.ACTION_FAVOR_ACCEPT, 1, 1, sel("3", rowOf(first)))
+    T.eq("X2 the other offer is still acceptable afterwards, for the same farm", again.result .. "/" .. states(first, second),
+        R.RESULT_ACCEPTED .. "/active/active/1/1")
+end
+
+do
+    local server, A, fs, first, second = twoPending("x2")
+    local stale = workAction(A, IE.ACTION_FAVOR_ACCEPT, 1, 1, "5|" .. tostring(first.recoveryToken) .. "|5")
+    T.eq("X3 a revision that is not the one shown is still stale, and neither offer moves",
+        stale.result .. "/" .. stale.messageKey .. "/" .. states(first, second), R.RESULT_STALE .. "/npc_dialog_refused_stale/pending/pending/nil/nil")
+    local shown = rowOf(first)   -- the row as it was shown, before the accept bumps the revision
+    local accepted = workAction(A, IE.ACTION_FAVOR_ACCEPT, 1, 1, sel("6", shown))
+    T.eq("X4 NAMED: the first in the list is accepted while the second stays pending",
+        accepted.result .. "/" .. states(first, second), R.RESULT_ACCEPTED .. "/active/pending/1/nil")
+    local replay = workAction(A, IE.ACTION_FAVOR_ACCEPT, 1, 1, sel("6", shown))
+    T.eq("X5 the same request replays its result and accepts nothing more", replay.result .. "/" .. states(first, second),
+        R.RESULT_ACCEPTED .. "/active/pending/1/nil")
+end
+
+do
+    local server, A, fs, first, second = twoPending("x3")
+    T.eq("X6 the favour system's own accept, given the record of another person's offer, accepts nothing",
+        tostring(fs:acceptFavorForNPC(2, 1, first)) .. "/" .. states(first, second), "nil/pending/pending/nil/nil")
+    T.eq("X7 given the second record, it accepts exactly that one and the first stays pending",
+        tostring(fs:acceptFavorForNPC(1, 1, second) == second) .. "/" .. states(first, second), "true/pending/active/nil/1")
+    T.eq("X8 given a record that is no longer pending, it accepts nothing",
+        tostring(fs:acceptFavorForNPC(1, 1, second)) .. "/" .. states(first, second), "nil/pending/active/nil/1")
+end
+
+do
+    local server, A, fs, first, second = twoPending("x4")
+    T.eq("X9 called with no record, as the older callers do, it still accepts the person's first pending offer",
+        tostring(fs:acceptFavorForNPC(1, 1) == first) .. "/" .. states(first, second), "true/active/pending/1/nil")
+    -- A refusal from the favour system itself must read as a stale reply, never as an accept.
+    local realAccept = fs.acceptFavorForNPC
+    fs.acceptFavorForNPC = function() return nil end
+    local refused = workAction(A, IE.ACTION_FAVOR_ACCEPT, 1, 1, sel("5", rowOf(second)))
+    fs.acceptFavorForNPC = realAccept
+    T.eq("X10 a refusal from the favour system is a stale reply, never a reported accept, and the offer stays pending",
+        refused.result .. "/" .. refused.messageKey .. "/" .. states(first, second), R.RESULT_STALE .. "/npc_dialog_refused_stale/active/pending/1/nil")
+    T.eq("X11 no stream fault", FAULTS, 0)
+end
+end
+
+-- =========================================================
 -- P: the farm-private work page
 -- =========================================================
 do
