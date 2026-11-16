@@ -1,5 +1,5 @@
 -- NPC favor step progress on a dedicated server: a joined player's walking completes the steps.
---!load: src/utils/NPCFarmIdentity.lua, src/settings/NPCSettings.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCRelationshipManager.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/scripts/NPCFieldWork.lua, src/scripts/NPCAI.lua, src/scripts/ContractorModBridge.lua, src/scripts/NPCInteractionUI.lua, src/events/NPCStateSyncEvent.lua, src/events/NPCInteractionEvent.lua, src/events/NPCPersonDialogEvents.lua, src/integrations/NPCStateLedgerBridge.lua, src/integrations/NPCNetworkSyncBridge.lua, src/NPCSystem.lua, src/scripts/NPCPersonDialog.lua, src/gui/NPCDialog.lua, src/gui/NPCListDialog.lua, src/gui/NPCAdminEditDialog.lua, src/gui/NPCFavorManagementDialog.lua, src/scripts/NPCFavorHUD.lua, src/settings/NPCFavorGUI.lua
+--!load: src/utils/NPCFarmIdentity.lua, src/settings/NPCSettings.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCRelationshipManager.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/events/NPCFavorFlashEvent.lua, src/scripts/NPCFavorFlash.lua, src/scripts/NPCFieldWork.lua, src/scripts/NPCAI.lua, src/scripts/ContractorModBridge.lua, src/scripts/NPCInteractionUI.lua, src/events/NPCStateSyncEvent.lua, src/events/NPCInteractionEvent.lua, src/events/NPCPersonDialogEvents.lua, src/integrations/NPCStateLedgerBridge.lua, src/integrations/NPCNetworkSyncBridge.lua, src/NPCSystem.lua, src/scripts/NPCPersonDialog.lua, src/gui/NPCDialog.lua, src/gui/NPCListDialog.lua, src/gui/NPCAdminEditDialog.lua, src/gui/NPCFavorManagementDialog.lua, src/scripts/NPCFavorHUD.lua, src/settings/NPCFavorGUI.lua
 --
 --!text: translations/lang_en.xml, src/gui/NPCFavorManagementDialog.lua
 -- THE ENTRY-POINT BAR. A favour is offered through the client's OFFER_HELP and accepted through
@@ -132,8 +132,11 @@ local USERS, CONN_FARM, PLAYERS, PLAYER_OF = {}, {}, {}, {}
 local MONEY = {}          -- addMoney ledger by farm
 local BROADCASTS = 0
 local function newConnection(name, userId, farmId)
-    local c = { name = name, sent = {} }
-    c.sendEvent = function(self, ev) self.sent[#self.sent + 1] = ev end
+    local c = { name = name, sent = {}, flashes = {} }
+    -- Pop-up events are kept apart from replies, so a request still counts exactly its own answer.
+    c.sendEvent = function(self, ev)
+        if ev.className == "NPCFavorFlashEvent" then self.flashes[#self.flashes + 1] = ev else self.sent[#self.sent + 1] = ev end
+    end
     USERS[c] = { getId = function() return userId end, getIsMasterUser = function() return false end }
     CONN_FARM[c] = farmId
     return c

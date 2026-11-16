@@ -1,5 +1,5 @@
 -- RSF-F148: recovery persistence and farm ownership contract.
---!load: src/utils/NPCFarmIdentity.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/events/NPCInteractionEvent.lua, src/NPCSystem.lua, src/integrations/NPCStateLedgerBridge.lua
+--!load: src/utils/NPCFarmIdentity.lua, src/scripts/NPCPersonRoster.lua, src/scripts/NPCFavorSystem.lua, src/scripts/NPCFavorRecovery.lua, src/events/NPCFavorFlashEvent.lua, src/scripts/NPCFavorFlash.lua, src/events/NPCInteractionEvent.lua, src/NPCSystem.lua, src/integrations/NPCStateLedgerBridge.lua
 -- Ported from the certified design bar (Office Tyson/mods/FS25_NPCFavor/
 -- RSF-F148-recovery_contract_spec_test.lua) with two changes: the real-source
 -- witnesses now assert the REPAIRED behaviour, and the fold-check group carries

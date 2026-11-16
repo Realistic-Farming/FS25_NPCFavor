@@ -710,10 +710,7 @@ function NPCFavorSystem:acceptContributedFavor(favorId, recordRevision, personId
     favor.timeRemaining = workMs
     favor.contributionWorkMs = nil
     self:bumpRecordRevision(favor)
-    if self.npcSystem ~= nil and self.npcSystem.favorHUD ~= nil and self:mayFlashFavor(favor) then
-        local msg = string.format("Favor accepted: %s", favor.description or "")
-        self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1.0, 0.3, 1})
-    end
+    self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.ACCEPTED, 0, favor.description or "")
     return true, "accepted"
 end
 
@@ -793,10 +790,7 @@ function NPCFavorSystem:completeContributedFavor(favorId)
     if self.npcSystem.interactionUI then
         self.npcSystem.interactionUI:updateFavorList()
     end
-    if self.npcSystem.favorHUD and self:mayFlashFavor(favor) then
-        local msg = string.format(g_i18n:getText("npc_hud_completed") or "Done: %s", favor.description or favor.npcName)
-        self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1, 0.3, 1})
-    end
+    self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.COMPLETED, 0, favor.description or favor.npcName)
     return true
 end
 
@@ -1271,13 +1265,4 @@ function NPCFavorSystem:getProviderWork(namespace)
     end
     table.sort(rows, function(a, b) return a.favorId < b.favorId end)
     return answer(NPCCompanion.READY, "work", { rows = rows })
-end
-
---- A contributed row's notice shows only on the addressed or owning farm's
---- own HUD; a dedicated server (no ordinary local farm) shows none.
-function NPCFavorSystem:mayFlashFavor(favor)
-    if not NPCCompanion.isContributed(favor) then return true end
-    local localFarm = NPCFarmIdentity.localClaimFarmId()
-    if localFarm == nil then return false end
-    return localFarm == favor.ownerFarmId or localFarm == favor.contribution.addressedFarmId
 end
