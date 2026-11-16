@@ -195,17 +195,7 @@ function NPCInteractionEvent.actorPosition(actor)
         player = g_currentMission.playerSystem:getPlayerByConnection(actor.connection)
     end
     if player == nil then return nil end
-    local x, y, z = nil, nil, nil
-    if type(player.getPosition) == "function" then
-        local ok, px, py, pz = pcall(player.getPosition, player)
-        if ok then x, y, z = px, py, pz end
-    elseif player.rootNode ~= nil and player.rootNode ~= 0 then
-        local ok, px, py, pz = pcall(getWorldTranslation, player.rootNode)
-        if ok then x, y, z = px, py, pz end
-    end
-    local function finite(v) return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge end
-    if not (finite(x) and finite(z)) then return nil end
-    return x, (finite(y) and y or 0), z
+    return NPCFarmIdentity.playerPosition(player)
 end
 
 --- Ground distance from the exact acting player to the person, or nil when
