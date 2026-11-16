@@ -945,6 +945,33 @@ function NPCFavorSystem:generateFavorSteps(favorType, npc)
     return steps
 end
 
+--- The positions that may complete this favour's steps: every player of the
+--- owning farm, where that player is standing now. The server runs this sim
+--- for everyone, and on a dedicated server it has no local player at all, so
+--- the machine's own position (npcSystem.playerPosition, which only ever
+--- reads local sources) cannot say where a joined player is. The engine's
+--- player list can, and it also holds the local player of a single player or
+--- listen host, so one rule covers every host. With no player system to ask
+--- (an offline bench) the machine's own position is used, as it always was.
+function NPCFavorSystem:getStepPositions(favor)
+    local players = NPCFarmIdentity.playersOfFarm(favor.ownerFarmId)
+    if players == nil then
+        local sys = self.npcSystem
+        if sys ~= nil and sys.playerPosition ~= nil and sys.playerPositionValid then
+            return { sys.playerPosition }
+        end
+        return {}
+    end
+    local positions = {}
+    for _, player in ipairs(players) do
+        local x, _, z = NPCFarmIdentity.playerPosition(player)
+        if x ~= nil then
+            positions[#positions + 1] = { x = x, z = z }
+        end
+    end
+    return positions
+end
+
 function NPCFavorSystem:checkFavorProgress(favor, dt)
     if not favor or not self.npcSystem then
         return
@@ -965,12 +992,13 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
         return
     end
 
-    -- Safety check for player position
-    local playerPos = self.npcSystem.playerPosition
-    if not playerPos or not self.npcSystem.playerPositionValid then
+    -- Where the owning farm's players are. Nobody of the farm in reach of a
+    -- position means no step can complete this tick.
+    local positions = self:getStepPositions(favor)
+    if #positions == 0 then
         return
     end
-    
+
     -- Multi-step favor progress
     if favor.steps and #favor.steps > 0 then
         local completedSteps = 0
@@ -981,9 +1009,13 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
                 -- HUD arrow, which is XZ only (NPCFavorHUD:getDistanceInfo). A 3D check
                 -- also counted the Y delta, so a bad step.location.y (reload, y=0 sell
                 -- point fallback) could hold a step open at HUD 0m and stall the favor.
-                local distance = VectorHelper.distance2D(
-                    playerPos.x, playerPos.z,
-                    step.location.x or 0, step.location.z or 0)
+                local distance = math.huge
+                for _, pos in ipairs(positions) do
+                    local d = VectorHelper.distance2D(
+                        pos.x, pos.z,
+                        step.location.x or 0, step.location.z or 0)
+                    if d < distance then distance = d end
+                end
 
                 if distance < 30 then
                     if favor.type == "loan_money" and step.id == 1

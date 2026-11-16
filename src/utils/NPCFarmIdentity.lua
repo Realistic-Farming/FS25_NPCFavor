@@ -82,6 +82,54 @@ function NPCFarmIdentity.localClaimFarmId()
     return nil
 end
 
+--- One Player's ground position as x, y, z, or nil when it cannot be read.
+--- Player:getPosition is the engine's state-machine getter (on foot the
+--- capsule, driving the vehicle's root node), so a player in a vehicle reads
+--- where the vehicle is; the root node is the fallback only when the getter
+--- is absent. Non-finite coordinates are nil.
+function NPCFarmIdentity.playerPosition(player)
+    if player == nil then return nil end
+    local x, y, z = nil, nil, nil
+    if type(player.getPosition) == "function" then
+        local ok, px, py, pz = pcall(player.getPosition, player)
+        if ok then x, y, z = px, py, pz end
+    elseif player.rootNode ~= nil and player.rootNode ~= 0 then
+        local ok, px, py, pz = pcall(getWorldTranslation, player.rootNode)
+        if ok then x, y, z = px, py, pz end
+    end
+    local function finite(v) return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge end
+    if not (finite(x) and finite(z)) then return nil end
+    return x, (finite(y) and y or 0), z
+end
+
+--- Every Player of farmId that the engine's player system lists, the local
+--- one and the remote ones alike, as a list: empty when nobody of that farm is
+--- here or farmId is not an ordinary farm. Returns nil when there is no player
+--- system to ask, so a caller can tell "nobody of that farm is here" from
+--- "cannot ask". A dedicated server has no local player and its own
+--- getFarmId() with no connection is nil (FSBaseMission.lua:1067-1085), so
+--- this list is the only way the server learns who is standing where.
+function NPCFarmIdentity.playersOfFarm(farmId)
+    local mission = g_currentMission
+    local playerSystem = mission ~= nil and mission.playerSystem or nil
+    if playerSystem == nil or type(playerSystem.players) ~= "table" then
+        return nil
+    end
+    local out = {}
+    if not NPCFarmIdentity.isOrdinaryFarmId(farmId) then
+        return out
+    end
+    for _, player in pairs(playerSystem.players) do
+        if type(player) == "table" then
+            local ok, playerFarm = pcall(player.getFarmId, player)
+            if ok and playerFarm == farmId then
+                out[#out + 1] = player
+            end
+        end
+    end
+    return out
+end
+
 --- Resolve the verified server-side actor for a request.
 --- connection == nil is the local host entry: only valid on a listen server or
 --- single player where g_server and g_localPlayer both exist. A dedicated
