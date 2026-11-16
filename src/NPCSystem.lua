@@ -5683,8 +5683,9 @@ function NPCSystem:serverAcceptFavor(npc, farmId, selection)
     -- RSF-F357: the exact offer the player saw. The generation cooldown keeps
     -- another offer from being created; it is no barrier to accepting the one
     -- already made. Person, revision, durable proof, pending and unowned and
-    -- payment facts, and that this is the sole eligible pending record for
-    -- the person, are all re-resolved here.
+    -- payment facts are all re-resolved here, and the accept is bound to this exact
+    -- record: a person who holds two pending offers (the random generator makes a
+    -- second one once the cooldown has run) accepts the one that was shown.
     local record, why = self:_selectedWorkRecord(npc, selection)
     if record == nil then return false, why end
     if record.personRefKind ~= "durable" then return false, "npc_dialog_refused_stale" end
@@ -5694,13 +5695,8 @@ function NPCSystem:serverAcceptFavor(npc, farmId, selection)
         return false, "npc_dialog_refused_stale"
     end
     if record.rewardPaidPresent ~= true or record.rewardPaid ~= false then return false, "npc_dialog_refused_stale" end
-    local pendingCount = 0
-    for _, other in ipairs(fav.activeFavors or {}) do
-        if other.npcId == npc.id and other.status == "pending" then pendingCount = pendingCount + 1 end
-    end
-    if pendingCount ~= 1 then return false, "npc_dialog_refused_stale" end
 
-    local accepted = fav:acceptFavorForNPC(npc.id, farmId)
+    local accepted = fav:acceptFavorForNPC(npc.id, farmId, record)
     if accepted ~= record then
         return false, "npc_dialog_refused_stale"
     end

@@ -9,6 +9,7 @@ This TODO reflects the **honest current state** of the mod. The "Done" block bel
 
 ## Recently merged
 
+- **2026-11-15** Favor accept binds to the offer shown (RSF-F357 follow-up): a neighbour who holds two pending offers no longer refuses both. In-game owed: with one neighbour holding two pending offers, accept the second one listed, then the first; each accepts without "That offer changed".
 - **2026-11-15** Favor step progress counts the players of the owning farm: on a dedicated server a joined player walking to a favor's spot now completes the step and the arrow moves on. In-game owed: on a dedicated server, accept a favor that has map spots (for example a harvest favor), walk to the first spot; the favor's progress rises and its arrow moves to the next spot. Still owed, separate: the favor pop-ups do not reach a joined player.
 - **2026-08-15** Esc framework table freeze (NPC Favor guest, #87): shared grid restated per show; 1.2.7.66. In-game owed: the table keeps its columns after visiting another Esc guest in the same session.
 
