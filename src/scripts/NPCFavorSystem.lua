@@ -620,10 +620,7 @@ function NPCFavorSystem:generateFavorRequest()
         selectedNPC.lastFavorTime = g_currentMission.time
         
         -- Flash notification on HUD
-        if self.npcSystem.favorHUD then
-            local msg = string.format(g_i18n:getText("npc_hud_new_favor") or "New: %s needs help!", selectedNPC.name)
-            self.npcSystem.favorHUD:flashFavor(msg, {1, 0.9, 0.3, 1})
-        end
+        self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.NEW_FAVOR, 0, selectedNPC.name)
         
         -- Log for debugging
         if self.npcSystem.settings.debugMode then
@@ -1042,13 +1039,9 @@ function NPCFavorSystem:checkFavorProgress(favor, dt)
                     step.completed = true
                     if self.bumpRecordRevision ~= nil then self:bumpRecordRevision(favor) end
 
-                    -- Flash notification on HUD (queueNotification never existed;
-                    -- all favor notifications route through favorHUD:flashFavor)
-                    if self.npcSystem.favorHUD then
-                        local fmt = g_i18n:getText("npc_hud_step_done") or "Step %d done: %s"
-                        local msg = string.format(fmt, step.id, step.description or "")
-                        self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1, 0.3, 1})
-                    end
+                    -- Pop-up for the owning farm's players (queueNotification never
+                    -- existed; every favor pop-up goes through raiseFavorFlash)
+                    self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.STEP_DONE, step.id, step.description or "")
                 end
             end
 
@@ -1151,10 +1144,7 @@ function NPCFavorSystem:completeFavor(favorId)
     end
     
     -- Flash notification on HUD
-    if self.npcSystem.favorHUD then
-        local msg = string.format(g_i18n:getText("npc_hud_completed") or "Done: %s", favor.description or favor.npcName)
-        self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1, 0.3, 1})
-    end
+    self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.COMPLETED, 0, favor.description or favor.npcName)
 
     return true
 end
@@ -1202,10 +1192,7 @@ function NPCFavorSystem:failFavor(favorId, reason)
     end
     
     -- Flash notification on HUD
-    if self.npcSystem.favorHUD and (self.mayFlashFavor == nil or self:mayFlashFavor(favor)) then
-        local msg = string.format(g_i18n:getText("npc_hud_failed") or "Failed: %s", favor.description or favor.npcName)
-        self.npcSystem.favorHUD:flashFavor(msg, {1, 0.3, 0.3, 1})
-    end
+    self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.FAILED, 0, favor.description or favor.npcName)
     
     return true
 end
@@ -1265,10 +1252,7 @@ function NPCFavorSystem:abandonFavor(favorId)
     end
     
     -- Flash notification on HUD
-    if self.npcSystem.favorHUD and (self.mayFlashFavor == nil or self:mayFlashFavor(favor)) then
-        local msg = string.format(g_i18n:getText("npc_hud_cancelled") or "Cancelled: %s", favor.description or favor.npcName)
-        self.npcSystem.favorHUD:flashFavor(msg, {1, 0.5, 0.3, 1})
-    end
+    self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.CANCELLED, 0, favor.description or favor.npcName)
     
     return true
 end
@@ -1375,11 +1359,8 @@ function NPCFavorSystem:applyFavorRewards(favor)
             end
 
             -- Flash notification for perfect completion
-            if self.npcSystem.favorHUD then
-                local msg = string.format(g_i18n:getText("npc_hud_perfect") or "Perfect! %s bonus!",
-                    string.format("+%d rel, +$%d", bonusRel, bonusMoney))
-                self.npcSystem.favorHUD:flashFavor(msg, {1, 1, 0.3, 1})
-            end
+            self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.PERFECT, 0,
+                string.format("+%d rel, +$%d", bonusRel, bonusMoney))
 
             if self.npcSystem.settings.debugMode then
                 print(string.format("PERFECT favor completion bonus: +%d rel, +%d money for %s",
@@ -1560,10 +1541,7 @@ function NPCFavorSystem:acceptFavorForNPC(npcId, farmId, record)
             favor.ownerFarmId = farmId
             favor.ownerFarmIdPresent = true
             if self.bumpRecordRevision ~= nil then self:bumpRecordRevision(favor) end
-            if self.npcSystem.favorHUD then
-                local msg = string.format("Favor accepted: %s", favor.description or favor.name or "")
-                self.npcSystem.favorHUD:flashFavor(msg, {0.3, 1.0, 0.3, 1})
-            end
+            self:raiseFavorFlash(favor, NPCFavorFlashEvent.KIND.ACCEPTED, 0, favor.description or favor.name or "")
             return favor
         end
     end

@@ -94,6 +94,7 @@ if modDirectory then
     source(modDirectory .. "src/events/NPCSettingsSyncEvent.lua")
     source(modDirectory .. "src/events/NPCFavorRecoveryEvents.lua")
     source(modDirectory .. "src/events/NPCPersonDialogEvents.lua")
+    source(modDirectory .. "src/events/NPCFavorFlashEvent.lua")
 
     -- Core systems in dependency order
     print("[NPC Favor] Loading core systems...")
@@ -102,6 +103,7 @@ if modDirectory then
     source(modDirectory .. "src/scripts/NPCFavorSystem.lua")
     source(modDirectory .. "src/scripts/NPCFavorRecovery.lua")
     source(modDirectory .. "src/scripts/NPCCompanionContribution.lua")
+    source(modDirectory .. "src/scripts/NPCFavorFlash.lua")
     source(modDirectory .. "src/scripts/NPCEntity.lua")
     source(modDirectory .. "src/scripts/NPCAI.lua")
     source(modDirectory .. "src/scripts/NPCFieldWork.lua")

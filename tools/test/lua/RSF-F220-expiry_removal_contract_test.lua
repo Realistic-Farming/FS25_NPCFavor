@@ -1,4 +1,4 @@
---!load: src/scripts/NPCFavorSystem.lua
+--!load: src/utils/NPCFarmIdentity.lua, src/scripts/NPCFavorSystem.lua, src/events/NPCFavorFlashEvent.lua, src/scripts/NPCFavorFlash.lua
 -- RSF-F220 v1.0: expiring one favor must not delete another valid favor.
 --
 -- Runs the real NPCFavorSystem:update and the real failFavor / getFavorById /
@@ -14,6 +14,10 @@ if type(NPCFavorSystem) ~= "table" then T.summary() return end
 local NOW = 100000
 TimeHelper = { getGameTimeMs = function() return NOW end }
 g_currentMission.time = 555
+-- The machine is a host whose own farm is 7, the owner of every fixture favour, so its own screen is in the
+-- audience of their pop-ups (an owned favour's pop-up shows only to the farm that owns it).
+g_farmManager = { getFarmById = function(_, id) if id == 7 then return { farmId = 7 } end return nil end }
+g_currentMission.getFarmId = function() return 7 end
 
 local function newSystem()
     local calls = { relationship = {}, uiUpdates = 0, hudFlashes = {}, progress = {}, generate = 0 }
