@@ -8093,13 +8093,13 @@
   "2026-11-26": [
     {
       "referrer": "github.com",
-      "count": 100,
-      "uniques": 35
+      "count": 101,
+      "uniques": 34
     },
     {
       "referrer": "Google",
-      "count": 59,
-      "uniques": 50
+      "count": 56,
+      "uniques": 48
     },
     {
       "referrer": "kingmods.net",
@@ -8108,16 +8108,11 @@
     },
     {
       "referrer": "Bing",
-      "count": 6,
-      "uniques": 5
+      "count": 5,
+      "uniques": 4
     },
     {
       "referrer": "realisticfarming.com",
-      "count": 2,
-      "uniques": 2
-    },
-    {
-      "referrer": "yandex.ru",
       "count": 2,
       "uniques": 2
     },
@@ -8137,7 +8132,7 @@
       "uniques": 1
     },
     {
-      "referrer": "Yahoo",
+      "referrer": "yandex.ru",
       "count": 1,
       "uniques": 1
     }
